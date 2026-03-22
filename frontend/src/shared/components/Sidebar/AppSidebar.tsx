@@ -42,7 +42,8 @@ export function AppSidebar() {
 
   return (
     <aside className={clsx(
-      'fixed inset-y-0 z-40 flex w-60 flex-col bg-slate-900',
+      'fixed inset-y-0 z-40 w-60 flex-col bg-slate-900',
+      'hidden md:flex',
       isRTL ? 'right-0 border-l border-slate-800' : 'left-0 border-r border-slate-800',
     )}>
       {/* Logo */}

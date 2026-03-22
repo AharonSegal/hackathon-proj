@@ -22,10 +22,14 @@ backend/.env
 # Database
 *.db
 *.sqlite
-data/
+/data/
 
-# Seed guard (local-only flag that prevents re-running seed.mjs)
+# Seed guards (local-only flags that prevent re-running seed scripts)
 .seed-done
+.seed-notes-done
+
+# Generated seed output (contains localStorage paste snippets)
+scripts/seed-notes-output.js
 
 # Docker
 .dockerignore

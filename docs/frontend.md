@@ -43,7 +43,10 @@ frontend/src/
 │   │       └── EventModal.tsx       Create/edit/delete event + attach WA/email
 │   │
 │   ├── Dashboard/
-│   │   └── DashboardPage.tsx   Stat cards, today's events, upcoming events
+│   │   ├── DashboardPage.tsx   Stat cards, today's events, upcoming events
+│   │   └── components/
+│   │       ├── StatCard.tsx        Icon + value stat card
+│   │       └── DiagnosticsPanel.tsx  DB status + env vars from /api/debug
 │   │
 │   ├── DailyTimes/
 │   │   └── DailyTimesPage.tsx  Zmanim for any date; day navigator; parasha
@@ -52,7 +55,11 @@ frontend/src/
 │   │   ├── MessagesPage.tsx    Tab layout: WhatsApp (full-width + log below) / Email (2-col)
 │   │   └── components/
 │   │       ├── WhatsAppComposer.tsx  Toolbar, emoji picker, phone preview, schedule toggle
-│   │       └── EmailComposer.tsx     Multi-recipient tags, schedule toggle
+│   │       ├── EmailComposer.tsx     Multi-recipient tags, schedule toggle
+│   │       └── MessageLogPanel.tsx   Auto-refreshing message log (sent/pending/failed)
+│   │
+│   ├── Notes/
+│   │   └── NotesPage.tsx       Split-panel (desktop) / single-column with back-button (mobile)
 │   │
 │   └── Settings/
 │       └── SettingsPage.tsx    All app configuration with live previews
@@ -62,10 +69,15 @@ frontend/src/
     │   └── index.ts            Central color palette constants
     ├── components/
     │   ├── Layout/
-    │   │   ├── AppLayout.tsx   Sidebar + <Outlet> + BackendStatus + Toaster
-    │   │   └── PageHeader.tsx  Title / subtitle / action slot
+    │   │   ├── AppLayout.tsx   Sidebar (desktop) + MobileNav (mobile) + Outlet + Toaster
+    │   │   └── PageHeader.tsx  Title / subtitle / action slot (responsive padding + text size)
     │   ├── Sidebar/
-    │   │   └── AppSidebar.tsx  Nav: Dashboard, Calendar, Daily Times, Messages, Settings
+    │   │   └── AppSidebar.tsx  Desktop nav (hidden md:flex — invisible on mobile)
+    │   ├── Nav/
+    │   │   └── MobileNav.tsx   Fixed bottom tab bar (flex md:hidden — only on mobile)
+    │   ├── NotesEditor/
+    │   │   ├── NotesList.tsx   Notes list with search, pin, delete
+    │   │   └── NotesEditor.tsx BlockNote rich-text editor
     │   └── ui/
     │       ├── Button.tsx      Variants: primary / secondary / ghost / danger / whatsapp / email
     │       ├── Input.tsx       Input + Textarea with label/error/hint (both use forwardRef)
@@ -73,13 +85,20 @@ frontend/src/
     │       ├── Badge.tsx       Color-coded pill badge
     │       └── BackendStatus.tsx  Floating "Backend offline" pill (bottom-right)
     ├── context/
-    │   └── SettingsContext.tsx  AppSettings stored in localStorage, React context
+    │   ├── SettingsContext.tsx  AppSettings stored in localStorage, React context
+    │   └── NotesContext.tsx     Notes[] + selectedNote in localStorage, React context
     ├── hooks/
-    │   ├── useApi.ts           Axios client + localStorage cache layer
-    │   └── useBackendStatus.ts Singleton poller — pings /api/health every 30s, reads db field
+    │   ├── useApi.ts                Axios client + localStorage cache layer
+    │   ├── useBackendStatus.ts      Singleton poller — pings /api/health every 30s
+    │   ├── use-mobile.ts            useIsMobile() — true when viewport < 768 px
+    │   └── useNoteKeyboardShortcut.ts  Press N to create a new note (Notes page only)
+    ├── i18n/
+    │   ├── translations.ts     All UI strings for 'en' and 'he' locales
+    │   └── useT.ts             Hook: returns current locale's strings + isRTL boolean
     └── types/
         ├── event.types.ts      CalendarEvent, ScheduledEmail, ScheduledWhatsApp, MessageLog
-        └── settings.types.ts   AppSettings, HolidaySettings, ZmanimSettings, DEFAULT_SETTINGS
+        ├── settings.types.ts   AppSettings, HolidaySettings, ZmanimSettings, DEFAULT_SETTINGS
+        └── note.types.ts       Note (id, title, content, tags, pinned, createdAt, updatedAt)
 ```
 
 ---
@@ -149,9 +168,63 @@ The message log auto-refreshes every 30s and shows all sent/scheduled/failed mes
 
 Both composers check `useBackendStatus` before submitting and show a toast error if the backend is offline.
 
+### Notes
+
+Notion-like block-editor experience powered by **BlockNote**.
+
+**Desktop** — split panel: 280px fixed list on the left, editor fills the rest.
+
+**Mobile** — single column: list is shown first; selecting a note or tapping "New Note" slides into the editor view. A back button in the editor header returns to the list.
+
+`NotesContext` owns all notes state (array of `Note` objects) and persists everything to `localStorage`. It exposes: `createNote`, `updateNote`, `deleteNote`, `restoreNote` (for undo), `togglePin`, `renameNote`, `updateTags`.
+
+Deleting a note triggers a Sonner toast with an **Undo** action that calls `restoreNote(snapshot)` within the toast timeout window.
+
+Keyboard shortcut: pressing **N** on the Notes page creates a new note (handled by `useNoteKeyboardShortcut`).
+
 ### Settings
 
 All settings live in `SettingsContext` (persisted to `localStorage`). Changes take effect immediately across the app without a page reload. The Settings page also sends credentials to the backend on "Save" (best-effort — failure doesn't affect local state).
+
+Sections:
+1. **Language** — English (LTR) or Hebrew (RTL). Switches the entire UI direction.
+2. **Calendar View** — Hebrew vs Gregorian mode, week-start day (Sunday or Monday).
+3. **Holidays & Events Display** — 10 toggles for Hebrew calendar events.
+4. **Zmanim Location** — lat/lng/timezone for prayer time calculations.
+5. **Times to Display** — 11 individual zmanim toggles.
+6. **Email / SMTP** — server credentials + test button.
+7. **WhatsApp Business API** — phone number ID, access token + test button.
+
+---
+
+## Internationalisation (i18n)
+
+The app ships with full English and Hebrew translations.
+
+**`shared/i18n/translations.ts`** — exports a `translations` object keyed by `'en' | 'he'`. Every UI string has an entry under both locales.
+
+**`shared/i18n/useT.ts`** — the `useT()` hook reads `settings.language` from `SettingsContext` and returns the matching translation object plus `isRTL: boolean`.
+
+```ts
+const t = useT();
+<h1>{t.dashboard_title}</h1>  // "Dashboard" or "דשבורד"
+```
+
+When `isRTL` is `true`, `AppLayout` sets `dir="rtl"` on the root element, which flips the entire layout — sidebar moves to the right, text alignment reverses, chevrons flip direction.
+
+---
+
+## Mobile responsiveness
+
+The app is fully usable on phones (viewport < 768 px):
+
+- **Sidebar** — hidden on mobile (`hidden md:flex` in `AppSidebar.tsx`).
+- **MobileNav** — fixed bottom tab bar with icons for all six routes (`flex md:hidden` in `MobileNav.tsx`). Respects `safe-area-inset-bottom` for notched phones.
+- **Main content** — `ml-60` / `mr-60` offset is applied only from `md` breakpoint upward. On mobile the content takes the full width, with `pb-16` to clear the bottom nav.
+- **PageHeader** — reduced horizontal padding (`px-4 sm:px-6`) and smaller title (`text-lg sm:text-xl`) on mobile.
+- **Calendar cells** — reduced minimum height (`min-h-[70px] sm:min-h-[110px]`) so the 6-row grid fits a phone screen.
+- **Notes page** — already mobile-native: single-column mode with back-button navigation (see Notes section above).
+- **DiagnosticsPanel** — env var rows stack vertically on mobile instead of fixed-width label + value.
 
 ---
 
@@ -171,14 +244,16 @@ Write endpoints (create/update/delete/send) throw on failure — the calling pag
 
 ```
 /               → Dashboard
+/dashboard      → Dashboard
 /calendar       → Calendar
 /daily-times    → Daily Times (Zmanim)
 /messages       → Messages
+/notes          → Notes
 /settings       → Settings
 *               → redirects to /
 ```
 
-All routes are wrapped in `AppLayout` (sidebar + outlet).
+All routes are wrapped in `AppLayout` (sidebar on desktop, bottom nav on mobile).
 
 The SPA fallback is configured in `vercel.json` (repo root):
 ```json

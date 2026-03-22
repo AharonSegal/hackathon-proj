@@ -68,15 +68,17 @@ hackathon-proj/
 │   ├── src/
 │   │   ├── pages/
 │   │   │   ├── Calendar/       Hebrew/Gregorian calendar grid + event modal
-│   │   │   ├── Dashboard/      Stats, today's events, upcoming events
+│   │   │   ├── Dashboard/      Stats, today's events, upcoming events, diagnostics
 │   │   │   ├── DailyTimes/     Halachic zmanim for any location
 │   │   │   ├── Messages/       WhatsApp + email composer and log
-│   │   │   └── Settings/       All app configuration
+│   │   │   ├── Notes/          Notion-like block editor with localStorage persistence
+│   │   │   └── Settings/       Language, calendar, zmanim, SMTP, WhatsApp credentials
 │   │   └── shared/
-│   │       ├── components/     Button, Modal, Input, Badge, Sidebar, Layout
-│   │       ├── hooks/          useApi (with cache), useBackendStatus
-│   │       ├── context/        SettingsContext (localStorage-backed)
-│   │       ├── types/          event.types.ts, settings.types.ts
+│   │       ├── components/     Button, Modal, Input, Badge, Sidebar, Layout, MobileNav
+│   │       ├── hooks/          useApi (with cache), useBackendStatus, useIsMobile
+│   │       ├── context/        SettingsContext + NotesContext (localStorage-backed)
+│   │       ├── i18n/           translations.ts (en/he), useT() hook
+│   │       ├── types/          event.types.ts, settings.types.ts, note.types.ts
 │   │       └── colors/         Shared color palette constants
 │   └── package.json
 ├── vercel.json                 SPA rewrite + cron schedule (repo root)
@@ -108,9 +110,12 @@ hackathon-proj/
 | WhatsApp composer | Formatting toolbar (bold, italic, strikethrough, monospace), emoji picker, live phone-frame preview, Hebrew quick-templates, immediate or scheduled send |
 | Email composer | Multi-recipient tag input, immediate or scheduled send |
 | Daily Times | 11 configurable halachic times (Alot HaShachar → Tzet Shabbat) for any lat/lng/timezone |
-| Settings | Calendar mode, week start, 10 holiday toggles, 11 zmanim toggles, location, SMTP config, WhatsApp credentials |
+| Notes | Notion-like block editor (BlockNote) per-note with title, tags, pin, and undo-delete. Desktop: split panel (list + editor). Mobile: single-column with back button. All data in localStorage. |
+| Settings | Language (English/Hebrew RTL), calendar mode, week start, 10 holiday toggles, 11 zmanim toggles, location, SMTP config, WhatsApp credentials |
 | Offline resilience | localStorage cache for events + message logs; "Backend offline" pill; frontend never crashes |
 | Cron scheduling | Vercel Cron fires once daily at 8am (`0 8 * * *`), picks up all pending messages whose `scheduled_at` has passed |
+| i18n / RTL | Full English + Hebrew translations via `useT()`. Hebrew mode switches the whole UI to RTL (sidebar flips sides, text direction reverses). |
+| Mobile-responsive | Fixed bottom navigation bar on mobile (< 768 px); sidebar hidden; all pages adapt to small screens. |
 
 ---
 

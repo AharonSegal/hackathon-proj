@@ -65,7 +65,7 @@ export function DayCell({ day, onClick, onEventClick, isSelected }: DayCellProps
     <div
       onClick={() => onClick(day)}
       className={clsx(
-        'group relative flex flex-col min-h-[110px] p-2 border-b border-r border-slate-800/70',
+        'group relative flex flex-col min-h-[70px] sm:min-h-[110px] p-1 sm:p-2 border-b border-r border-slate-800/70',
         'cursor-pointer transition-colors duration-100',
         !day.isCurrentMonth && 'opacity-30',                                      // gray out days outside this month
         day.isShabbat && day.isCurrentMonth && 'bg-violet-950/15',               // subtle tint for Shabbat

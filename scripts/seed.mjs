@@ -4,7 +4,7 @@
  * Inserts mock data into the Turso database so you can see the app with real content.
  *
  * Run:
- *   node --env-file=.env.local scripts/seed.mjs
+ *   node --env-file=.env scripts/seed.mjs
  *
  * What it inserts:
  *   events        — 3 normal + 5 extreme edge-case rows

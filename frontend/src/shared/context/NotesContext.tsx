@@ -13,6 +13,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { type Note } from '@/shared/types/note.types';
+import { SEED_NOTES } from '@/shared/data/notesSeedData';
 
 const STORAGE_KEY = 'calendar_notes';
 
@@ -32,9 +33,14 @@ interface NotesContextValue {
 const NotesContext = createContext<NotesContextValue | null>(null);
 
 function loadNotes(): Note[] {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  // Key has never been set → first visit. Seed with mock data and persist it.
+  if (raw === null) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_NOTES));
+    return SEED_NOTES;
+  }
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return JSON.parse(raw);
   } catch {
     return [];
   }

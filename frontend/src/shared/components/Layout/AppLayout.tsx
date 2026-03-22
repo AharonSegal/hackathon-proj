@@ -4,8 +4,9 @@
  * Root layout wrapper used by all pages.
  *
  * Structure:
- * - AppSidebar (fixed left [LTR] or right [RTL], 240px wide)
- * - <main> (flex-1, fills remaining width) — renders the active page via <Outlet>
+ * - AppSidebar (fixed left [LTR] or right [RTL], 240px wide, desktop-only)
+ * - <main> (flex-1, fills remaining width; full-width on mobile with pb-16 for bottom nav)
+ * - MobileNav (fixed bottom tab bar, mobile-only)
  * - BackendStatus pill (fixed bottom-right [LTR] or bottom-left [RTL])
  * - Toaster — global toast notification container (sonner)
  *
@@ -16,6 +17,7 @@
 
 import { Outlet } from 'react-router-dom';
 import { AppSidebar } from '@/shared/components/Sidebar/AppSidebar';
+import { MobileNav } from '@/shared/components/Nav/MobileNav';
 import { BackendStatus } from '@/shared/components/ui/BackendStatus';
 import { Toaster } from 'sonner';
 import { useT } from '@/shared/i18n/useT';
@@ -30,10 +32,16 @@ export function AppLayout() {
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       <AppSidebar />
-      {/* Offset main content to leave room for the fixed sidebar */}
-      <main className={clsx('flex-1 flex flex-col overflow-hidden', isRTL ? 'mr-60' : 'ml-60')}>
+      {/* On desktop, offset content to leave room for the fixed sidebar.
+          On mobile, take full width and add bottom padding for the mobile nav bar. */}
+      <main className={clsx(
+        'flex-1 flex flex-col overflow-hidden',
+        'pb-16 md:pb-0',
+        isRTL ? 'md:mr-60' : 'md:ml-60',
+      )}>
         <Outlet />
       </main>
+      <MobileNav />
       <BackendStatus />
       <Toaster
         theme="dark"
