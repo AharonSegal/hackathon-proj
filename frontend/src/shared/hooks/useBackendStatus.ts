@@ -19,10 +19,7 @@ function startPoller() {
 
   const check = async () => {
     try {
-      const base = import.meta.env.VITE_API_URL
-        ? `${import.meta.env.VITE_API_URL}/api`
-        : '/api';
-      await axios.get(`${base}/health`, { timeout: 5000 });
+      await axios.get('/api/health', { timeout: 5000 });
       notify('online');
     } catch {
       notify('offline');
