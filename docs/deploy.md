@@ -14,6 +14,9 @@ User's browser
 │  Vercel                               │
 │  ├── React SPA (CDN-cached)           │
 │  └── API routes (serverless fns)      │
+│      /api/health                      │
+│      /api/ping                        │
+│      /api/debug                       │
 │      /api/events                      │
 │      /api/messages/*                  │
 │      /api/cron/send-messages          │
@@ -33,21 +36,14 @@ User's browser
 
 ### 1. Create the Turso database
 
-1. Sign up at [turso.tech](https://turso.tech).
-2. Create a database:
-   ```bash
-   turso db create calendar-app
-   ```
-3. Get the URL:
-   ```bash
-   turso db show calendar-app --url
-   # → libsql://calendar-app-<org>.turso.io
-   ```
-4. Generate an auth token:
-   ```bash
-   turso db tokens create calendar-app
-   ```
-5. Save both values — you'll need them in step 3.
+See [turso-setup.md](turso-setup.md) for the full step-by-step guide.
+
+Short version:
+```bash
+turso db create calendar-app
+turso db show calendar-app --url      # → your TURSO_DATABASE_URL
+turso db tokens create calendar-app   # → your TURSO_AUTH_TOKEN
+```
 
 The tables (`events`, `message_logs`) are created automatically on first API call via `ensureInit()` in `lib/db.ts`.
 
@@ -57,12 +53,19 @@ The tables (`events`, `message_logs`) are created automatically on first API cal
 
 1. Push the repo to GitHub.
 2. Go to [vercel.com](https://vercel.com) → **Add New Project** → import the repo.
-3. Configure the project:
-   - **Root Directory**: `frontend`
-   - **Framework Preset**: Vite (auto-detected)
-   - **Build Command**: `npm run build` (default)
-   - **Output Directory**: `dist`
+3. Configure the project settings:
+
+| Setting | Value |
+|---|---|
+| **Root Directory** | `./` (repo root — leave blank) |
+| **Framework Preset** | Other |
+| **Install Command** | `npm install && cd frontend && npm install` |
+| **Build Command** | `cd frontend && npm run build` |
+| **Output Directory** | `frontend/dist` |
+
 4. Click **Deploy**.
+
+> **Important**: The `api/` and `lib/` folders are at the repo root. Setting the root directory to `frontend/` would prevent Vercel from finding them. Keep it as `./`.
 
 ---
 
@@ -92,11 +95,17 @@ After adding env vars, trigger a redeploy: **Deployments** → three-dot menu on
 ### 4. Verify the deployment
 
 ```bash
+curl https://your-app.vercel.app/api/ping
+# → {"pong":true}
+
 curl https://your-app.vercel.app/api/health
-# → {"status":"ok"}
+# → {"status":"ok","db":"ok","latencyMs":N}
+
+curl https://your-app.vercel.app/api/debug
+# → full diagnostic JSON with env var status + DB connection info
 ```
 
-Open the app in your browser — the "Backend offline" pill should not appear.
+Open the app in your browser — the "Backend offline" pill should not appear and the Dashboard should show "Database — connected".
 
 ---
 
@@ -112,20 +121,22 @@ git add . && git commit -m "your message" && git push
 
 ## Scheduled messages (Cron)
 
-Vercel Cron fires `GET /api/cron/send-messages` every hour (`0 * * * *`). The handler:
+Vercel Cron fires `GET /api/cron/send-messages` once daily at 8am UTC (`0 8 * * *`). The handler:
 
 1. Queries all `message_logs` rows where `status = 'pending'` and `scheduled_at <= now`.
 2. Sends each message (WhatsApp or email).
 3. Updates the row status to `sent` or `failed`.
 
-The cron is configured in `frontend/vercel.json`:
+The cron is configured in `vercel.json` at the repo root:
 ```json
 {
-  "crons": [{ "path": "/api/cron/send-messages", "schedule": "0 * * * *" }]
+  "crons": [{ "path": "/api/cron/send-messages", "schedule": "0 8 * * *" }]
 }
 ```
 
-Vercel Cron is available on all plans (including free Hobby). You can monitor invocations in the Vercel dashboard under **Cron Jobs**.
+> **Vercel Hobby plan limitation**: only **daily** cron jobs are allowed. Hourly (`0 * * * *`) or more frequent schedules require the Pro plan and will silently block all new deployments if used on Hobby. Keep the schedule to once per day.
+
+You can monitor cron invocations in the Vercel dashboard under **Cron Jobs**.
 
 ---
 
@@ -147,8 +158,12 @@ turso db shell calendar-app ".dump" > backup.sql
 
 **"Backend offline" shows after deploy**
 - Check that all env vars were added and a redeploy was triggered after adding them.
-- Open browser DevTools → Network tab → look for failed `/api/health` calls.
+- Visit `/api/debug` on your live domain — it shows which env vars are set and the exact DB error.
 - Check Vercel → Functions logs for the actual error.
+
+**New push didn't trigger a deployment / stuck on old commit**
+- Check if the Vercel build failed. A common cause: using an hourly cron schedule (`0 * * * *`) on a Hobby account — it blocks the deployment. Keep the schedule daily.
+- Check Vercel → Deployments for any failed builds and their error logs.
 
 **API returns 500 with "TURSO_DATABASE_URL env var is not set"**
 - The env var wasn't saved properly. Re-add it in Vercel → Settings → Environment Variables, then redeploy.

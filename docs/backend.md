@@ -10,35 +10,39 @@ TypeScript serverless functions deployed to Vercel, backed by Turso (cloud SQLit
 |---|---|---|
 | `@vercel/node` | ^5 | Vercel serverless function types (`VercelRequest`, `VercelResponse`) |
 | `@libsql/client` | ^0.14 | Turso / libSQL client for cloud SQLite |
-| `nodemailer` | ^6.9 | Sync SMTP email sending (STARTTLS + TLS) |
+| `nodemailer` | ^6.9 | SMTP email sending (STARTTLS + TLS) |
 | `node:crypto` | built-in | `randomUUID()` for generating UUIDs |
 
 ---
 
 ## Project structure
 
+`api/` and `lib/` live at the **repo root** (not inside `frontend/`). Vercel picks them up automatically.
+
 ```
-frontend/
-├── api/                         Vercel serverless API routes
-│   ├── health.ts                GET /api/health
-│   ├── settings.ts              POST /api/settings (stub)
-│   ├── events/
-│   │   ├── index.ts             GET + POST /api/events
-│   │   └── [id].ts              PUT + DELETE /api/events/:id
-│   ├── messages/
-│   │   ├── logs.ts              GET /api/messages/logs
-│   │   ├── email/
-│   │   │   ├── index.ts         POST /api/messages/email
-│   │   │   └── test.ts          POST /api/messages/email/test
-│   │   └── whatsapp/
-│   │       ├── index.ts         POST /api/messages/whatsapp
-│   │       └── test.ts          POST /api/messages/whatsapp/test
-│   └── cron/
-│       └── send-messages.ts     Vercel Cron job (runs every hour)
-└── lib/
-    ├── db.ts                    Turso client singleton + row mappers
-    ├── email.ts                 nodemailer SMTP wrapper
-    └── whatsapp.ts              Meta Graph API v21 wrapper
+api/                             Vercel serverless API routes
+├── health.ts                    GET /api/health (+ DB ping)
+├── ping.ts                      GET /api/ping (zero-dep smoke test)
+├── debug.ts                     GET /api/debug (env vars + DB status + counts)
+├── settings.ts                  POST /api/settings (stub)
+├── events/
+│   ├── index.ts                 GET + POST /api/events
+│   └── [id].ts                  PUT + DELETE /api/events/:id
+├── messages/
+│   ├── logs.ts                  GET /api/messages/logs
+│   ├── email/
+│   │   ├── index.ts             POST /api/messages/email
+│   │   └── test.ts              POST /api/messages/email/test
+│   └── whatsapp/
+│       ├── index.ts             POST /api/messages/whatsapp
+│       └── test.ts              POST /api/messages/whatsapp/test
+└── cron/
+    └── send-messages.ts         Vercel Cron job (runs daily at 8am)
+
+lib/
+├── db.ts                        Turso client singleton + row mappers
+├── email.ts                     nodemailer SMTP wrapper
+└── whatsapp.ts                  Meta Graph API v21 wrapper
 ```
 
 ---
@@ -47,11 +51,13 @@ frontend/
 
 All routes are served on the same Vercel domain as the React frontend.
 
-### Health
+### Health / diagnostics
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/health` | Returns `{"status":"ok"}`. No DB dependency — used by the frontend poller. |
+| GET | `/api/health` | Returns `{"status":"ok","db":"ok","latencyMs":N}`. Pings the DB — `db` will be an error string if the connection fails. Used by the frontend poller every 30s. |
+| GET | `/api/ping` | Returns `{"pong":true}`. Zero dependencies — useful for confirming the function runtime is alive without touching the DB. |
+| GET | `/api/debug` | Returns full diagnostic JSON: all env var values (masked), DB connection status, event/log counts, latency, Node version, Vercel region. Use this first when debugging production issues. |
 
 ### Events
 
@@ -141,7 +147,9 @@ All routes are served on the same Vercel domain as the React frontend.
 
 ## Cron job — `api/cron/send-messages.ts`
 
-Triggered by Vercel Cron on the schedule `0 * * * *` (top of every hour).
+Triggered by Vercel Cron on the schedule `0 8 * * *` (8am UTC daily).
+
+> **Note**: Vercel Hobby plan only supports **daily** cron jobs. Hourly (`0 * * * *`) is a Pro plan feature and will silently block all new deployments if used on Hobby.
 
 **Security**: Vercel sets `Authorization: Bearer <CRON_SECRET>` on every cron call. The handler rejects any request without this header.
 

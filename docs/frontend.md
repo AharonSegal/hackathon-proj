@@ -26,20 +26,20 @@ React 18 + TypeScript + Vite single-page application. Dark-themed, fully respons
 ## Project structure
 
 ```
-src/
+frontend/src/
 ├── main.tsx                    Entry point, mounts React root
 ├── App.tsx                     BrowserRouter + SettingsProvider + routes
 ├── vite-env.d.ts               Vite client types (import.meta.env)
 │
 ├── pages/
 │   ├── Calendar/
-│   │   ├── CalendarPage.tsx    Page shell: loads events, opens modal
+│   │   ├── CalendarPage.tsx    Page shell: loads events, opens modal on day/event click
 │   │   ├── hooks/
 │   │   │   └── useCalendar.ts  Grid logic: Hebrew/Gregorian, holidays, gematriya
 │   │   └── components/
 │   │       ├── CalendarHeader.tsx   Month title + prev/next/today nav
 │   │       ├── CalendarGrid.tsx     7-column grid layout
-│   │       ├── DayCell.tsx          Individual day: dates, holiday labels, event pills
+│   │       ├── DayCell.tsx          Day cell: dates, holiday label, event pills, dot indicators
 │   │       └── EventModal.tsx       Create/edit/delete event + attach WA/email
 │   │
 │   ├── Dashboard/
@@ -49,9 +49,9 @@ src/
 │   │   └── DailyTimesPage.tsx  Zmanim for any date; day navigator; parasha
 │   │
 │   ├── Messages/
-│   │   ├── MessagesPage.tsx    Tabbed layout: composers + message log
+│   │   ├── MessagesPage.tsx    Tab layout: WhatsApp (full-width + log below) / Email (2-col)
 │   │   └── components/
-│   │       ├── WhatsAppComposer.tsx  Templates, preview, schedule toggle
+│   │       ├── WhatsAppComposer.tsx  Toolbar, emoji picker, phone preview, schedule toggle
 │   │       └── EmailComposer.tsx     Multi-recipient tags, schedule toggle
 │   │
 │   └── Settings/
@@ -68,7 +68,7 @@ src/
     │   │   └── AppSidebar.tsx  Nav: Dashboard, Calendar, Daily Times, Messages, Settings
     │   └── ui/
     │       ├── Button.tsx      Variants: primary / secondary / ghost / danger / whatsapp / email
-    │       ├── Input.tsx       Input + Textarea with label/error/hint
+    │       ├── Input.tsx       Input + Textarea with label/error/hint (both use forwardRef)
     │       ├── Modal.tsx       Radix Dialog wrapper
     │       ├── Badge.tsx       Color-coded pill badge
     │       └── BackendStatus.tsx  Floating "Backend offline" pill (bottom-right)
@@ -76,7 +76,7 @@ src/
     │   └── SettingsContext.tsx  AppSettings stored in localStorage, React context
     ├── hooks/
     │   ├── useApi.ts           Axios client + localStorage cache layer
-    │   └── useBackendStatus.ts Singleton poller — pings /api/health every 30 s
+    │   └── useBackendStatus.ts Singleton poller — pings /api/health every 30s, reads db field
     └── types/
         ├── event.types.ts      CalendarEvent, ScheduledEmail, ScheduledWhatsApp, MessageLog
         └── settings.types.ts   AppSettings, HolidaySettings, ZmanimSettings, DEFAULT_SETTINGS
@@ -94,14 +94,20 @@ The core of the app. Driven by `useCalendar.ts`, which:
 2. In **Hebrew mode**: computes the grid from the 1st of the current Hebrew month to the last day, padded to full weeks. Hebrew month navigation handles leap-year Adar I/II and year boundaries.
 3. In **Gregorian mode**: standard month grid padded to full weeks.
 4. Calls `HebrewCalendar.calendar()` from `@hebcal/core` for the grid date range to get holidays, parasha, candlelighting times, and Omer count — filtered by the user's Settings toggles.
-5. Returns `DayInfo[]` — one object per cell, containing both the Gregorian `Date`, the `HDate`, user events, Hebrew calendar events, and the rendered Hebrew numeral string.
+5. Returns `DayInfo[]` — one object per cell, containing the Gregorian `Date`, the `HDate`, user events, Hebrew calendar events, and the rendered Hebrew numeral string.
 
 **DayCell** renders:
-- Primary label: Hebrew gematriya numeral (Hebrew mode) or Gregorian day number
-- Secondary label: the other system's date
-- Holiday labels from `hebrewEvents` (small text, muted)
-- User event pills (color-coded, using static `COLOR_MAP` — not dynamic Tailwind classes)
+- Primary label: Hebrew gematriya numeral (Hebrew mode) or Gregorian day number (today gets a colored circle)
+- Secondary label: the other system's date (small, top-right)
+- Up to 1 holiday label (amber text for holidays, muted for other events)
+- Up to 2 user event pills (color-coded, clickable to edit) + "+N more" if needed
+- Colored dot indicators (bottom-right): one dot per event, up to 3, using the event's color
+- `+` hint on hover for empty days
 - Shabbat tint on Saturday columns
+
+**Interaction**:
+- Click anywhere on a day cell → opens "New Event" modal for that date
+- Click an event pill → opens "Edit Event" modal for that specific event (stops propagation)
 
 **EventModal** lets you create or edit an event. Optional "Scheduled actions" section lets you attach a scheduled WhatsApp message and/or email with a custom send datetime.
 
@@ -124,9 +130,20 @@ The 11 times are individually toggleable in Settings. The day navigator lets you
 
 ### Messages
 
-Radix `Tabs` switches between WhatsApp and Email composers. A message log panel (auto-refreshes every 30 s) shows all sent/scheduled/failed messages with status icons.
+Radix `Tabs` switches between WhatsApp and Email composers. The active tab drives the page layout:
 
-**WhatsAppComposer** — Hebrew quick-templates (event reminder, invitation, thank you), live chat preview mimicking WhatsApp's UI, character counter, immediate or scheduled send.
+- **WhatsApp tab**: single full-width column — the composer card (with inline phone preview) takes the full width, and the message log panel sits below it.
+- **Email tab**: two-column grid — email composer on the left, message log on the right.
+
+The message log auto-refreshes every 30s and shows all sent/scheduled/failed messages with status icons.
+
+**WhatsAppComposer**:
+- Formatting toolbar: **B** (`*bold*`), *I* (`_italic_`), ~~S~~ (`~strikethrough~`), `</>` (` ```monospace``` `)
+- Emoji picker: 48 common emojis in a popup grid; inserts at cursor position
+- All formatting buttons wrap selected text or place the cursor between the markers
+- Live phone-frame preview (always visible, right of the editor): renders WhatsApp markdown in real-time
+- Hebrew quick-templates (event reminder, invitation, thank you)
+- Character counter, immediate or scheduled send
 
 **EmailComposer** — Chip-style multi-recipient input (press Enter or comma to add an address), immediate or scheduled send.
 
@@ -146,9 +163,7 @@ All settings live in `SettingsContext` (persisted to `localStorage`). Changes ta
 
 Write endpoints (create/update/delete/send) throw on failure — the calling page shows a toast.
 
-`useBackendStatus.ts` is a **singleton poller** (only one HTTP request in flight at a time, no matter how many components subscribe). It pings `GET /api/health` every 30 seconds and broadcasts `'checking' | 'online' | 'offline'` to all subscribers via a `Set` of callbacks. `BackendStatus.tsx` listens and shows a fixed pill in the bottom-right corner when offline.
-
-Because the API routes are on the same Vercel domain as the frontend, `/api/health` is always available — the "offline" state only occurs when there is a genuine connectivity or Turso issue.
+`useBackendStatus.ts` is a **singleton poller** (only one HTTP request in flight at a time, no matter how many components subscribe). It pings `GET /api/health` every 30 seconds. The health endpoint now includes a DB ping and returns `{"status":"ok","db":"ok","latencyMs":N}` — if `db` is not `"ok"`, the status is considered degraded. `BackendStatus.tsx` listens and shows a fixed pill in the bottom-right corner when offline.
 
 ---
 
@@ -165,7 +180,7 @@ Because the API routes are on the same Vercel domain as the frontend, `/api/heal
 
 All routes are wrapped in `AppLayout` (sidebar + outlet).
 
-The SPA fallback is configured in `vercel.json`:
+The SPA fallback is configured in `vercel.json` (repo root):
 ```json
 { "source": "/((?!api/).*)", "destination": "/index.html" }
 ```
@@ -178,7 +193,7 @@ The SPA fallback is configured in `vercel.json`:
 - `baseURL: '/api'` — same-origin requests, no CORS, no env var needed
 - `timeout: 8000 ms` — prevents hanging indefinitely
 
-The API routes live in `frontend/api/` and are served by Vercel on the same domain as the React bundle.
+The API routes live in `api/` at the repo root and are served by Vercel on the same domain as the React bundle.
 
 ---
 
@@ -195,10 +210,10 @@ Extended in `tailwind.config.ts`:
 
 The `.card` utility class (defined in `globals.css`) applies `bg-app-surface border border-app-border rounded-xl p-4`.
 
-**Important**: Dynamic Tailwind class interpolation (e.g. `` `bg-${color}-500` ``) does not work because Tailwind's JIT scanner cannot detect these at build time. All color-mapped classes use static lookup objects (e.g. `COLOR_DOT`, `COLOR_MAP`).
+**Important**: Dynamic Tailwind class interpolation (e.g. `` `bg-${color}-500` ``) does not work because Tailwind's JIT scanner cannot detect these at build time. All color-mapped classes use static lookup objects (e.g. `COLOR_DOT`, `EVENT_DOT_COLORS`, `EVENT_PILL_COLORS`).
 
 ---
 
 ## Build output
 
-`npm run build` produces `dist/` — a fully static bundle deployed to Vercel's CDN.
+`npm run build` (run from `frontend/`) produces `frontend/dist/` — a fully static bundle deployed to Vercel's CDN.
