@@ -11,23 +11,27 @@ function notify(s: Status) {
   listeners.forEach(fn => fn(s));
 }
 
+const check = async () => {
+  notify('checking');
+  try {
+    await axios.get('/api/health', { timeout: 5000 });
+    notify('online');
+  } catch {
+    notify('offline');
+  }
+};
+
 // Single shared poller — runs once regardless of how many components use the hook
 let started = false;
 function startPoller() {
   if (started) return;
   started = true;
-
-  const check = async () => {
-    try {
-      await axios.get('/api/health', { timeout: 5000 });
-      notify('online');
-    } catch {
-      notify('offline');
-    }
-  };
-
   check();
   setInterval(check, 30_000);
+}
+
+export function retryConnection() {
+  check();
 }
 
 export function useBackendStatus(): Status {

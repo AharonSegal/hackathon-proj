@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { CalendarDays, Mail, MessageCircle, Clock, Plus } from 'lucide-react';
+import { CalendarDays, Mail, MessageCircle, Clock, Plus, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { CalendarEvent, MessageLog } from '@/shared/types/event.types';
 import { eventApi, messageApi } from '@/shared/hooks/useApi';
+import { useBackendStatus, retryConnection } from '@/shared/hooks/useBackendStatus';
 import { HDate } from '@hebcal/core';
 import { gematriyaDay, hebrewMonthName } from '@/pages/Calendar/hooks/useCalendar';
 
@@ -17,6 +18,45 @@ const COLOR_DOT: Record<string, string> = {
   sky:     'bg-sky-500',
   violet:  'bg-violet-500',
 };
+
+function ConnectionCard() {
+  const status = useBackendStatus();
+
+  const dot =
+    status === 'online'   ? 'bg-emerald-500' :
+    status === 'offline'  ? 'bg-rose-500'    :
+                            'bg-amber-400 animate-pulse';
+
+  const label =
+    status === 'online'   ? 'Connected' :
+    status === 'offline'  ? 'Offline'   :
+                            'Checking…';
+
+  const textColor =
+    status === 'online'   ? 'text-emerald-400' :
+    status === 'offline'  ? 'text-rose-400'    :
+                            'text-amber-400';
+
+  return (
+    <div className="card flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <div className={`w-3 h-3 rounded-full ${dot}`} />
+        <div>
+          <p className={`text-sm font-semibold ${textColor}`}>{label}</p>
+          <p className="text-xs text-slate-500">Backend API</p>
+        </div>
+      </div>
+      <button
+        onClick={retryConnection}
+        disabled={status === 'checking'}
+        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40 transition-colors"
+      >
+        <RefreshCw size={13} className={status === 'checking' ? 'animate-spin' : ''} />
+        Retry
+      </button>
+    </div>
+  );
+}
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
@@ -67,6 +107,9 @@ export function DashboardPage() {
           </Button>
         }
       />
+
+      {/* Connection status */}
+      <ConnectionCard />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
