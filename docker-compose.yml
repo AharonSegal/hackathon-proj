@@ -1,0 +1,22 @@
+services:
+  backend:
+    build: ./backend
+    container_name: calendar-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data        # persist SQLite DB outside the container
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=sqlite:///./data/calendar.db
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: calendar-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
