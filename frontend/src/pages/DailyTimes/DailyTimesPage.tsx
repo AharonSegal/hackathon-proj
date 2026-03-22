@@ -1,3 +1,19 @@
+/**
+ * DailyTimes/DailyTimesPage.tsx
+ * --------------------------------
+ * Displays the 11 halachic prayer times (zmanim) for a chosen date and location.
+ *
+ * Uses kosher-zmanim (ZmanimCalendar + GeoLocation) for calculations.
+ * Location and which times to show are configured in Settings.
+ *
+ * Notes on kosher-zmanim:
+ * - GeoLocation takes (name, lat, lng, elevation, timezone)
+ * - cal.setDate(date) selects the day
+ * - Methods return Luxon DateTime objects — use .toJSDate() before formatting
+ * - getPlagHamincha() requires a cast: (calc as any).getPlagHamincha()
+ * - getTzais72() = Rabbeinu Tam 72-minute nightfall
+ */
+
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, MapPin, Sun, Moon } from 'lucide-react';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';

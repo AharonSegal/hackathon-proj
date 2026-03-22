@@ -1,3 +1,16 @@
+/**
+ * shared/types/settings.types.ts
+ * --------------------------------
+ * TypeScript interfaces for app settings + the DEFAULT_SETTINGS object.
+ *
+ * Settings are stored in localStorage (via SettingsContext) and control:
+ * - calendarMode / weekStart — how the calendar grid is rendered
+ * - holidays — which Hebrew calendar events appear on the grid
+ * - zmanim — location + which prayer times to display on DailyTimes page
+ * - smtpHost/Port/User / emailFromName — email configuration
+ * - whatsappPhoneNumberId / whatsappAccessToken — WhatsApp Business API credentials
+ */
+
 export type CalendarMode = 'gregorian' | 'hebrew';
 
 export type WeekStart = 0 | 1; // 0 = Sunday, 1 = Monday

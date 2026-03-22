@@ -1,3 +1,15 @@
+/**
+ * Layout/AppLayout.tsx
+ * ---------------------
+ * Root layout wrapper used by all pages.
+ *
+ * Structure:
+ * - AppSidebar (fixed left, 240px wide)
+ * - <main> (flex-1, fills remaining width) — renders the active page via <Outlet>
+ * - BackendStatus pill (fixed bottom-right) — shows "Backend offline" when needed
+ * - Toaster — global toast notification container (sonner)
+ */
+
 import { Outlet } from 'react-router-dom';
 import { AppSidebar } from '@/shared/components/Sidebar/AppSidebar';
 import { BackendStatus } from '@/shared/components/ui/BackendStatus';

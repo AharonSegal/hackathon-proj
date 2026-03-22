@@ -1,3 +1,15 @@
+/**
+ * shared/types/event.types.ts
+ * ----------------------------
+ * TypeScript interfaces for the core data models.
+ *
+ * - CalendarEvent     — a calendar event with optional scheduled messages
+ * - ScheduledEmail    — email payload attached to an event
+ * - ScheduledWhatsApp — WhatsApp payload attached to an event
+ * - MessageLog        — a row in the message_logs DB table (tracks send status)
+ * - EventColor        — the allowed color values for events
+ */
+
 export type EventColor = 'indigo' | 'emerald' | 'amber' | 'rose' | 'sky' | 'violet';
 
 export interface CalendarEvent {

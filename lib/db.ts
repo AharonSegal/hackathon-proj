@@ -1,3 +1,23 @@
+/**
+ * lib/db.ts
+ * ----------
+ * Turso (libSQL / cloud SQLite) database client.
+ *
+ * Design: singleton pattern — one client instance per serverless cold start.
+ * This avoids creating a new connection on every function invocation.
+ *
+ * Exports:
+ * - ensureInit() — get the db client, creating tables if they don't exist yet
+ * - rowToEvent() — convert a snake_case DB row to a camelCase CalendarEvent
+ * - rowToLog()   — convert a snake_case DB row to a camelCase MessageLog
+ *
+ * Process Flow:
+ * 1. First call to ensureInit() creates the libSQL client from env vars
+ * 2. Runs CREATE TABLE IF NOT EXISTS for both tables (safe to call repeatedly)
+ * 3. Sets _initialized = true — subsequent calls skip the CREATE TABLE step
+ * 4. Returns the client ready for queries
+ */
+
 import { createClient, type Client } from '@libsql/client';
 
 // ── Singleton client (one per cold start) ────────────────────────────────────

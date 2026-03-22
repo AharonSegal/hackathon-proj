@@ -1,3 +1,23 @@
+/**
+ * Calendar/components/EventModal.tsx
+ * ------------------------------------
+ * Modal dialog for creating and editing calendar events.
+ *
+ * Fields:
+ * - Title (required), Description
+ * - All-day toggle, Start/End time (when not all-day)
+ * - Color picker (6 colors)
+ * - Scheduled Email section (optional: to, subject, body, send-at)
+ * - Scheduled WhatsApp section (optional: phone, message, send-at)
+ *
+ * Modes:
+ * - Create mode (editEvent is null): form is blank except for the selected date
+ * - Edit mode (editEvent is set): form pre-filled from the existing event
+ *
+ * On save → calls eventApi.create or eventApi.update, then calls onSaved(event).
+ * On delete → calls eventApi.delete, then calls onDeleted(id).
+ */
+
 import { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';

@@ -1,3 +1,21 @@
+/**
+ * api/messages/whatsapp/index.ts — POST /api/messages/whatsapp
+ * --------------------------------------------------------------
+ * Send a WhatsApp message immediately or schedule it for later.
+ *
+ * Required body: { to: string (E.164), message: string }
+ * Optional body: { scheduleAt: ISO datetime string, eventId: string }
+ *
+ * Process:
+ * 1. Validate phone number format (E.164 regex)
+ * 2. Insert a message_logs row with status='pending'
+ * 3. If no scheduleAt → send immediately via WhatsApp API
+ *    - On success: update status to 'sent'
+ *    - On failure: update status to 'failed', return 502
+ * 4. If scheduleAt provided → leave as 'pending' (cron will send it)
+ * 5. Return the created message_log row
+ */
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'node:crypto';
 import { ensureInit, rowToLog } from '../../../lib/db';

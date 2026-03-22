@@ -1,3 +1,14 @@
+/**
+ * api/events/[id].ts — PUT + DELETE /api/events/:id
+ * ---------------------------------------------------
+ * Update or delete a specific calendar event.
+ *
+ * PUT    /api/events/:id — partial update (only fields in the request body are changed)
+ * DELETE /api/events/:id — deletes the event, returns HTTP 204
+ *
+ * Both methods return 404 if the event does not exist.
+ */
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ensureInit, rowToEvent } from '../../lib/db';
 

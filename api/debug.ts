@@ -1,3 +1,17 @@
+/**
+ * api/debug.ts — GET /api/debug
+ * --------------------------------
+ * Full diagnostic endpoint — use this first when debugging production issues.
+ *
+ * Returns a JSON object with:
+ * - env   — all required environment variables (sensitive values masked)
+ * - db    — database connection status, ping result, row counts
+ * - latencyMs / timestamp / node / region — server metadata
+ *
+ * Sensitive values (tokens, passwords) are masked: first 8 + last 4 chars shown.
+ * Missing values are shown as "— NOT SET —" so you can identify what's wrong.
+ */
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ensureInit } from '../lib/db';
 

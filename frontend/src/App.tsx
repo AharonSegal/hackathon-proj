@@ -1,3 +1,14 @@
+/**
+ * App.tsx
+ * --------
+ * Root component — sets up routing and global providers.
+ *
+ * - SettingsProvider wraps everything so all pages can read/write settings
+ * - BrowserRouter + Routes defines the client-side URL structure
+ * - AppLayout wraps all routes (provides sidebar, toaster, backend status pill)
+ * - Unknown paths redirect to /dashboard
+ */
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from '@/shared/components/Layout/AppLayout';
 import { SettingsProvider } from '@/shared/context/SettingsContext';

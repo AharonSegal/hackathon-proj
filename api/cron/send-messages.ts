@@ -1,3 +1,28 @@
+/**
+ * api/cron/send-messages.ts — Vercel Cron (daily at 8am UTC)
+ * ------------------------------------------------------------
+ * Sends all pending scheduled messages whose send time has passed.
+ *
+ * Triggered automatically by Vercel Cron at 0 8 * * * (8am UTC daily).
+ * Can also be triggered manually via GET or POST with the correct Authorization header.
+ *
+ * Security: requires Authorization: Bearer <CRON_SECRET> header.
+ * Vercel sets this automatically for cron invocations.
+ *
+ * Process Flow:
+ * 1. Verify the Authorization header (reject if CRON_SECRET doesn't match)
+ * 2. Query all message_logs WHERE status='pending' AND scheduled_at <= now
+ * 3. For each pending message:
+ *    a. Send via WhatsApp or Email depending on log.type
+ *    b. On success → update status to 'sent', set sent_at timestamp
+ *    c. On failure → update status to 'failed', save error message
+ * 4. Continue processing remaining messages even if one fails
+ * 5. Return a summary of { processed: N, results: [...] }
+ *
+ * NOTE: Vercel Hobby plan only supports daily cron jobs.
+ * Hourly schedules (0 * * * *) silently block all new deployments on Hobby.
+ */
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ensureInit, rowToLog } from '../../lib/db';
 import { sendWhatsApp } from '../../lib/whatsapp';

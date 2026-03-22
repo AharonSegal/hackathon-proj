@@ -1,3 +1,17 @@
+/**
+ * Messages/components/EmailComposer.tsx
+ * ----------------------------------------
+ * Email message composer with chip-style multi-recipient input.
+ *
+ * Features:
+ * - Recipients: press Enter or comma to add an address; click × to remove
+ * - Subject + body fields
+ * - Optional schedule toggle (sends at a specific datetime via cron)
+ * - Checks backend status before sending; shows toast on success/failure
+ *
+ * On send → POST /api/messages/email with { to[], subject, body, scheduleAt? }
+ */
+
 import { useState } from 'react';
 import { Mail, Send, Clock, Plus, X } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';

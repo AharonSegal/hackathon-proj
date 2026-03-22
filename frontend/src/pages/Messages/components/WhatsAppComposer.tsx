@@ -1,18 +1,55 @@
+/**
+ * Messages/components/WhatsAppComposer.tsx
+ * -----------------------------------------
+ * Full-featured WhatsApp message composer.
+ *
+ * Features:
+ * - Recipient phone input (E.164 format required, e.g. +972501234567)
+ * - Quick template buttons (Hebrew event reminders, invitations, thank-you)
+ * - Formatting toolbar: Bold (*), Italic (_), Strikethrough (~), Monospace (```)
+ * - Emoji picker: 48 common emojis, inserted at cursor position
+ * - Live phone preview (WhatsAppPhonePreview) always visible on the right
+ * - Immediate send or schedule for a specific date/time
+ *
+ * Process Flow:
+ * 1. User types a phone number and message
+ * 2. Formatting buttons wrap selected text (or place cursor between markers)
+ * 3. Emoji picker inserts the emoji at the cursor position
+ * 4. User clicks "Send Now" or enables schedule toggle + sets a date
+ * 5. On send → POST /api/messages/whatsapp with { to, message, scheduleAt? }
+ * 6. Success → clear form; failure → toast error
+ */
+
 import { useState, useRef, useCallback } from 'react';
-import { MessageCircle, Send, Clock, Phone } from 'lucide-react';
+import { MessageCircle, Send, Clock } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input, Textarea } from '@/shared/components/ui/Input';
 import { messageApi } from '@/shared/hooks/useApi';
 import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
+import { WhatsAppPhonePreview } from './WhatsAppPhonePreview';
 
+/** Pre-written Hebrew message templates for common event use cases */
 const QUICK_TEMPLATES = [
-  { id: 'reminder', label: 'Event Reminder', text: 'שלום! רצינו להזכיר לכם על האירוע המתקרב.\n\nפרטי האירוע:\n📅 תאריך: [תאריך]\n🕐 שעה: [שעה]\n📍 מיקום: [מיקום]\n\nמחכים לראותכם! 🙏' },
-  { id: 'invite', label: 'Invitation', text: 'שלום!\n\nאנחנו שמחים להזמין אתכם ל[שם האירוע].\n\nתאריך: [תאריך]\nשעה: [שעה]\nמקום: [מיקום]\n\nאנא אשרו הגעה עד [תאריך].\nנשמח לראותכם!' },
-  { id: 'thanks', label: 'Thank You', text: 'שלום!\n\nתודה רבה על השתתפותכם ב[שם האירוע].\nהייתה לנו שמחה גדולה לראותכם.\n\nמקווים להתראות שוב בקרוב! 😊' },
+  {
+    id: 'reminder',
+    label: 'Event Reminder',
+    text: 'שלום! רצינו להזכיר לכם על האירוע המתקרב.\n\nפרטי האירוע:\n📅 תאריך: [תאריך]\n🕐 שעה: [שעה]\n📍 מיקום: [מיקום]\n\nמחכים לראותכם! 🙏',
+  },
+  {
+    id: 'invite',
+    label: 'Invitation',
+    text: 'שלום!\n\nאנחנו שמחים להזמין אתכם ל[שם האירוע].\n\nתאריך: [תאריך]\nשעה: [שעה]\nמקום: [מיקום]\n\nאנא אשרו הגעה עד [תאריך].\nנשמח לראותכם!',
+  },
+  {
+    id: 'thanks',
+    label: 'Thank You',
+    text: 'שלום!\n\nתודה רבה על השתתפותכם ב[שם האירוע].\nהייתה לנו שמחה גדולה לראותכם.\n\nמקווים להתראות שוב בקרוב! 😊',
+  },
 ];
 
+/** 48 commonly used emojis for the emoji picker */
 const EMOJIS = [
   '😊','😂','🙏','❤️','👍','🎉','✅','⭐',
   '📅','🕐','📍','📞','💬','📧','🔔','⚡',
@@ -22,102 +59,38 @@ const EMOJIS = [
   '🫶','🎈','🪄','🕊️','🌈','☀️','🌙','💫',
 ];
 
-// Render WhatsApp markdown syntax to HTML for the preview
-function renderWhatsApp(text: string): string {
-  let html = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // Order matters — code block first so inner text isn't processed
-  html = html.replace(/```([\s\S]*?)```/g, '<code style="font-family:monospace;font-size:12px;background:rgba(0,0,0,0.3);padding:1px 3px;border-radius:3px">$1</code>');
-  html = html.replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>');
-  html = html.replace(/_([^_\n]+)_/g, '<em>$1</em>');
-  html = html.replace(/~([^~\n]+)~/g, '<del>$1</del>');
-  html = html.replace(/\n/g, '<br />');
-
-  return html;
-}
-
-// ── Phone preview ─────────────────────────────────────────────────────────────
-
-function WhatsAppPhonePreview({ to, message }: { to: string; message: string }) {
-  return (
-    <div className="shrink-0 w-[240px] flex flex-col items-center">
-      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Preview</p>
-
-      {/* Phone shell */}
-      <div className="w-[240px] bg-[#111] rounded-[32px] border-[3px] border-[#333] shadow-2xl overflow-hidden flex flex-col">
-        {/* WhatsApp top bar */}
-        <div className="bg-[#075e54] px-3 pt-5 pb-2 flex items-center gap-2 shrink-0">
-          <div className="w-7 h-7 rounded-full bg-[#acbfc9]/30 flex items-center justify-center shrink-0">
-            <Phone size={12} className="text-white" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-semibold text-white truncate leading-tight">{to || '+972...'}</p>
-            <p className="text-[9px] text-[#acbfc9] leading-tight">online</p>
-          </div>
-        </div>
-
-        {/* Chat area */}
-        <div className="bg-[#0d1418] flex-1 p-3 min-h-[280px] max-h-[380px] overflow-y-auto flex flex-col gap-2">
-          {message ? (
-            <div className="max-w-[90%] ml-auto">
-              <div className="bg-[#005c4b] rounded-l-2xl rounded-tr-2xl px-3 py-2 shadow">
-                <div
-                  className="text-[12px] text-white leading-relaxed break-words"
-                  dangerouslySetInnerHTML={{ __html: renderWhatsApp(message) }}
-                />
-                <p className="text-[9px] text-[#8da8a0] text-right mt-1 leading-tight">
-                  {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} ✓✓
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-slate-600 text-[11px] text-center mt-10 leading-relaxed px-2">
-              Start typing to see your message preview...
-            </p>
-          )}
-        </div>
-
-        {/* Input bar mockup */}
-        <div className="bg-[#1f2c33] px-2 py-2 flex items-center gap-2 shrink-0">
-          <div className="flex-1 bg-[#2a3942] rounded-full px-3 py-1">
-            <p className="text-[10px] text-slate-500">Message</p>
-          </div>
-          <div className="w-6 h-6 rounded-full bg-[#00a884] flex items-center justify-center shrink-0">
-            <Send size={10} className="text-white ml-0.5" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Composer ──────────────────────────────────────────────────────────────────
-
 export function WhatsAppComposer() {
-  const [to, setTo] = useState('');
-  const [message, setMessage] = useState('');
-  const [scheduleAt, setScheduleAt] = useState('');
+  const [to,          setTo]          = useState('');
+  const [message,     setMessage]     = useState('');
+  const [scheduleAt,  setScheduleAt]  = useState('');
   const [isScheduled, setIsScheduled] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [showEmoji, setShowEmoji] = useState(false);
+  const [loading,     setLoading]     = useState(false);
+  const [showEmoji,   setShowEmoji]   = useState(false);
 
+  // Ref to the textarea so we can read/set cursor position for formatting
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { status: backendStatus } = useBackendStatus();
-  const charCount = message.length;
-  const isValid = to.trim() && message.trim();
 
-  // Insert formatting markers around selection (or at cursor)
+  const charCount = message.length;
+  const isValid   = to.trim() && message.trim();
+
+  /**
+   * Wrap selected text with formatting markers (or place cursor between them).
+   *
+   * Example: user selects "hello" and clicks Bold → "*hello*"
+   * If nothing is selected, places cursor between markers: "**|"
+   *
+   * Uses requestAnimationFrame to restore focus after React re-renders the textarea.
+   */
   const insertFormat = useCallback((before: string, after = '') => {
     const el = textareaRef.current;
     if (!el) return;
 
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
+    const start    = el.selectionStart;
+    const end      = el.selectionEnd;
     const selected = message.slice(start, end);
 
+    // Build the new message string with markers inserted
     const next =
       message.slice(0, start) +
       before + selected + after +
@@ -125,17 +98,21 @@ export function WhatsAppComposer() {
 
     setMessage(next);
 
+    // Restore focus and selection after React re-renders
     requestAnimationFrame(() => {
       el.focus();
       if (selected) {
+        // Keep the original text selected inside the new markers
         el.setSelectionRange(start + before.length, start + before.length + selected.length);
       } else {
+        // Place cursor between the markers
         const pos = start + before.length;
         el.setSelectionRange(pos, pos);
       }
     });
   }, [message]);
 
+  /** Send the message immediately or schedule it for later */
   const handleSend = async () => {
     if (!isValid) return;
     if (backendStatus === 'offline') {
@@ -145,11 +122,13 @@ export function WhatsAppComposer() {
     setLoading(true);
     try {
       await messageApi.sendWhatsApp({
-        to: to.trim(),
-        message: message.trim(),
+        to:         to.trim(),
+        message:    message.trim(),
+        // scheduleAt is only sent when the user has toggled "Schedule for later"
         scheduleAt: isScheduled && scheduleAt ? new Date(scheduleAt).toISOString() : undefined,
       });
       toast.success(isScheduled ? 'WhatsApp message scheduled!' : 'WhatsApp message sent!');
+      // Clear form on success
       setTo(''); setMessage(''); setScheduleAt(''); setIsScheduled(false);
     } catch {
       toast.error('Failed to send WhatsApp message');
@@ -161,7 +140,7 @@ export function WhatsAppComposer() {
   return (
     <div className="flex gap-6 items-start">
 
-      {/* ── Left: form ── */}
+      {/* ── Left column: compose form ── */}
       <div className="flex-1 min-w-0 space-y-4">
 
         {/* Header */}
@@ -175,7 +154,7 @@ export function WhatsAppComposer() {
           </div>
         </div>
 
-        {/* Recipient */}
+        {/* Recipient phone number */}
         <Input
           label="Recipient (phone with country code)"
           placeholder="+972501234567"
@@ -184,7 +163,7 @@ export function WhatsAppComposer() {
           type="tel"
         />
 
-        {/* Templates */}
+        {/* Quick template buttons — clicking replaces the entire message */}
         <div>
           <label className="block text-xs font-medium text-slate-400 mb-2">Quick Templates</label>
           <div className="flex flex-wrap gap-2">
@@ -200,97 +179,74 @@ export function WhatsAppComposer() {
           </div>
         </div>
 
-        {/* Message editor */}
+        {/* Message editor with formatting toolbar */}
         <div>
           <label className="block text-xs font-medium text-slate-400 mb-1.5">Message</label>
 
-          {/* Formatting toolbar */}
+          {/* Formatting toolbar — sits above the textarea with a connected border */}
           <div className="flex items-center gap-0.5 bg-slate-800 border border-slate-600 border-b-0 rounded-t-lg px-2 py-1.5">
 
-            {/* Bold */}
-            <button
-              type="button"
-              title="Bold — *text*"
+            {/* Bold: wraps selection with *asterisks* */}
+            <button type="button" title="Bold — *text*"
               onClick={() => insertFormat('*', '*')}
               className="w-7 h-7 flex items-center justify-center rounded font-bold text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
-            >
-              B
-            </button>
+            >B</button>
 
-            {/* Italic */}
-            <button
-              type="button"
-              title="Italic — _text_"
+            {/* Italic: wraps selection with _underscores_ */}
+            <button type="button" title="Italic — _text_"
               onClick={() => insertFormat('_', '_')}
               className="w-7 h-7 flex items-center justify-center rounded italic text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
-            >
-              I
-            </button>
+            >I</button>
 
-            {/* Strikethrough */}
-            <button
-              type="button"
-              title="Strikethrough — ~text~"
+            {/* Strikethrough: wraps selection with ~tildes~ */}
+            <button type="button" title="Strikethrough — ~text~"
               onClick={() => insertFormat('~', '~')}
               className="w-7 h-7 flex items-center justify-center rounded line-through text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
-            >
-              S
-            </button>
+            >S</button>
 
-            {/* Monospace */}
-            <button
-              type="button"
-              title="Monospace — ```text```"
+            {/* Monospace: wraps selection with triple backticks */}
+            <button type="button" title="Monospace — ```text```"
               onClick={() => insertFormat('```', '```')}
               className="w-7 h-7 flex items-center justify-center rounded font-mono text-xs text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
-            >
-              {'</>'}
-            </button>
+            >{'</>'}</button>
 
             <div className="w-px h-4 bg-slate-700 mx-1" />
 
-            {/* Emoji picker */}
+            {/* Emoji picker toggle */}
             <div className="relative">
-              <button
-                type="button"
-                title="Emoji"
+              <button type="button" title="Emoji"
                 onClick={() => setShowEmoji(v => !v)}
                 className={clsx(
                   'w-7 h-7 flex items-center justify-center rounded text-base transition-colors',
                   showEmoji ? 'bg-slate-700' : 'hover:bg-slate-700',
                 )}
-              >
-                😊
-              </button>
+              >😊</button>
 
+              {/* Emoji popup grid */}
               {showEmoji && (
                 <div className="absolute left-0 top-full mt-1 z-50 bg-slate-800 border border-slate-700 rounded-xl p-2 shadow-2xl w-56">
                   <div className="grid grid-cols-8 gap-0.5">
                     {EMOJIS.map(emoji => (
-                      <button
-                        key={emoji}
-                        type="button"
+                      <button key={emoji} type="button"
                         onClick={() => {
-                          insertFormat(emoji);
+                          insertFormat(emoji); // insert emoji at cursor (no closing marker)
                           setShowEmoji(false);
                         }}
                         className="text-[17px] rounded p-0.5 hover:bg-slate-700 transition-colors leading-none"
-                      >
-                        {emoji}
-                      </button>
+                      >{emoji}</button>
                     ))}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Char count pushed to the right */}
+            {/* Character counter — turns amber when approaching limits */}
             <span className={clsx('ml-auto text-xs', charCount > 1000 ? 'text-amber-400' : 'text-slate-500')}>
               {charCount} / 4096
             </span>
           </div>
 
-          {/* Textarea — using Textarea with ref (forwardRef supported) */}
+          {/* Message textarea — rounded-t-none connects visually to the toolbar above */}
           <Textarea
             ref={textareaRef}
             placeholder="Type your message..."
@@ -301,42 +257,30 @@ export function WhatsAppComposer() {
           />
         </div>
 
-        {/* Schedule */}
+        {/* Schedule toggle — shows a datetime picker when enabled */}
         <div className="border border-slate-700 rounded-lg p-3 space-y-3">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isScheduled}
+            <input type="checkbox" checked={isScheduled}
               onChange={e => setIsScheduled(e.target.checked)}
-              className="accent-[#25d366]"
-            />
+              className="accent-[#25d366]" />
             <Clock size={14} className="text-slate-400" />
             <span className="text-sm text-slate-300">Schedule for later</span>
           </label>
           {isScheduled && (
-            <Input
-              label="Send at"
-              type="datetime-local"
-              value={scheduleAt}
-              onChange={e => setScheduleAt(e.target.value)}
-            />
+            <Input label="Send at" type="datetime-local"
+              value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
           )}
         </div>
 
-        {/* Send */}
-        <Button
-          variant="whatsapp"
-          className="w-full"
-          onClick={handleSend}
-          loading={loading}
-          disabled={!isValid}
-        >
+        {/* Send button */}
+        <Button variant="whatsapp" className="w-full"
+          onClick={handleSend} loading={loading} disabled={!isValid}>
           <Send size={15} />
           {isScheduled ? 'Schedule Message' : 'Send Now'}
         </Button>
       </div>
 
-      {/* ── Right: phone preview ── */}
+      {/* ── Right column: live phone preview ── */}
       <WhatsAppPhonePreview to={to} message={message} />
     </div>
   );

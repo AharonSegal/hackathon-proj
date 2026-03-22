@@ -1,3 +1,20 @@
+/**
+ * shared/hooks/useBackendStatus.ts
+ * ---------------------------------
+ * Singleton poller that checks backend health every 30 seconds.
+ *
+ * Design: only ONE HTTP request is ever in flight at a time, regardless of how
+ * many components call useBackendStatus(). All subscribers share the same state
+ * via a module-level listener set.
+ *
+ * Returns BackendDetail: { status, db, latencyMs, error }
+ * - status: 'checking' | 'online' | 'offline'
+ * - db: 'ok' or an error string from /api/health
+ *
+ * Also exports retryConnection() — call this to trigger an immediate re-check
+ * without waiting for the next 30-second tick.
+ */
+
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 

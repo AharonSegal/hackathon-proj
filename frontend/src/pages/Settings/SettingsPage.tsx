@@ -1,3 +1,20 @@
+/**
+ * Settings/SettingsPage.tsx
+ * --------------------------
+ * App configuration page.
+ *
+ * Sections:
+ * 1. Calendar View — Hebrew vs Gregorian mode, week-start day
+ * 2. Holidays & Events Display — toggles for which Hebrew calendar events to show
+ * 3. Zmanim Location — lat/lng/timezone for prayer time calculations
+ * 4. Times to Display — individual toggles for each zman
+ * 5. Email / SMTP — server credentials + test button
+ * 6. WhatsApp Business API — phone number ID, access token + test button
+ *
+ * All changes are immediately reflected via SettingsContext (localStorage).
+ * The "Save" button also posts settings to /api/settings (best-effort).
+ */
+
 import { useState } from 'react';
 import * as Switch from '@radix-ui/react-switch';
 import { Save, TestTube2, MapPin } from 'lucide-react';

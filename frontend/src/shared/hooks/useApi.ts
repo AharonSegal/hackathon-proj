@@ -1,3 +1,20 @@
+/**
+ * shared/hooks/useApi.ts
+ * -----------------------
+ * Axios-based API client with localStorage cache fallback.
+ *
+ * Exports three objects:
+ * - eventApi   — CRUD operations for calendar events (/api/events)
+ * - messageApi — send WhatsApp/email, fetch message logs (/api/messages/*)
+ * - settingsApi — save settings and send test messages (/api/settings, /api/messages/[type]/test)
+ *
+ * Caching strategy:
+ * - GET endpoints (getAll, getLogs): write response to localStorage on success,
+ *   return cached data on network failure — app stays usable while offline
+ * - Write endpoints (create, update, delete, send): always throw on failure
+ *   so the calling component can show a toast error
+ */
+
 import axios from 'axios';
 import { CalendarEvent, MessageLog } from '@/shared/types/event.types';
 

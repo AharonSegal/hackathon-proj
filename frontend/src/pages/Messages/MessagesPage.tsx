@@ -1,86 +1,47 @@
+/**
+ * Messages/MessagesPage.tsx
+ * --------------------------
+ * Page for composing and sending WhatsApp and Email messages.
+ *
+ * Layout changes depending on the active tab:
+ * - WhatsApp tab: single full-width column (composer + phone preview), message log below
+ * - Email tab: two-column grid (composer on left, message log on right)
+ *
+ * The message log auto-refreshes every 30 seconds.
+ *
+ * Process Flow:
+ * 1. On mount → fetch message logs from /api/messages/logs
+ * 2. Set up a 30-second interval to re-fetch logs (auto-refresh)
+ * 3. User picks a tab → layout switches between WhatsApp and Email mode
+ * 4. Composers call /api/messages/whatsapp or /api/messages/email directly
+ * 5. After sending, the next auto-refresh cycle picks up the new log entry
+ */
+
 import { useState, useEffect } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { MessageCircle, Mail, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { MessageCircle, Mail } from 'lucide-react';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';
 import { WhatsAppComposer } from './components/WhatsAppComposer';
 import { EmailComposer } from './components/EmailComposer';
+import { MessageLogPanel } from './components/MessageLogPanel';
 import { MessageLog } from '@/shared/types/event.types';
 import { messageApi } from '@/shared/hooks/useApi';
-import { Badge } from '@/shared/components/ui/Badge';
 import { clsx } from 'clsx';
 
-const STATUS_ICON = {
-  pending: <Clock size={13} className="text-amber-400" />,
-  sent: <CheckCircle2 size={13} className="text-emerald-400" />,
-  failed: <XCircle size={13} className="text-rose-400" />,
-};
-
-const STATUS_COLOR: Record<MessageLog['status'], 'amber' | 'emerald' | 'rose'> = {
-  pending: 'amber',
-  sent: 'emerald',
-  failed: 'rose',
-};
-
-function MessageLogPanel({ logs }: { logs: MessageLog[] }) {
-  return (
-    <div className="card overflow-hidden flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-slate-100">Message Log</h2>
-        <span className="text-xs text-slate-500">{logs.length} messages</span>
-      </div>
-
-      <div className="flex-1 overflow-y-auto space-y-2">
-        {logs.length === 0 ? (
-          <p className="text-sm text-slate-500 text-center py-8">No messages yet</p>
-        ) : (
-          logs.map(log => (
-            <div key={log.id} className="p-3 rounded-lg bg-slate-900/50 border border-slate-800">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  {log.type === 'whatsapp'
-                    ? <MessageCircle size={13} className="text-[#25d366] shrink-0" />
-                    : <Mail size={13} className="text-blue-400 shrink-0" />}
-                  <span className="text-sm text-slate-200 truncate">
-                    {log.subject ?? log.message.slice(0, 40)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {STATUS_ICON[log.status]}
-                  <Badge color={STATUS_COLOR[log.status]}>{log.status}</Badge>
-                </div>
-              </div>
-              <div className="mt-1 flex gap-3 text-xs text-slate-500">
-                <span>{log.recipient}</span>
-                <span>·</span>
-                <span>
-                  {new Date(log.scheduledAt).toLocaleString('en-US', {
-                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                  })}
-                </span>
-              </div>
-              {log.error && (
-                <p className="mt-1 text-xs text-rose-400">{log.error}</p>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function MessagesPage() {
-  const [logs, setLogs] = useState<MessageLog[]>([]);
+  const [logs,      setLogs]      = useState<MessageLog[]>([]);
   const [activeTab, setActiveTab] = useState<string>('whatsapp');
 
+  // Fetch logs on mount and auto-refresh every 30 seconds
   useEffect(() => {
     messageApi.getLogs().then(setLogs).catch(() => {});
     const interval = setInterval(() => {
       messageApi.getLogs().then(setLogs).catch(() => {});
     }, 30_000);
-    return () => clearInterval(interval);
+    return () => clearInterval(interval); // cleanup on unmount
   }, []);
 
+  /** Shared tab navigation bar — rendered above both layouts */
   const tabList = (
     <Tabs.List className="flex gap-1 bg-slate-900 p-1 rounded-xl border border-slate-700 mb-4">
       <Tabs.Trigger
@@ -125,7 +86,7 @@ export function MessagesPage() {
           )}
         >
           {activeTab === 'whatsapp' ? (
-            /* ── WhatsApp layout: full-width composer, message log below ── */
+            /* WhatsApp layout: full-width composer card, log panel below */
             <>
               {tabList}
               <Tabs.Content value="whatsapp">
@@ -134,11 +95,11 @@ export function MessagesPage() {
                 </div>
                 <MessageLogPanel logs={logs} />
               </Tabs.Content>
-              {/* Keep email content mounted but hidden */}
+              {/* Keep email tab content mounted but hidden so its state is preserved */}
               <Tabs.Content value="email" />
             </>
           ) : (
-            /* ── Email layout: 2-col (composer | message log) ── */
+            /* Email layout: 2-column grid (composer | log) */
             <>
               {tabList}
               <Tabs.Content value="whatsapp" />

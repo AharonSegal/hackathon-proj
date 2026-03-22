@@ -1,3 +1,13 @@
+/**
+ * api/health.ts — GET /api/health
+ * ---------------------------------
+ * Health check endpoint used by the frontend's 30-second status poller.
+ *
+ * Returns { status: 'ok', db: 'ok' | <error string>, latencyMs: number }
+ * Always returns HTTP 200 — the frontend checks the `db` field to detect
+ * database connectivity issues separately from network issues.
+ */
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ensureInit } from '../lib/db';
 

@@ -1,3 +1,18 @@
+/**
+ * lib/email.ts
+ * -------------
+ * SMTP email sender using nodemailer.
+ *
+ * Supports two TLS modes (auto-detected from port):
+ * - Port 465 → secure: true  (TLS from the start)
+ * - Port 587 → secure: false (plain + STARTTLS upgrade)
+ *
+ * For Gmail: enable 2FA, generate an App Password (16 chars),
+ * and use that as SMTP_PASSWORD (not your regular account password).
+ *
+ * Requires environment variables: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
+ */
+
 import nodemailer from 'nodemailer';
 
 export async function sendEmail(

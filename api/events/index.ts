@@ -1,3 +1,15 @@
+/**
+ * api/events/index.ts — GET + POST /api/events
+ * -----------------------------------------------
+ * List and create calendar events.
+ *
+ * GET  /api/events              — returns all events ordered by date
+ * GET  /api/events?year=&month= — returns events for a specific month
+ * POST /api/events              — creates a new event, returns the created row
+ *
+ * Required POST fields: title (string), date (YYYY-MM-DD)
+ */
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'node:crypto';
 import { ensureInit, rowToEvent } from '../../lib/db';
