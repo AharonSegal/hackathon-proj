@@ -9,6 +9,7 @@
  * What it inserts:
  *   events        — 3 normal + 5 extreme edge-case rows
  *   message_logs  — 3 normal + 5 extreme edge-case rows
+ *   notes         — 3 normal + 5 extreme edge-case rows
  *
  * Safe to re-run — uses INSERT OR REPLACE so existing rows with the same
  * seed IDs are overwritten rather than causing duplicate-key errors.
@@ -70,6 +71,18 @@ await db.execute(`
     subject TEXT, message TEXT, scheduled_at TEXT NOT NULL,
     sent_at TEXT, error TEXT, event_id TEXT,
     created_at TEXT DEFAULT (datetime('now'))
+  )
+`);
+
+await db.execute(`
+  CREATE TABLE IF NOT EXISTS notes (
+    id         TEXT PRIMARY KEY,
+    title      TEXT NOT NULL DEFAULT 'Untitled Note',
+    content    TEXT NOT NULL DEFAULT '[]',
+    pinned     INTEGER NOT NULL DEFAULT 0,
+    tags       TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
   )
 `);
 
@@ -237,6 +250,184 @@ const extremeEvents = [
     all_day:     1,
     scheduled_email:    null,
     scheduled_whatsapp: null,
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTES — 3 NORMAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+const p  = (text, styles = {}) => ({ id: `b-${Math.random().toString(36).slice(2,9)}`, type: 'paragraph',      props: { textColor: 'default', backgroundColor: 'default', textAlignment: 'left' },        content: [{ type: 'text', text, styles }], children: [] });
+const h1 = (text)               => ({ id: `b-${Math.random().toString(36).slice(2,9)}`, type: 'heading',        props: { textColor: 'default', backgroundColor: 'default', textAlignment: 'left', level: 1 }, content: [{ type: 'text', text, styles: {} }], children: [] });
+const h2 = (text)               => ({ id: `b-${Math.random().toString(36).slice(2,9)}`, type: 'heading',        props: { textColor: 'default', backgroundColor: 'default', textAlignment: 'left', level: 2 }, content: [{ type: 'text', text, styles: {} }], children: [] });
+const bl = (text)               => ({ id: `b-${Math.random().toString(36).slice(2,9)}`, type: 'bulletListItem', props: { textColor: 'default', backgroundColor: 'default', textAlignment: 'left' },        content: [{ type: 'text', text, styles: {} }], children: [] });
+const nb = (text)               => ({ id: `b-${Math.random().toString(36).slice(2,9)}`, type: 'numberedListItem', props: { textColor: 'default', backgroundColor: 'default', textAlignment: 'left' },     content: [{ type: 'text', text, styles: {} }], children: [] });
+const cb = (text, lang = 'javascript') => ({ id: `b-${Math.random().toString(36).slice(2,9)}`, type: 'codeBlock', props: { language: lang }, content: [{ type: 'text', text, styles: {} }], children: [] });
+const blocks = (...items) => JSON.stringify(items.flat());
+
+const now = new Date();
+const daysAgo  = n => new Date(+now - n * 86_400_000).toISOString();
+const hoursAgo = n => new Date(+now - n * 3_600_000).toISOString();
+
+const normalNotes = [
+
+  // ── 1. English — weekly planning ─────────────────────────────────────────────
+  {
+    id:         'SEED-NOTE-EN-001',
+    title:      '[EXAMPLE] Weekly Planning',
+    content:    blocks(
+      h1('Weekly Planning'),
+      h2('This Week'),
+      bl('Review pull requests and leave feedback'),
+      bl('Send project status update email to stakeholders'),
+      bl('Prepare slides for Friday demo'),
+      p('Important: check all critical-path items before Thursday.', { bold: true }),
+      h2('Next Week'),
+      nb('Team retrospective — 1 hr'),
+      nb('Sprint planning — 2 hrs'),
+      nb('Client demo prep — review deck'),
+    ),
+    tags:       JSON.stringify(['planning', 'work', 'weekly']),
+    pinned:     0,
+    created_at: daysAgo(7),
+    updated_at: daysAgo(1),
+  },
+
+  // ── 2. Hebrew — Shabbat prep (pinned) ────────────────────────────────────────
+  {
+    id:         'SEED-NOTE-HE-001',
+    title:      '[דוגמה] הכנות לשבת 🕯️',
+    content:    blocks(
+      h1('הכנות לשבת'),
+      h2('מה לקנות'),
+      bl('לחם שבת — שתי חלות מכוסות'),
+      bl('יין לקידוש'),
+      bl('נרות שבת (מינימום שניים)'),
+      bl('תבשיל עדשים עם קולרבי'),
+      h2('מה לבשל'),
+      nb('מרק עוף עם אטריות'),
+      nb('קציצות בשר ברוטב עגבניות'),
+      nb('פשטידה ירקות צבעוניים'),
+      p('זמן הדלקת נרות: 18:23 בירושלים'),
+    ),
+    tags:       JSON.stringify(['שבת', 'מטבח', 'קניות']),
+    pinned:     1,
+    created_at: daysAgo(3),
+    updated_at: hoursAgo(4),
+  },
+
+  // ── 3. Mixed English + Hebrew — meeting notes ─────────────────────────────────
+  {
+    id:         'SEED-NOTE-MIX-001',
+    title:      '[EXAMPLE / דוגמה] Team Meeting Notes — הערות ישיבת צוות',
+    content:    blocks(
+      h1('Team Meeting / ישיבת צוות'),
+      p('Date: April 14, 2026  |  תאריך: י״ד ניסן תשפ״ו'),
+      h2('Action Items / משימות'),
+      bl('John: Fix calendar Hebrew-mode bug — due Friday / עד יום ו׳'),
+      bl('Sara: Write integration tests / כתיבת טסטים — due Thursday'),
+      bl('Avi: Update deployment docs / עדכון תיעוד פריסה'),
+      h2('Code From Meeting'),
+      cb('const reminder = async () => {\n  await sendWhatsApp("+972501234567", "תזכורת לישיבה מחר בשעה 10:00");\n};'),
+    ),
+    tags:       JSON.stringify(['meetings', 'ישיבות', 'dev']),
+    pinned:     0,
+    created_at: daysAgo(14),
+    updated_at: daysAgo(14),
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTES — 5 EXTREME EDGE CASES
+// ─────────────────────────────────────────────────────────────────────────────
+
+const extremeNotes = [
+
+  // ── X1. Very long title + many blocks ────────────────────────────────────────
+  {
+    id:         'SEED-NOTE-EXTREME-LONGTEXT',
+    title:      '[EXTREME: LONG TEXT] ' + 'A'.repeat(180) + ' — Title Overflow Test',
+    content:    blocks(
+      h1('Long Content Stress Test'),
+      ...Array.from({ length: 15 }, (_, i) => p(`Paragraph ${i + 1}: ${'The quick brown fox jumps over the lazy dog. '.repeat(5).trim()}`)),
+      h2('Long Bullet List'),
+      ...Array.from({ length: 10 }, (_, i) => bl(`Bullet ${i + 1}: ${'Lorem ipsum dolor sit amet consectetur adipiscing elit. '.repeat(3).trim()}`)),
+    ),
+    tags:       JSON.stringify(['extreme', 'long', 'overflow', 'stress', 'ui']),
+    pinned:     0,
+    created_at: daysAgo(30),
+    updated_at: daysAgo(2),
+  },
+
+  // ── X2. Special characters / injection attempts ───────────────────────────────
+  {
+    id:         'SEED-NOTE-EXTREME-SPECIALCHARS',
+    title:      "[EXTREME: SPECIAL CHARS] <script>alert('xss')</script> & \"quotes\" 'apos' -- SQL;",
+    content:    blocks(
+      h1('Special Characters & Injection Safety Test'),
+      p('<b>bold tag</b> <img src=x onerror=alert(1)>'),
+      p('<script>document.title = "HACKED"</script>'),
+      p("'; DROP TABLE notes; --"),
+      p("' OR '1'='1' --"),
+      p('{"key":"value","array":[1,2,3]}'),
+      p('Zero-width space: be\u200Bfore\u200Bafter  |  RTL override: \u202Etest\u202C'),
+    ),
+    tags:       JSON.stringify(['extreme', 'security', 'xss', 'sql']),
+    pinned:     0,
+    created_at: daysAgo(10),
+    updated_at: daysAgo(10),
+  },
+
+  // ── X3. Emoji + multilingual ──────────────────────────────────────────────────
+  {
+    id:         'SEED-NOTE-EXTREME-EMOJI',
+    title:      '🎉🕍✡️🕯️🌟 [EXTREME: EMOJI] חג שמח · Happy Holiday · Праздник · عيد مبارك 🎊🥳',
+    content:    blocks(
+      h1('🌍 Multilingual + Emoji Stress Test'),
+      p('🇮🇱 Hebrew: שלום עולם! זהו טקסט בעברית עם כיוון ימין לשמאל.'),
+      p('🇬🇧 English: The quick brown fox jumps over the lazy dog.'),
+      p('🇷🇺 Russian: Привет, мир! Это текст на русском языке.'),
+      p('🇸🇦 Arabic: مرحباً بالعالم! هذا نص عربي.'),
+      p('Emoji: 🎉🕍✡️🕯️🌟🎊🥳🙏❤️🎁 · ZWJ: 👨‍👩‍👧‍👦 👩‍💻 · Tones: 👋🏻👋🏼👋🏽👋🏾👋🏿'),
+    ),
+    tags:       JSON.stringify(['🎉', 'extreme', 'emoji', 'multilingual', 'rtl', 'עברית']),
+    pinned:     1,
+    created_at: daysAgo(5),
+    updated_at: hoursAgo(1),
+  },
+
+  // ── X4. All block types ───────────────────────────────────────────────────────
+  {
+    id:         'SEED-NOTE-EXTREME-ALLBLOCKS',
+    title:      '[EXTREME: ALL BLOCK TYPES] Rich Formatting Coverage',
+    content:    blocks(
+      h1('Heading 1'),
+      h2('Heading 2'),
+      p('Plain paragraph.'),
+      p('Bold text', { bold: true }),
+      p('Italic text', { italic: true }),
+      bl('Bullet 1'), bl('Bullet 2'), bl('Bullet 3'),
+      nb('Step 1'), nb('Step 2'), nb('Step 3'),
+      cb('const greet = (name) => `שלום, ${name}!`;\nconsole.log(greet("World"));', 'javascript'),
+      cb('SELECT id, title FROM notes ORDER BY pinned DESC;', 'sql'),
+      p(''),
+      p('X'.repeat(300)),
+    ),
+    tags:       JSON.stringify(['extreme', 'formatting', 'all-blocks', 'coverage']),
+    pinned:     0,
+    created_at: daysAgo(20),
+    updated_at: daysAgo(3),
+  },
+
+  // ── X5. Minimal — empty content, no tags ─────────────────────────────────────
+  {
+    id:         'SEED-NOTE-EXTREME-MINIMAL',
+    title:      '[EXTREME: MINIMAL] Empty Note',
+    content:    '[]',
+    tags:       '[]',
+    pinned:     0,
+    created_at: hoursAgo(2),
+    updated_at: hoursAgo(2),
   },
 ];
 
@@ -418,10 +609,28 @@ await insertLogs(normalLogs, 'normal');
 console.log('\n─── Inserting EXTREME message logs ────────────────────────────');
 await insertLogs(extremeLogs, 'extreme');
 
+async function insertNotes(rows, label) {
+  for (const n of rows) {
+    await db.execute({
+      sql: `INSERT OR REPLACE INTO notes (id, title, content, pinned, tags, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?)`,
+      args: [n.id, n.title, n.content, n.pinned, n.tags, n.created_at, n.updated_at],
+    });
+    console.log(`  ✅ note  [${label}]  ${n.id}`);
+  }
+}
+
+console.log('\n─── Inserting NORMAL notes ─────────────────────────────────────');
+await insertNotes(normalNotes, 'normal');
+
+console.log('\n─── Inserting EXTREME notes ────────────────────────────────────');
+await insertNotes(extremeNotes, 'extreme');
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 const { rows: evRows } = await db.execute('SELECT COUNT(*) as n FROM events');
 const { rows: lgRows } = await db.execute('SELECT COUNT(*) as n FROM message_logs');
+const { rows: ntRows } = await db.execute('SELECT COUNT(*) as n FROM notes');
 
 // Write the guard file so re-running the script is blocked
 writeFileSync(GUARD_FILE, new Date().toISOString());
@@ -429,5 +638,6 @@ writeFileSync(GUARD_FILE, new Date().toISOString());
 console.log('\n─── Done ───────────────────────────────────────────────────────');
 console.log(`  events        total: ${evRows[0].n}`);
 console.log(`  message_logs  total: ${lgRows[0].n}`);
+console.log(`  notes         total: ${ntRows[0].n}`);
 console.log('\n  Open the app or run: turso db shell <name>');
 console.log('  then: SELECT id, title, date FROM events ORDER BY date;');

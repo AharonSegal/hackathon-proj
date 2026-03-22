@@ -3,10 +3,11 @@
  * -----------------------
  * Axios-based API client with localStorage cache fallback.
  *
- * Exports three objects:
+ * Exports four objects:
  * - eventApi   — CRUD operations for calendar events (/api/events)
  * - messageApi — send WhatsApp/email, fetch message logs (/api/messages/*)
  * - settingsApi — save settings and send test messages (/api/settings, /api/messages/[type]/test)
+ * - notesApi   — CRUD operations for notes (/api/notes)
  *
  * Caching strategy:
  * - GET endpoints (getAll, getLogs): write response to localStorage on success,
@@ -17,6 +18,7 @@
 
 import axios from 'axios';
 import { CalendarEvent, MessageLog } from '@/shared/types/event.types';
+import { type Note } from '@/shared/types/note.types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -28,6 +30,7 @@ const api = axios.create({
 const CACHE_KEYS = {
   events: 'cache_v1_events',
   logs: 'cache_v1_message_logs',
+  notes: 'cache_v1_notes',
 } as const;
 
 function readCache<T>(key: string): T[] {
@@ -125,6 +128,37 @@ export const messageApi = {
     scheduleAt?: string;
     eventId?: string;
   }) => api.post('/messages/email', payload).then(r => r.data),
+};
+
+// ─── Notes ────────────────────────────────────────────────────────────────────
+
+export const notesApi = {
+  getAll: async (): Promise<Note[]> => {
+    try {
+      const data = await api.get<Note[]>('/notes').then(r => r.data);
+      writeCache(CACHE_KEYS.notes, data);
+      return data;
+    } catch {
+      return readCache<Note>(CACHE_KEYS.notes);
+    }
+  },
+
+  create: async (note: Omit<Note, 'createdAt' | 'updatedAt'>): Promise<Note> => {
+    const data = await api.post<Note>('/notes', note).then(r => r.data);
+    upsertCache(CACHE_KEYS.notes, data);
+    return data;
+  },
+
+  update: async (id: string, patch: Partial<Pick<Note, 'title' | 'content' | 'pinned' | 'tags'>>): Promise<Note> => {
+    const data = await api.put<Note>(`/notes/${id}`, patch).then(r => r.data);
+    upsertCache(CACHE_KEYS.notes, data);
+    return data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/notes/${id}`);
+    removeFromCache(CACHE_KEYS.notes, id);
+  },
 };
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

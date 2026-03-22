@@ -10,10 +10,11 @@
  * - ensureInit() — get the db client, creating tables if they don't exist yet
  * - rowToEvent() — convert a snake_case DB row to a camelCase CalendarEvent
  * - rowToLog()   — convert a snake_case DB row to a camelCase MessageLog
+ * - rowToNote()  — convert a snake_case DB row to a camelCase Note
  *
  * Process Flow:
  * 1. First call to ensureInit() creates the libSQL client from env vars
- * 2. Runs CREATE TABLE IF NOT EXISTS for both tables (safe to call repeatedly)
+ * 2. Runs CREATE TABLE IF NOT EXISTS for all tables (safe to call repeatedly)
  * 3. Sets _initialized = true — subsequent calls skip the CREATE TABLE step
  * 4. Returns the client ready for queries
  */
@@ -75,6 +76,18 @@ export async function ensureInit(): Promise<Client> {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS notes (
+      id         TEXT PRIMARY KEY,
+      title      TEXT NOT NULL DEFAULT 'Untitled Note',
+      content    TEXT NOT NULL DEFAULT '[]',
+      pinned     INTEGER NOT NULL DEFAULT 0,
+      tags       TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
   _initialized = true;
   return db;
 }
@@ -123,5 +136,21 @@ export function rowToLog(row: Row) {
     error:       (row.error as string | null) ?? undefined,
     eventId:     (row.event_id as string | null) ?? undefined,
     createdAt:   row.created_at as string,
+  };
+}
+
+export function rowToNote(row: Row) {
+  let tags: string[] = [];
+  if (row.tags && typeof row.tags === 'string') {
+    try { tags = JSON.parse(row.tags); } catch { /* ignore */ }
+  }
+  return {
+    id:        row.id as string,
+    title:     row.title as string,
+    content:   (row.content as string) ?? '[]',
+    pinned:    Boolean(row.pinned),
+    tags,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
   };
 }

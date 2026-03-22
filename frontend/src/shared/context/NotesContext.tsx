@@ -1,21 +1,34 @@
 /**
  * shared/context/NotesContext.tsx
  * --------------------------------
- * Global notes state persisted to localStorage.
+ * Global notes state backed by the Turso database via /api/notes.
  *
- * Mirrors the API of the Firebase-backed NotesContext from the
- * data_manage_app project, but stores everything locally so no
- * backend changes are needed.
- *
- * All operations are synchronous writes to localStorage; the state
- * update triggers a re-render immediately across the app.
+ * Strategy:
+ * - On mount: render from localStorage cache immediately, then fetch from API
+ *   and replace (same pattern as events).
+ * - All mutations are optimistic: state + cache update instantly, then API call
+ *   fires in the background. On API failure the change is reverted + toast shown.
+ * - Content updates (every keystroke) are debounced 1.5 s before hitting the DB.
+ * - notesRef always holds the latest notes array, preventing stale-closure bugs
+ *   in async callbacks.
  */
 
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import { type Note } from '@/shared/types/note.types';
-import { SEED_NOTES } from '@/shared/data/notesSeedData';
+import { notesApi } from '@/shared/hooks/useApi';
 
-const STORAGE_KEY = 'calendar_notes';
+const CACHE_KEY = 'cache_v1_notes';
+
+function loadCache(): Note[] {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) ?? '[]'); }
+  catch { return []; }
+}
+
+function saveCache(notes: Note[]) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(notes)); }
+  catch { /* storage full — ignore */ }
+}
 
 interface NotesContextValue {
   notes: Note[];
@@ -32,78 +45,109 @@ interface NotesContextValue {
 
 const NotesContext = createContext<NotesContextValue | null>(null);
 
-function loadNotes(): Note[] {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  // Key has never been set → first visit. Seed with mock data and persist it.
-  if (raw === null) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_NOTES));
-    return SEED_NOTES;
-  }
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
-}
-
-function saveNotes(notes: Note[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-}
-
 export function NotesProvider({ children }: { children: ReactNode }) {
-  const [notes, setNotes] = useState<Note[]>(loadNotes);
+  const [notes, setNotesState] = useState<Note[]>(loadCache);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
 
-  // Persist + update state together
+  // notesRef always tracks the latest notes to avoid stale closures in async callbacks
+  const notesRef = useRef<Note[]>(notes);
+  const contentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Commit a new notes array to state + ref + cache, keep selectedNote in sync */
   const commit = (next: Note[]) => {
-    saveNotes(next);
-    setNotes(next);
-    // Keep selectedNote in sync with any field updates
+    notesRef.current = next;
+    setNotesState(next);
+    saveCache(next);
     setSelectedNote(prev => prev ? (next.find(n => n.id === prev.id) ?? null) : null);
   };
 
+  // ── Fetch from DB on mount ────────────────────────────────────────────────
+  useEffect(() => {
+    notesApi.getAll().then(data => commit(data)).catch(() => { /* stay on cache */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+
   const createNote = () => {
     const note: Note = {
-      id: crypto.randomUUID(),
-      title: 'Untitled Note',
-      content: '[]',
+      id:        crypto.randomUUID(),
+      title:     'Untitled Note',
+      content:   '[]',
+      pinned:    false,
+      tags:      [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      pinned: false,
-      tags: [],
     };
-    const next = [note, ...notes];
-    saveNotes(next);
-    setNotes(next);
-    setSelectedNote(note); // select new note immediately
+    const snapshot = notesRef.current;
+    commit([note, ...snapshot]);
+    setSelectedNote(note);
+
+    notesApi.create(note)
+      .then(saved => commit(notesRef.current.map(n => n.id === note.id ? saved : n)))
+      .catch(() => { commit(snapshot); toast.error('Failed to create note'); });
   };
 
   const updateNote = (id: string, content: string) => {
-    commit(notes.map(n => n.id === id ? { ...n, content, updatedAt: new Date().toISOString() } : n));
+    const next = notesRef.current.map(n =>
+      n.id === id ? { ...n, content, updatedAt: new Date().toISOString() } : n,
+    );
+    commit(next);
+
+    // Debounce DB write — content changes on every keystroke
+    if (contentTimer.current) clearTimeout(contentTimer.current);
+    contentTimer.current = setTimeout(() => {
+      notesApi.update(id, { content }).catch(() => toast.error('Auto-save failed'));
+    }, 1500);
   };
 
   const deleteNote = (id: string) => {
-    commit(notes.filter(n => n.id !== id));
+    const snapshot = notesRef.current;
+    commit(snapshot.filter(n => n.id !== id));
+
+    notesApi.delete(id).catch(() => { commit(snapshot); toast.error('Failed to delete note'); });
   };
 
   const togglePin = (id: string) => {
-    commit(notes.map(n => n.id === id ? { ...n, pinned: !n.pinned, updatedAt: new Date().toISOString() } : n));
+    const note = notesRef.current.find(n => n.id === id);
+    if (!note) return;
+    const snapshot = notesRef.current;
+    commit(snapshot.map(n =>
+      n.id === id ? { ...n, pinned: !n.pinned, updatedAt: new Date().toISOString() } : n,
+    ));
+    notesApi.update(id, { pinned: !note.pinned })
+      .catch(() => { commit(snapshot); toast.error('Failed to update note'); });
   };
 
   const renameNote = (id: string, title: string) => {
-    commit(notes.map(n => n.id === id ? { ...n, title, updatedAt: new Date().toISOString() } : n));
+    const snapshot = notesRef.current;
+    commit(snapshot.map(n =>
+      n.id === id ? { ...n, title, updatedAt: new Date().toISOString() } : n,
+    ));
+    notesApi.update(id, { title })
+      .catch(() => { commit(snapshot); toast.error('Failed to rename note'); });
   };
 
   const updateTags = (id: string, tags: string[]) => {
-    commit(notes.map(n => n.id === id ? { ...n, tags, updatedAt: new Date().toISOString() } : n));
+    const snapshot = notesRef.current;
+    commit(snapshot.map(n =>
+      n.id === id ? { ...n, tags, updatedAt: new Date().toISOString() } : n,
+    ));
+    notesApi.update(id, { tags })
+      .catch(() => { commit(snapshot); toast.error('Failed to update tags'); });
   };
 
   const restoreNote = (note: Note) => {
-    const exists = notes.some(n => n.id === note.id);
-    const next = exists ? notes.map(n => n.id === note.id ? note : n) : [note, ...notes];
-    saveNotes(next);
-    setNotes(next);
+    const snapshot = notesRef.current;
+    const exists = snapshot.some(n => n.id === note.id);
+    const next = exists
+      ? snapshot.map(n => n.id === note.id ? note : n)
+      : [note, ...snapshot];
+    commit(next);
     setSelectedNote(note);
+
+    notesApi.create(note)
+      .catch(() => { commit(snapshot); toast.error('Failed to restore note'); });
   };
 
   return (
