@@ -47,7 +47,7 @@ export function DashboardPage() {
   const sentMessages = logs.filter(l => l.status === 'sent').length;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 overflow-y-auto flex-1">
       <PageHeader
         title="Dashboard"
         subtitle={`${today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} · ${gematriyaDay(hToday.getDate())} ${hebrewMonthName(hToday)} ${hToday.getFullYear()}`}

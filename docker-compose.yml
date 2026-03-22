@@ -5,7 +5,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data        # persist SQLite DB outside the container
+      - calendar_db:/app/data   # named volume — visible in Docker Desktop
     env_file:
       - ./backend/.env
     environment:
@@ -20,3 +20,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  calendar_db:

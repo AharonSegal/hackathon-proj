@@ -7,7 +7,7 @@ export function AppLayout() {
   return (
     <div className="flex h-screen bg-app-bg overflow-hidden">
       <AppSidebar />
-      <main className="flex-1 ml-60 overflow-y-auto">
+      <main className="flex-1 ml-60 flex flex-col overflow-hidden">
         <Outlet />
       </main>
       <BackendStatus />
