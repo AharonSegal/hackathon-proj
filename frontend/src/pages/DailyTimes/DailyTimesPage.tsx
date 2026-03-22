@@ -23,6 +23,7 @@ import { HDate, HebrewCalendar } from '@hebcal/core';
 import { ZmanimCalendar, GeoLocation } from 'kosher-zmanim';
 import { gematriyaDay, hebrewMonthName } from '@/pages/Calendar/hooks/useCalendar';
 import { clsx } from 'clsx';
+import { useT } from '@/shared/i18n/useT';
 
 interface ZmanRow {
   key: string;
@@ -61,6 +62,7 @@ function buildZmanimCalc(date: Date, lat: number, lng: number, tz: string): Zman
 }
 
 export function DailyTimesPage() {
+  const t = useT();
   const { settings } = useSettings();
   const { location } = settings.zmanim;
   const [viewDate, setViewDate] = useState(new Date());
@@ -138,12 +140,12 @@ export function DailyTimesPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Daily Times"
-        subtitle={`Zmanim for ${location.name}`}
+        title={t.daily_times_title}
+        subtitle={`${t.daily_times_subtitle_prefix} ${location.name}`}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setViewDate(new Date())}>
-              Today
+              {t.btn_today}
             </Button>
             <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden">
               <button onClick={() => stepDay(-1)} className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors">
@@ -172,9 +174,9 @@ export function DailyTimesPage() {
               {parasha && <p className="text-xs text-primary-400 mt-1">{parasha}</p>}
             </div>
             <div className="text-right space-y-1.5">
-              {isShabbat && <span className="badge bg-violet-500/20 text-violet-300 border-violet-500/30 border">Shabbat</span>}
-              {isErevShabbat && <span className="badge bg-amber-500/20 text-amber-300 border-amber-500/30 border">Erev Shabbat</span>}
-              {isToday && !isShabbat && !isErevShabbat && <span className="badge bg-primary-500/20 text-primary-300 border-primary-500/30 border">Today</span>}
+              {isShabbat && <span className="badge bg-violet-500/20 text-violet-300 border-violet-500/30 border">{t.badge_shabbat}</span>}
+              {isErevShabbat && <span className="badge bg-amber-500/20 text-amber-300 border-amber-500/30 border">{t.badge_erev_shabbat}</span>}
+              {isToday && !isShabbat && !isErevShabbat && <span className="badge bg-primary-500/20 text-primary-300 border-primary-500/30 border">{t.badge_today}</span>}
               <div className="flex items-center gap-1.5 text-xs text-slate-500 justify-end">
                 <MapPin size={11} />
                 {location.name}
@@ -185,11 +187,11 @@ export function DailyTimesPage() {
           {/* Zmanim table */}
           <div className="card overflow-hidden p-0">
             <div className="px-4 py-3 border-b border-slate-700">
-              <h2 className="text-sm font-semibold text-slate-100">Zmanim</h2>
+              <h2 className="text-sm font-semibold text-slate-100">{t.zmanim_section}</h2>
             </div>
             <div className="divide-y divide-slate-800">
               {zmanim.length === 0 ? (
-                <p className="p-4 text-sm text-slate-500">Enable zmanim in Settings to see times</p>
+                <p className="p-4 text-sm text-slate-500">{t.zmanim_empty}</p>
               ) : (
                 zmanim.map(row => (
                   <div

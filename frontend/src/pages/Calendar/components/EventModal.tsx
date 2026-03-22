@@ -24,11 +24,12 @@ import { Button } from '@/shared/components/ui/Button';
 import { Input, Textarea } from '@/shared/components/ui/Input';
 import { CalendarEvent, EventColor } from '@/shared/types/event.types';
 import { DayInfo } from '@/pages/Calendar/hooks/useCalendar';
-import { Mail, MessageCircle, Trash2, Clock } from 'lucide-react';
+import { Mail, MessageCircle, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { toast } from 'sonner';
 import { eventApi } from '@/shared/hooks/useApi';
 import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
+import { useT } from '@/shared/i18n/useT';
 
 const COLORS: { value: EventColor; label: string; cls: string }[] = [
   { value: 'indigo', label: 'Indigo', cls: 'bg-indigo-500' },
@@ -49,6 +50,7 @@ interface EventModalProps {
 }
 
 export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }: EventModalProps) {
+  const t = useT();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -161,7 +163,7 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
     <Modal
       open={open}
       onClose={onClose}
-      title={editEvent ? 'Edit Event' : 'New Event'}
+      title={editEvent ? t.edit_event : t.create_event_title}
       size="lg"
     >
       <div className="space-y-4">
@@ -170,8 +172,8 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
 
         {/* Title */}
         <Input
-          label="Title"
-          placeholder="Event title..."
+          label={t.field_title}
+          placeholder={t.placeholder_title}
           value={title}
           onChange={e => setTitle(e.target.value)}
           autoFocus
@@ -179,8 +181,8 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
 
         {/* Description */}
         <Textarea
-          label="Description"
-          placeholder="Optional notes..."
+          label={t.field_description}
+          placeholder={t.placeholder_description}
           value={description}
           onChange={e => setDescription(e.target.value)}
           className="min-h-[60px]"
@@ -196,20 +198,20 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
                 onChange={e => setAllDay(e.target.checked)}
                 className="accent-primary-500"
               />
-              All day
+              {t.field_all_day}
             </label>
           </div>
           {!allDay && (
             <div className="flex gap-3">
-              <Input label="Start time" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
-              <Input label="End time" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+              <Input label={t.field_start_time} type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
+              <Input label={t.field_end_time} type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
             </div>
           )}
         </div>
 
         {/* Color */}
         <div>
-          <label className="block text-xs font-medium text-slate-400 mb-2">Color</label>
+          <label className="block text-xs font-medium text-slate-400 mb-2">{t.field_color}</label>
           <div className="flex gap-2">
             {COLORS.map(c => (
               <button
@@ -228,7 +230,7 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
         {/* Scheduled actions */}
         <div className="border border-slate-700 rounded-lg overflow-hidden">
           <div className="px-3 py-2 bg-slate-900/50 text-xs font-medium text-slate-400">
-            Scheduled actions
+            {t.scheduled_actions}
           </div>
 
           {/* Email */}
@@ -236,14 +238,14 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
             <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
               <input type="checkbox" checked={addEmail} onChange={e => setAddEmail(e.target.checked)} className="accent-primary-500" />
               <Mail size={14} className="text-blue-400" />
-              Schedule Email
+              {t.schedule_email}
             </label>
             {addEmail && (
               <div className="mt-3 space-y-2 pl-6">
-                <Input label="To (comma-separated)" placeholder="email@example.com" value={emailTo} onChange={e => setEmailTo(e.target.value)} />
-                <Input label="Subject" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} />
-                <Textarea label="Body" value={emailBody} onChange={e => setEmailBody(e.target.value)} className="min-h-[60px]" />
-                <Input label="Send at" type="datetime-local" value={emailAt} onChange={e => setEmailAt(e.target.value)} />
+                <Input label={t.field_email_to} placeholder="email@example.com" value={emailTo} onChange={e => setEmailTo(e.target.value)} />
+                <Input label={t.field_email_subject} value={emailSubject} onChange={e => setEmailSubject(e.target.value)} />
+                <Textarea label={t.field_email_body} value={emailBody} onChange={e => setEmailBody(e.target.value)} className="min-h-[60px]" />
+                <Input label={t.field_send_at} type="datetime-local" value={emailAt} onChange={e => setEmailAt(e.target.value)} />
               </div>
             )}
           </div>
@@ -253,13 +255,13 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
             <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
               <input type="checkbox" checked={addWhatsApp} onChange={e => setAddWhatsApp(e.target.checked)} className="accent-primary-500" />
               <MessageCircle size={14} className="text-green-400" />
-              Schedule WhatsApp
+              {t.schedule_whatsapp}
             </label>
             {addWhatsApp && (
               <div className="mt-3 space-y-2 pl-6">
-                <Input label="Phone (e.g. +972501234567)" placeholder="+972..." value={wpTo} onChange={e => setWpTo(e.target.value)} />
-                <Textarea label="Message" value={wpMessage} onChange={e => setWpMessage(e.target.value)} className="min-h-[80px]" />
-                <Input label="Send at" type="datetime-local" value={wpAt} onChange={e => setWpAt(e.target.value)} />
+                <Input label={t.field_phone} placeholder="+972..." value={wpTo} onChange={e => setWpTo(e.target.value)} />
+                <Textarea label={t.field_message} value={wpMessage} onChange={e => setWpMessage(e.target.value)} className="min-h-[80px]" />
+                <Input label={t.field_send_at} type="datetime-local" value={wpAt} onChange={e => setWpAt(e.target.value)} />
               </div>
             )}
           </div>
@@ -271,16 +273,16 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
             {editEvent && (
               <Button variant="danger" size="sm" onClick={handleDelete} loading={loading}>
                 <Trash2 size={13} />
-                Delete
+                {t.btn_delete}
               </Button>
             )}
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={onClose}>
-              Cancel
+              {t.btn_cancel}
             </Button>
             <Button size="sm" onClick={handleSave} loading={loading} disabled={!title.trim()}>
-              {editEvent ? 'Update' : 'Create'} Event
+              {editEvent ? t.btn_update : t.btn_create} {t.btn_event_suffix}
             </Button>
           </div>
         </div>

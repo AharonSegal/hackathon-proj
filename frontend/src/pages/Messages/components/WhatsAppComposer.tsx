@@ -29,6 +29,7 @@ import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
 import { WhatsAppPhonePreview } from './WhatsAppPhonePreview';
+import { useT } from '@/shared/i18n/useT';
 
 /** Pre-written Hebrew message templates for common event use cases */
 const QUICK_TEMPLATES = [
@@ -60,6 +61,7 @@ const EMOJIS = [
 ];
 
 export function WhatsAppComposer() {
+  const t = useT();
   const [to,          setTo]          = useState('');
   const [message,     setMessage]     = useState('');
   const [scheduleAt,  setScheduleAt]  = useState('');
@@ -149,14 +151,14 @@ export function WhatsAppComposer() {
             <MessageCircle size={16} className="text-white" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-100">WhatsApp Message</h3>
-            <p className="text-xs text-slate-400">Send via WhatsApp Business API</p>
+            <h3 className="text-sm font-semibold text-slate-100">{t.wa_message_title}</h3>
+            <p className="text-xs text-slate-400">{t.wa_message_subtitle}</p>
           </div>
         </div>
 
         {/* Recipient phone number */}
         <Input
-          label="Recipient (phone with country code)"
+          label={t.wa_recipient}
           placeholder="+972501234567"
           value={to}
           onChange={e => setTo(e.target.value)}
@@ -165,7 +167,7 @@ export function WhatsAppComposer() {
 
         {/* Quick template buttons — clicking replaces the entire message */}
         <div>
-          <label className="block text-xs font-medium text-slate-400 mb-2">Quick Templates</label>
+          <label className="block text-xs font-medium text-slate-400 mb-2">{t.wa_quick_templates}</label>
           <div className="flex flex-wrap gap-2">
             {QUICK_TEMPLATES.map(t => (
               <button
@@ -181,7 +183,7 @@ export function WhatsAppComposer() {
 
         {/* Message editor with formatting toolbar */}
         <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1.5">Message</label>
+          <label className="block text-xs font-medium text-slate-400 mb-1.5">{t.wa_message}</label>
 
           {/* Formatting toolbar — sits above the textarea with a connected border */}
           <div className="flex items-center gap-0.5 bg-slate-800 border border-slate-600 border-b-0 rounded-t-lg px-2 py-1.5">
@@ -264,10 +266,10 @@ export function WhatsAppComposer() {
               onChange={e => setIsScheduled(e.target.checked)}
               className="accent-[#25d366]" />
             <Clock size={14} className="text-slate-400" />
-            <span className="text-sm text-slate-300">Schedule for later</span>
+            <span className="text-sm text-slate-300">{t.wa_schedule_later}</span>
           </label>
           {isScheduled && (
-            <Input label="Send at" type="datetime-local"
+            <Input label={t.wa_send_at} type="datetime-local"
               value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
           )}
         </div>
@@ -276,7 +278,7 @@ export function WhatsAppComposer() {
         <Button variant="whatsapp" className="w-full"
           onClick={handleSend} loading={loading} disabled={!isValid}>
           <Send size={15} />
-          {isScheduled ? 'Schedule Message' : 'Send Now'}
+          {isScheduled ? t.wa_schedule_btn : t.wa_send_now}
         </Button>
       </div>
 

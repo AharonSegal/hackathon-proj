@@ -19,8 +19,10 @@ import { Input, Textarea } from '@/shared/components/ui/Input';
 import { messageApi } from '@/shared/hooks/useApi';
 import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
 import { toast } from 'sonner';
+import { useT } from '@/shared/i18n/useT';
 
 export function EmailComposer() {
+  const t = useT();
   const [toList, setToList] = useState<string[]>([]);
   const [toInput, setToInput] = useState('');
   const [subject, setSubject] = useState('');
@@ -80,14 +82,14 @@ export function EmailComposer() {
           <Mail size={16} className="text-white" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-slate-100">Email Message</h3>
-          <p className="text-xs text-slate-400">Send via SMTP</p>
+          <h3 className="text-sm font-semibold text-slate-100">{t.email_message_title}</h3>
+          <p className="text-xs text-slate-400">{t.email_message_subtitle}</p>
         </div>
       </div>
 
       {/* To field */}
       <div>
-        <label className="block text-xs font-medium text-slate-400 mb-1.5">To</label>
+        <label className="block text-xs font-medium text-slate-400 mb-1.5">{t.email_to}</label>
         <div className="bg-slate-900 border border-slate-600 rounded-lg p-2 focus-within:ring-2 focus-within:ring-primary-500/50 focus-within:border-primary-500 transition-colors">
           <div className="flex flex-wrap gap-1.5 mb-1.5">
             {toList.map(email => (
@@ -106,7 +108,7 @@ export function EmailComposer() {
               onChange={e => setToInput(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={addRecipient}
-              placeholder="Add email address..."
+              placeholder={t.email_add_address}
               className="flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-500 outline-none"
             />
             <button onClick={addRecipient} className="p-1 text-slate-400 hover:text-slate-100">
@@ -114,21 +116,21 @@ export function EmailComposer() {
             </button>
           </div>
         </div>
-        <p className="text-xs text-slate-500 mt-1">Press Enter or comma to add</p>
+        <p className="text-xs text-slate-500 mt-1">{t.email_press_enter}</p>
       </div>
 
       {/* Subject */}
       <Input
-        label="Subject"
-        placeholder="Email subject..."
+        label={t.email_subject}
+        placeholder={t.email_subject_placeholder}
         value={subject}
         onChange={e => setSubject(e.target.value)}
       />
 
       {/* Body */}
       <Textarea
-        label="Message body"
-        placeholder="Write your email..."
+        label={t.email_body}
+        placeholder={t.email_body_placeholder}
         value={body}
         onChange={e => setBody(e.target.value)}
         className="min-h-[160px]"
@@ -145,11 +147,11 @@ export function EmailComposer() {
             className="accent-blue-500"
           />
           <Clock size={14} className="text-slate-400" />
-          <span className="text-sm text-slate-300">Schedule for later</span>
+          <span className="text-sm text-slate-300">{t.email_schedule_later}</span>
         </label>
         {isScheduled && (
           <Input
-            label="Send at"
+            label={t.email_send_at}
             type="datetime-local"
             value={scheduleAt}
             onChange={e => setScheduleAt(e.target.value)}
@@ -165,7 +167,7 @@ export function EmailComposer() {
         disabled={!isValid}
       >
         <Send size={15} />
-        {isScheduled ? 'Schedule Email' : 'Send Now'}
+        {isScheduled ? t.email_schedule_btn : t.email_send_now}
       </Button>
     </div>
   );

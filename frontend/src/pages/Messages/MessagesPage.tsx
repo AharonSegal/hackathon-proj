@@ -27,8 +27,10 @@ import { MessageLogPanel } from './components/MessageLogPanel';
 import { MessageLog } from '@/shared/types/event.types';
 import { messageApi } from '@/shared/hooks/useApi';
 import { clsx } from 'clsx';
+import { useT } from '@/shared/i18n/useT';
 
 export function MessagesPage() {
+  const t = useT();
   const [logs,      setLogs]      = useState<MessageLog[]>([]);
   const [activeTab, setActiveTab] = useState<string>('whatsapp');
 
@@ -53,7 +55,7 @@ export function MessagesPage() {
         )}
       >
         <MessageCircle size={15} />
-        WhatsApp
+        {t.tab_whatsapp}
       </Tabs.Trigger>
       <Tabs.Trigger
         value="email"
@@ -64,7 +66,7 @@ export function MessagesPage() {
         )}
       >
         <Mail size={15} />
-        Email
+        {t.tab_email}
       </Tabs.Trigger>
     </Tabs.List>
   );
@@ -72,8 +74,8 @@ export function MessagesPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Messages"
-        subtitle="Send and schedule WhatsApp & Email messages"
+        title={t.messages_title}
+        subtitle={t.messages_subtitle}
       />
 
       <div className="flex-1 overflow-auto p-6">

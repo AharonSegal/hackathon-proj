@@ -30,8 +30,10 @@ import { gematriyaDay, hebrewMonthName } from '@/pages/Calendar/hooks/useCalenda
 import { EVENT_DOT_COLORS } from '@/shared/colors';
 import { StatCard } from './components/StatCard';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
+import { useT } from '@/shared/i18n/useT';
 
 export function DashboardPage() {
+  const t = useT();
   const navigate = useNavigate();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [logs,   setLogs]   = useState<MessageLog[]>([]);
@@ -61,27 +63,27 @@ export function DashboardPage() {
   return (
     <div className="p-6 space-y-6 overflow-y-auto flex-1">
       <PageHeader
-        title="Dashboard"
+        title={t.dashboard_title}
         subtitle={`${today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} · ${gematriyaDay(hToday.getDate())} ${hebrewMonthName(hToday)} ${hToday.getFullYear()}`}
         actions={
           <Button size="sm" onClick={() => navigate('/calendar')}>
             <Plus size={14} />
-            New Event
+            {t.dashboard_new_event}
           </Button>
         }
       />
 
       {/* ── Stats row ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={CalendarDays}  label="Total Events"     value={events.length}      color="bg-primary-600" />
-        <StatCard icon={Clock}         label="Today's Events"   value={todayEvents.length} color="bg-violet-600" />
-        <StatCard icon={Mail}          label="Pending Messages" value={pendingMessages}     color="bg-blue-600" />
-        <StatCard icon={MessageCircle} label="Sent Messages"    value={sentMessages}        color="bg-emerald-600" />
+        <StatCard icon={CalendarDays}  label={t.stat_total_events}  value={events.length}      color="bg-primary-600" />
+        <StatCard icon={Clock}         label={t.stat_today_events}  value={todayEvents.length} color="bg-violet-600" />
+        <StatCard icon={Mail}          label={t.stat_pending}        value={pendingMessages}     color="bg-blue-600" />
+        <StatCard icon={MessageCircle} label={t.stat_sent}           value={sentMessages}        color="bg-emerald-600" />
       </div>
 
       {/* ── System diagnostics ── */}
       <div>
-        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">System Diagnostics</h2>
+        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{t.system_diagnostics}</h2>
         <DiagnosticsPanel />
       </div>
 
@@ -90,9 +92,9 @@ export function DashboardPage() {
 
         {/* Today's events */}
         <div className="card">
-          <h2 className="text-sm font-semibold text-slate-100 mb-3">Today</h2>
+          <h2 className="text-sm font-semibold text-slate-100 mb-3">{t.today}</h2>
           {todayEvents.length === 0 ? (
-            <p className="text-sm text-slate-500">No events today</p>
+            <p className="text-sm text-slate-500">{t.no_events_today}</p>
           ) : (
             <div className="space-y-2">
               {todayEvents.map(ev => (
@@ -113,9 +115,9 @@ export function DashboardPage() {
 
         {/* Upcoming events (next 5) */}
         <div className="card">
-          <h2 className="text-sm font-semibold text-slate-100 mb-3">Upcoming Events</h2>
+          <h2 className="text-sm font-semibold text-slate-100 mb-3">{t.upcoming_events}</h2>
           {upcomingEvents.length === 0 ? (
-            <p className="text-sm text-slate-500">No upcoming events</p>
+            <p className="text-sm text-slate-500">{t.no_upcoming}</p>
           ) : (
             <div className="space-y-2">
               {upcomingEvents.map(ev => {

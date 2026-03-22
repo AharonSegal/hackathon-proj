@@ -15,6 +15,8 @@ export type CalendarMode = 'gregorian' | 'hebrew';
 
 export type WeekStart = 0 | 1; // 0 = Sunday, 1 = Monday
 
+export type Language = 'en' | 'he';
+
 export interface HolidaySettings {
   // Jewish holidays
   majorHolidays: boolean;     // Rosh Hashana, Yom Kippur, Pesach, etc.
@@ -51,6 +53,7 @@ export interface ZmanimSettings {
 }
 
 export interface AppSettings {
+  language: Language;           // UI language: 'he' = Hebrew (RTL), 'en' = English (LTR)
   calendarMode: CalendarMode;
   weekStart: WeekStart;
   holidays: HolidaySettings;
@@ -66,6 +69,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  language: 'he',
   calendarMode: 'hebrew',
   weekStart: 0,
   holidays: {

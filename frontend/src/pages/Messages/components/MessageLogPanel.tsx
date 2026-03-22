@@ -14,6 +14,7 @@
 import { MessageCircle, Mail, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { MessageLog } from '@/shared/types/event.types';
 import { Badge } from '@/shared/components/ui/Badge';
+import { useT } from '@/shared/i18n/useT';
 
 /** Icon shown next to each log entry based on its delivery status */
 const STATUS_ICON = {
@@ -34,16 +35,17 @@ interface MessageLogPanelProps {
 }
 
 export function MessageLogPanel({ logs }: MessageLogPanelProps) {
+  const t = useT();
   return (
     <div className="card overflow-hidden flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-slate-100">Message Log</h2>
-        <span className="text-xs text-slate-500">{logs.length} messages</span>
+        <h2 className="text-sm font-semibold text-slate-100">{t.message_log}</h2>
+        <span className="text-xs text-slate-500">{logs.length} {t.messages_suffix}</span>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-2">
         {logs.length === 0 ? (
-          <p className="text-sm text-slate-500 text-center py-8">No messages yet</p>
+          <p className="text-sm text-slate-500 text-center py-8">{t.no_messages_yet}</p>
         ) : (
           logs.map(log => (
             <div key={log.id} className="p-3 rounded-lg bg-slate-900/50 border border-slate-800">

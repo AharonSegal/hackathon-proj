@@ -29,8 +29,10 @@ import { EventModal } from './components/EventModal';
 import { useCalendar, DayInfo } from './hooks/useCalendar';
 import { CalendarEvent } from '@/shared/types/event.types';
 import { eventApi } from '@/shared/hooks/useApi';
+import { useT } from '@/shared/i18n/useT';
 
 export function CalendarPage() {
+  const t = useT();
   const [events,     setEvents]     = useState<CalendarEvent[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayInfo | null>(null);
   const [editEvent,   setEditEvent]   = useState<CalendarEvent | null>(null);
@@ -90,12 +92,12 @@ export function CalendarPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Calendar"
-        subtitle="Hebrew / Gregorian dual calendar"
+        title={t.calendar_title}
+        subtitle={t.calendar_subtitle}
         actions={
           <Button size="sm" onClick={handleNewEvent}>
             <Plus size={14} />
-            New Event
+            {t.new_event}
           </Button>
         }
       />
