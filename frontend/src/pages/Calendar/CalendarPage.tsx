@@ -22,20 +22,19 @@ export function CalendarPage() {
     eventApi.getAll().then(setEvents).catch(() => toast.error('Failed to load events'));
   }, []);
 
+  // Clicking a day always opens "new event" for that date
   const handleDayClick = useCallback((day: DayInfo) => {
     setSelectedDay(day);
-    // If clicked on an existing event, edit it; else open new event modal
-    if (day.events.length === 0) {
-      setEditEvent(null);
-      setModalOpen(true);
-    }
+    setEditEvent(null);
+    setModalOpen(true);
   }, []);
 
-  const handleEventClick = (ev: CalendarEvent, day: DayInfo) => {
+  // Clicking an existing event pill opens edit modal
+  const handleEventClick = useCallback((ev: CalendarEvent, day: DayInfo) => {
     setSelectedDay(day);
     setEditEvent(ev);
     setModalOpen(true);
-  };
+  }, []);
 
   const handleNewEvent = () => {
     setEditEvent(null);
@@ -81,6 +80,7 @@ export function CalendarPage() {
           days={days}
           selectedDate={selectedDateStr}
           onDayClick={handleDayClick}
+          onEventClick={handleEventClick}
         />
       </div>
 
