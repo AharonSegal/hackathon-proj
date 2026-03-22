@@ -15,6 +15,27 @@
  */
 
 import { createClient } from '@libsql/client';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+
+// ── Guard — refuse to run more than once ──────────────────────────────────────
+
+const GUARD_FILE = '.seed-done';
+
+if (existsSync(GUARD_FILE)) {
+  console.log('');
+  console.log('╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  ⚠️   SEED ALREADY RAN — DO NOT RUN AGAIN                   ║');
+  console.log('║                                                              ║');
+  console.log('║  The database already contains seed data.                   ║');
+  console.log('║  Re-running will overwrite any real data you added.         ║');
+  console.log('║                                                              ║');
+  console.log('║  If you really want to reseed, delete .seed-done first:     ║');
+  console.log('║    del .seed-done          (Windows)                        ║');
+  console.log('║    rm .seed-done           (Mac / Linux)                    ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝');
+  console.log('');
+  process.exit(0);
+}
 
 // ── Connect ───────────────────────────────────────────────────────────────────
 
@@ -401,6 +422,9 @@ await insertLogs(extremeLogs, 'extreme');
 
 const { rows: evRows } = await db.execute('SELECT COUNT(*) as n FROM events');
 const { rows: lgRows } = await db.execute('SELECT COUNT(*) as n FROM message_logs');
+
+// Write the guard file so re-running the script is blocked
+writeFileSync(GUARD_FILE, new Date().toISOString());
 
 console.log('\n─── Done ───────────────────────────────────────────────────────');
 console.log(`  events        total: ${evRows[0].n}`);

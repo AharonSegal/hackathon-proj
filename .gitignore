@@ -24,6 +24,9 @@ backend/.env
 *.sqlite
 data/
 
+# Seed guard (local-only flag that prevents re-running seed.mjs)
+.seed-done
+
 # Docker
 .dockerignore
 
