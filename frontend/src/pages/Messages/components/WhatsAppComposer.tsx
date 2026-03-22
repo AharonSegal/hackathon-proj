@@ -57,7 +57,7 @@ export function WhatsAppComposer() {
   const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const backendStatus = useBackendStatus();
+  const { status: backendStatus } = useBackendStatus();
   const charCount = message.length;
   const isValid = to.trim() && message.trim();
 

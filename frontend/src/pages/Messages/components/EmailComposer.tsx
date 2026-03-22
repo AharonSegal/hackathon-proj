@@ -32,7 +32,7 @@ export function EmailComposer() {
 
   const removeRecipient = (email: string) => setToList(prev => prev.filter(e => e !== email));
 
-  const backendStatus = useBackendStatus();
+  const { status: backendStatus } = useBackendStatus();
   const isValid = toList.length > 0 && subject.trim() && body.trim();
 
   const handleSend = async () => {

@@ -76,7 +76,7 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
     }
   }, [editEvent, open]);
 
-  const backendStatus = useBackendStatus();
+  const { status: backendStatus } = useBackendStatus();
 
   const handleSave = async () => {
     if (!title.trim() || !day) return;
