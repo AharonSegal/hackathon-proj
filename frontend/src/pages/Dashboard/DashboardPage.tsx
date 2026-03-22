@@ -6,7 +6,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { CalendarEvent, MessageLog } from '@/shared/types/event.types';
 import { eventApi, messageApi } from '@/shared/hooks/useApi';
-import { useBackendStatus, retryConnection } from '@/shared/hooks/useBackendStatus';
+import { useBackendStatus, retryConnection, type BackendDetail } from '@/shared/hooks/useBackendStatus';
 import { HDate } from '@hebcal/core';
 import { gematriyaDay, hebrewMonthName } from '@/pages/Calendar/hooks/useCalendar';
 
@@ -20,7 +20,8 @@ const COLOR_DOT: Record<string, string> = {
 };
 
 function ConnectionCard() {
-  const status = useBackendStatus();
+  const detail = useBackendStatus();
+  const { status } = detail;
 
   const dot =
     status === 'online'   ? 'bg-emerald-500' :
@@ -37,23 +38,40 @@ function ConnectionCard() {
     status === 'offline'  ? 'text-rose-400'    :
                             'text-amber-400';
 
+  // Build debug lines
+  const debugLines: string[] = [];
+  if (detail.latencyMs !== undefined) debugLines.push(`API: ${detail.latencyMs}ms`);
+  if (detail.db) debugLines.push(`DB: ${detail.db}`);
+  if (detail.error) debugLines.push(`Error: ${detail.error}`);
+
   return (
-    <div className="card flex items-center justify-between gap-4">
-      <div className="flex items-center gap-3">
-        <div className={`w-3 h-3 rounded-full ${dot}`} />
-        <div>
-          <p className={`text-sm font-semibold ${textColor}`}>{label}</p>
-          <p className="text-xs text-slate-500">Backend API</p>
+    <div className="card space-y-2">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-3 h-3 rounded-full ${dot}`} />
+          <div>
+            <p className={`text-sm font-semibold ${textColor}`}>{label}</p>
+            <p className="text-xs text-slate-500">Backend API</p>
+          </div>
         </div>
+        <button
+          onClick={retryConnection}
+          disabled={status === 'checking'}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40 transition-colors"
+        >
+          <RefreshCw size={13} className={status === 'checking' ? 'animate-spin' : ''} />
+          Retry
+        </button>
       </div>
-      <button
-        onClick={retryConnection}
-        disabled={status === 'checking'}
-        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40 transition-colors"
-      >
-        <RefreshCw size={13} className={status === 'checking' ? 'animate-spin' : ''} />
-        Retry
-      </button>
+
+      {/* Debug info */}
+      {debugLines.length > 0 && (
+        <div className="rounded-lg bg-slate-900/60 px-3 py-2 space-y-0.5">
+          {debugLines.map((line, i) => (
+            <p key={i} className="text-xs font-mono text-slate-400 break-all">{line}</p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

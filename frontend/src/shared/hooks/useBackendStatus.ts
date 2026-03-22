@@ -3,25 +3,43 @@ import axios from 'axios';
 
 type Status = 'checking' | 'online' | 'offline';
 
-let globalStatus: Status = 'checking';
-const listeners = new Set<(s: Status) => void>();
+export interface BackendDetail {
+  status: Status;
+  db?: 'ok' | string;       // 'ok' or the error message
+  latencyMs?: number;
+  error?: string;           // HTTP / network error
+}
 
-function notify(s: Status) {
-  globalStatus = s;
-  listeners.forEach(fn => fn(s));
+let globalDetail: BackendDetail = { status: 'checking' };
+const listeners = new Set<(d: BackendDetail) => void>();
+
+function notify(d: BackendDetail) {
+  globalDetail = d;
+  listeners.forEach(fn => fn(d));
 }
 
 const check = async () => {
-  notify('checking');
+  notify({ ...globalDetail, status: 'checking' });
   try {
-    await axios.get('/api/health', { timeout: 5000 });
-    notify('online');
-  } catch {
-    notify('offline');
+    const res = await axios.get<{ status: string; db?: string; latencyMs?: number }>(
+      '/api/health',
+      { timeout: 8000 },
+    );
+    notify({
+      status: res.data.status === 'ok' ? 'online' : 'offline',
+      db: res.data.db ?? 'ok',
+      latencyMs: res.data.latencyMs,
+    });
+  } catch (err) {
+    const msg = axios.isAxiosError(err)
+      ? err.response
+        ? `HTTP ${err.response.status}: ${JSON.stringify(err.response.data)}`
+        : err.message
+      : String(err);
+    notify({ status: 'offline', error: msg });
   }
 };
 
-// Single shared poller — runs once regardless of how many components use the hook
 let started = false;
 function startPoller() {
   if (started) return;
@@ -34,14 +52,14 @@ export function retryConnection() {
   check();
 }
 
-export function useBackendStatus(): Status {
-  const [status, setStatus] = useState<Status>(globalStatus);
+export function useBackendStatus(): BackendDetail {
+  const [detail, setDetail] = useState<BackendDetail>(globalDetail);
 
   useEffect(() => {
-    listeners.add(setStatus);
+    listeners.add(setDetail);
     startPoller();
-    return () => { listeners.delete(setStatus); };
+    return () => { listeners.delete(setDetail); };
   }, []);
 
-  return status;
+  return detail;
 }

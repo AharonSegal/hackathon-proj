@@ -2,7 +2,7 @@ import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
 import { WifiOff } from 'lucide-react';
 
 export function BackendStatus() {
-  const status = useBackendStatus();
+  const { status } = useBackendStatus();
 
   if (status !== 'offline') return null;
 
