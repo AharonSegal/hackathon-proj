@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Settings,
   LayoutDashboard,
+  NotebookPen,
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react';
@@ -31,6 +32,7 @@ export function AppSidebar() {
     { to: '/calendar',    label: t.nav_calendar,    icon: CalendarDays },
     { to: '/daily-times', label: t.nav_daily_times, icon: Clock },
     { to: '/messages',    label: t.nav_messages,    icon: MessageSquare },
+    { to: '/notes',       label: t.nav_notes,       icon: NotebookPen },
   ];
 
   // Active-indicator chevron: points toward the content area
