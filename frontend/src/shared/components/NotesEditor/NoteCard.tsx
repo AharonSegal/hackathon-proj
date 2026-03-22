@@ -29,8 +29,25 @@ function formatNoteDate(iso: string): string {
   return format(date, 'MMM d');
 }
 
+/** Extract plain text from a BlockNote JSON blocks string */
+function getBlockPreview(raw: string): string | null {
+  if (!raw || raw === '[]' || raw === '') return null;
+  try {
+    const blocks = JSON.parse(raw) as Array<{ content?: Array<{ type: string; text?: string }> }>;
+    const text = blocks
+      .flatMap(b => b.content ?? [])
+      .filter(c => c.type === 'text' && c.text)
+      .map(c => c.text!)
+      .join('')
+      .trim();
+    return text.slice(0, 80) || null;
+  } catch {
+    return null;
+  }
+}
+
 export function NoteCard({ note, isSelected, onSelect, onTogglePin, onDelete }: NoteCardProps) {
-  const preview = note.content.trim().slice(0, 80) || null;
+  const preview = getBlockPreview(note.content);
 
   return (
     <motion.div

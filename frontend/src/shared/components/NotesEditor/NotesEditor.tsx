@@ -1,12 +1,14 @@
 /**
  * NotesEditor/NotesEditor.tsx
  * ----------------------------
- * Full editor panel for a single note.
+ * Full Notion-like editor panel powered by BlockNote.
  *
  * - Inline editable title (saves on blur or Enter)
  * - Tag chips with add (Enter/comma) and remove (×) controls
  * - Pin / Delete toolbar
- * - Auto-resizing textarea for content (saves 1 s after user stops typing)
+ * - BlockNote block editor (bold, italic, underline, headings, colors,
+ *   alignment, lists, links, slash commands, drag handles, etc.)
+ * - Auto-saves 1 s after last block change
  * - "Edited X ago" timestamp
  */
 
@@ -14,6 +16,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Pin, Trash2, Tag, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { clsx } from 'clsx';
+import { useCreateBlockNote } from '@blocknote/react';
+import { BlockNoteView } from '@blocknote/shadcn';
+import type { Block } from '@blocknote/core';
 import { type Note } from '@/shared/types/note.types';
 import { Button } from '@/shared/components/ui/Button';
 
@@ -26,36 +31,49 @@ interface NotesEditorProps {
   onDelete: (id: string) => void;
 }
 
-export function NotesEditor({ note, onUpdate, onRename, onUpdateTags, onTogglePin, onDelete }: NotesEditorProps) {
-  const [titleValue,  setTitleValue]  = useState(note.title);
-  const [content,     setContent]     = useState(note.content);
-  const [tagInput,    setTagInput]    = useState('');
-  const saveTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+/** Parse stored JSON blocks, fall back to empty array if invalid */
+function parseBlocks(raw: string): Block[] {
+  if (!raw || raw === '[]' || raw === '') return [];
+  try {
+    return JSON.parse(raw) as Block[];
+  } catch {
+    return [];
+  }
+}
 
-  // Sync title when switching notes
+export function NotesEditor({ note, onUpdate, onRename, onUpdateTags, onTogglePin, onDelete }: NotesEditorProps) {
+  const [titleValue, setTitleValue] = useState(note.title);
+  const [tagInput, setTagInput] = useState('');
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Create the BlockNote editor with initial content from note
+  const editor = useCreateBlockNote({
+    initialContent: parseBlocks(note.content).length > 0 ? parseBlocks(note.content) : undefined,
+  });
+
+  // When switching notes, update title and reload editor content
   useEffect(() => {
     setTitleValue(note.title);
-    setContent(note.content);
+    const blocks = parseBlocks(note.content);
+    if (blocks.length > 0) {
+      editor.replaceBlocks(editor.document, blocks);
+    } else {
+      // Clear editor for empty note
+      editor.replaceBlocks(editor.document, []);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
-  // Auto-resize textarea on content change
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [content]);
-
-  // Debounced content save — 1 s after last keystroke
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    setContent(val);
+  // Debounced save — 1 s after last block change
+  const handleEditorChange = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => onUpdate(note.id, val), 1000);
-  };
+    saveTimer.current = setTimeout(() => {
+      const blocks = editor.document;
+      onUpdate(note.id, JSON.stringify(blocks));
+    }, 1000);
+  }, [editor, note.id, onUpdate]);
 
-  // Flush any pending save on unmount
+  // Flush pending save on unmount
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
   const handleTitleBlur = useCallback(() => {
@@ -141,16 +159,13 @@ export function NotesEditor({ note, onUpdate, onRename, onUpdateTags, onTogglePi
         </div>
       </div>
 
-      {/* ── Content textarea ── */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        <textarea
-          ref={textareaRef}
-          dir="auto"
-          value={content}
-          onChange={handleContentChange}
-          placeholder="Start writing…"
-          className="w-full resize-none bg-transparent text-sm text-slate-200 leading-relaxed placeholder:text-slate-600 outline-none border-none focus:ring-0 min-h-[300px]"
-          style={{ height: 'auto' }}
+      {/* ── BlockNote Editor ── */}
+      <div className="flex-1 overflow-y-auto blocknote-wrapper">
+        <BlockNoteView
+          editor={editor}
+          onChange={handleEditorChange}
+          theme="dark"
+          className="h-full"
         />
       </div>
     </div>

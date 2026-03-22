@@ -60,7 +60,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     const note: Note = {
       id: crypto.randomUUID(),
       title: 'Untitled Note',
-      content: '',
+      content: '[]',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       pinned: false,
