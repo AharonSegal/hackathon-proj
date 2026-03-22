@@ -28,12 +28,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
-origins = [o.strip() for o in settings.cors_origins.split(",")]
+# CORS — open to all origins (single-user personal app, no auth/cookies)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
