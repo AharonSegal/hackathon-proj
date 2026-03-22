@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { randomUUID } from 'node:crypto';
 import { ensureInit, rowToLog } from '../../../lib/db';
 import { sendWhatsApp } from '../../../lib/whatsapp';
 
@@ -15,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'to and message are required' });
     }
 
-    const id          = crypto.randomUUID();
+    const id          = randomUUID();
     const now         = new Date().toISOString();
     const scheduledAt = scheduleAt ?? now;
     const isImmediate = !scheduleAt;
