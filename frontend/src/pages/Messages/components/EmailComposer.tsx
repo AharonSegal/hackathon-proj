@@ -3,6 +3,7 @@ import { Mail, Send, Clock, Plus, X } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input, Textarea } from '@/shared/components/ui/Input';
 import { messageApi } from '@/shared/hooks/useApi';
+import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
 import { toast } from 'sonner';
 
 export function EmailComposer() {
@@ -31,10 +32,15 @@ export function EmailComposer() {
 
   const removeRecipient = (email: string) => setToList(prev => prev.filter(e => e !== email));
 
+  const backendStatus = useBackendStatus();
   const isValid = toList.length > 0 && subject.trim() && body.trim();
 
   const handleSend = async () => {
     if (!isValid) return;
+    if (backendStatus === 'offline') {
+      toast.error('Backend offline — cannot send messages right now');
+      return;
+    }
     setLoading(true);
     try {
       await messageApi.sendEmail({

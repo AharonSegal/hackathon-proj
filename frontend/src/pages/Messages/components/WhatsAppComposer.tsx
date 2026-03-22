@@ -3,6 +3,7 @@ import { MessageCircle, Send, Clock, Phone, Eye } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input, Textarea } from '@/shared/components/ui/Input';
 import { messageApi } from '@/shared/hooks/useApi';
+import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
 
@@ -56,11 +57,16 @@ export function WhatsAppComposer() {
   const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const backendStatus = useBackendStatus();
   const charCount = message.length;
   const isValid = to.trim() && message.trim();
 
   const handleSend = async () => {
     if (!isValid) return;
+    if (backendStatus === 'offline') {
+      toast.error('Backend offline — cannot send messages right now');
+      return;
+    }
     setLoading(true);
     try {
       await messageApi.sendWhatsApp({

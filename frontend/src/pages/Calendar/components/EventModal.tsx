@@ -8,6 +8,7 @@ import { Mail, MessageCircle, Trash2, Clock } from 'lucide-react';
 import { clsx } from 'clsx';
 import { toast } from 'sonner';
 import { eventApi } from '@/shared/hooks/useApi';
+import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
 
 const COLORS: { value: EventColor; label: string; cls: string }[] = [
   { value: 'indigo', label: 'Indigo', cls: 'bg-indigo-500' },
@@ -75,8 +76,14 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
     }
   }, [editEvent, open]);
 
+  const backendStatus = useBackendStatus();
+
   const handleSave = async () => {
     if (!title.trim() || !day) return;
+    if (backendStatus === 'offline') {
+      toast.error('Backend offline — cannot save events right now');
+      return;
+    }
     setLoading(true);
     try {
       const payload = {
