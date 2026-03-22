@@ -1,235 +1,167 @@
 # Deployment
 
-How the live version of this app works: Vercel (frontend) + Docker on your local machine (backend) + Cloudflare Tunnel to bridge them.
+How the live version works: **Vercel** hosts both the React SPA and the TypeScript API routes. **Turso** provides the cloud SQLite database. No Docker, no local server, no tunnel required.
 
 ---
 
-## Architecture overview
+## Architecture
 
 ```
 User's browser
       │  HTTPS
       ▼
-┌─────────────────────────┐
-│  Vercel                  │   Static React build
-│  calendar-app.vercel.app │   served by Vercel's CDN
-└────────────┬────────────┘
-             │  HTTPS  (VITE_API_URL points here)
-             ▼
-┌─────────────────────────────────────────┐
-│  Cloudflare Tunnel                       │
-│  https://xyz.trycloudflare.com           │
-│  (free, no account needed)               │
-└────────────┬────────────────────────────┘
-             │  localhost:8000
-             ▼
-┌─────────────────────────────────────────┐
-│  Your PC — Docker                        │
-│  container: calendar-backend             │
-│  FastAPI + SQLite                         │
-│  volume: calendar_db → /app/data         │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────┐
+│  Vercel                               │
+│  ├── React SPA (CDN-cached)           │
+│  └── API routes (serverless fns)      │
+│      /api/events                      │
+│      /api/messages/*                  │
+│      /api/cron/send-messages          │
+└───────────────┬──────────────────────┘
+                │  libsql over HTTPS
+                ▼
+┌──────────────────────────────────────┐
+│  Turso                                │
+│  cloud SQLite — always on             │
+│  tables: events, message_logs         │
+└──────────────────────────────────────┘
 ```
-
-The backend runs **on your local machine** in Docker and is exposed to the internet via a free Cloudflare Tunnel. The frontend is deployed to Vercel and talks to the backend through the tunnel URL.
 
 ---
 
 ## One-time setup
 
-### 1. Deploy the frontend to Vercel
+### 1. Create the Turso database
+
+1. Sign up at [turso.tech](https://turso.tech).
+2. Create a database:
+   ```bash
+   turso db create calendar-app
+   ```
+3. Get the URL:
+   ```bash
+   turso db show calendar-app --url
+   # → libsql://calendar-app-<org>.turso.io
+   ```
+4. Generate an auth token:
+   ```bash
+   turso db tokens create calendar-app
+   ```
+5. Save both values — you'll need them in step 3.
+
+The tables (`events`, `message_logs`) are created automatically on first API call via `ensureInit()` in `lib/db.ts`.
+
+---
+
+### 2. Deploy to Vercel
 
 1. Push the repo to GitHub.
-2. Go to [vercel.com](https://vercel.com) → **Add New Project** → import the GitHub repo.
+2. Go to [vercel.com](https://vercel.com) → **Add New Project** → import the repo.
 3. Configure the project:
    - **Root Directory**: `frontend`
    - **Framework Preset**: Vite (auto-detected)
    - **Build Command**: `npm run build` (default)
-   - **Output Directory**: `dist` (default — type it exactly, no spaces)
-4. Add an environment variable:
-   - Key: `VITE_API_URL`
-   - Value: *(leave blank for now — fill in after step 3)*
-5. Click **Deploy**.
-
-The frontend will build and deploy. Since `VITE_API_URL` is empty the app will show "Backend offline" — that's expected until the tunnel is running.
+   - **Output Directory**: `dist`
+4. Click **Deploy**.
 
 ---
 
-### 2. Run the backend in Docker
+### 3. Add environment variables
+
+In your Vercel project → **Settings** → **Environment Variables**, add all of these:
+
+| Variable | Where to get it |
+|---|---|
+| `TURSO_DATABASE_URL` | `turso db show calendar-app --url` |
+| `TURSO_AUTH_TOKEN` | `turso db tokens create calendar-app` |
+| `WHATSAPP_PHONE_NUMBER_ID` | Meta Developer dashboard → WhatsApp → API Setup |
+| `WHATSAPP_ACCESS_TOKEN` | Meta Developer dashboard → generate permanent token |
+| `SMTP_HOST` | Your SMTP provider (default: `smtp.gmail.com`) |
+| `SMTP_PORT` | `587` (STARTTLS) or `465` (TLS) |
+| `SMTP_USER` | Your email address |
+| `SMTP_PASSWORD` | Gmail: App Password (16 chars, not your login password) |
+| `EMAIL_FROM_NAME` | Sender display name, e.g. `Calendar App` |
+| `CRON_SECRET` | Any random string — used to authenticate Vercel Cron calls |
+
+See `.env.example` at the repo root for a copy-paste template.
+
+After adding env vars, trigger a redeploy: **Deployments** → three-dot menu on the latest → **Redeploy**.
+
+---
+
+### 4. Verify the deployment
 
 ```bash
-# From the repo root:
-docker compose up backend -d
-```
-
-This starts the backend on `localhost:8000` with data persisted to the `calendar_db` Docker volume.
-
-Verify it's running:
-```bash
-curl http://localhost:8000/api/health
+curl https://your-app.vercel.app/api/health
 # → {"status":"ok"}
 ```
 
----
-
-### 3. Start the Cloudflare Tunnel
-
-Download `cloudflared` once:
-
-```bash
-# Windows — download the binary directly:
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -o cloudflared.exe
-```
-
-Then start the tunnel:
-
-```bash
-./cloudflared.exe tunnel --url http://localhost:8000
-```
-
-After a few seconds you'll see a line like:
-```
-Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):
-https://madrid-sheet-listings-blind.trycloudflare.com
-```
-
-Copy that URL.
-
----
-
-### 4. Set the tunnel URL in Vercel
-
-1. Go to your Vercel project → **Settings** → **Environment Variables**.
-2. Find `VITE_API_URL` and update the value to your tunnel URL, e.g.:
-   ```
-   https://madrid-sheet-listings-blind.trycloudflare.com
-   ```
-   No trailing slash.
-3. Go to **Deployments** → click the three-dot menu on the latest deployment → **Redeploy**.
-
-Once the redeploy finishes, the frontend will connect to your local backend through the tunnel and the "Backend offline" pill will disappear.
-
----
-
-## Keeping it running
-
-### Every time you restart your PC
-
-You need to restart both the Docker container and the Cloudflare Tunnel. The tunnel generates a **new URL each time**, so you also need to update Vercel.
-
-Quick restart sequence:
-
-```bash
-# 1. Start the backend
-docker compose up backend -d
-
-# 2. Start the tunnel (keep this terminal open)
-./cloudflared.exe tunnel --url http://localhost:8000
-# → copy the new *.trycloudflare.com URL
-
-# 3. Update Vercel env var VITE_API_URL → new URL → Redeploy
-```
-
-### Keep the terminal open
-
-The tunnel stays alive as long as the `cloudflared` process is running. If you close the terminal, the tunnel dies and the frontend loses connection to the backend.
-
----
-
-## Backend environment variables
-
-The backend reads from `backend/.env`. Make sure this file exists before running Docker:
-
-```env
-WHATSAPP_ACCESS_TOKEN=your_permanent_access_token
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
-
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your@gmail.com
-SMTP_PASSWORD=your_app_password
-
-DATABASE_URL=sqlite:///./data/calendar.db
-CORS_ORIGINS=https://your-app.vercel.app,http://localhost:5173
-```
-
-**Important**: Add your Vercel app URL to `CORS_ORIGINS`. Without it, the browser will block API requests due to CORS.
-
-After editing `.env`, restart the backend container:
-```bash
-docker compose restart backend
-```
-
----
-
-## Data persistence
-
-The SQLite database lives in a Docker **named volume** called `calendar_db`, mounted at `/app/data/calendar.db` inside the container.
-
-Named volumes survive:
-- `docker compose down` (containers removed)
-- `docker compose up --build` (image rebuilt)
-
-Named volumes do NOT survive:
-- `docker compose down -v` (the `-v` flag deletes volumes — **this wipes all data**)
-
-To back up the database:
-```bash
-docker cp calendar-backend:/app/data/calendar.db ./calendar_backup.db
-```
-
-To restore:
-```bash
-docker cp ./calendar_backup.db calendar-backend:/app/data/calendar.db
-```
+Open the app in your browser — the "Backend offline" pill should not appear.
 
 ---
 
 ## Updating the app
 
-### Frontend changes
+Any push to `main` triggers an automatic Vercel deployment. No manual steps needed.
 
 ```bash
 git add . && git commit -m "your message" && git push
 ```
 
-Vercel auto-deploys on every push to `main`. No manual action needed.
+---
 
-### Backend changes
+## Scheduled messages (Cron)
 
-```bash
-docker compose up backend --build -d
+Vercel Cron fires `GET /api/cron/send-messages` every hour (`0 * * * *`). The handler:
+
+1. Queries all `message_logs` rows where `status = 'pending'` and `scheduled_at <= now`.
+2. Sends each message (WhatsApp or email).
+3. Updates the row status to `sent` or `failed`.
+
+The cron is configured in `frontend/vercel.json`:
+```json
+{
+  "crons": [{ "path": "/api/cron/send-messages", "schedule": "0 * * * *" }]
+}
 ```
 
-This rebuilds the backend image and restarts the container. Data in the volume is untouched.
+Vercel Cron is available on all plans (including free Hobby). You can monitor invocations in the Vercel dashboard under **Cron Jobs**.
 
 ---
 
-## Limitations of this setup
+## Data persistence
 
-| Limitation | Reason | Fix (if needed) |
-|---|---|---|
-| Backend must be running on your PC | No cloud hosting | Deploy backend to Railway, Render, or a VPS |
-| Tunnel URL changes on every restart | Free trycloudflare.com doesn't offer persistent URLs | Get a paid Cloudflare Tunnel with a custom domain, or use ngrok with a static subdomain |
-| Requires manual Vercel redeploy after tunnel restart | `VITE_API_URL` is baked in at build time | Use a persistent tunnel URL to avoid this |
-| No HTTPS on the backend directly | Traffic goes through the tunnel | The tunnel provides HTTPS termination; the backend itself only needs HTTP |
+All data lives in Turso. It is:
+- **Always-on** — no container to restart, no tunnel to keep alive
+- **Persistent** — data survives new Vercel deployments
+- **Backed up** — Turso handles replication internally
+
+To export your data:
+```bash
+turso db shell calendar-app ".dump" > backup.sql
+```
 
 ---
 
 ## Troubleshooting
 
-**"Backend offline" still shows after redeploying**
-- Confirm the tunnel is running: open the tunnel URL in your browser directly → should return `{"status":"ok"}`.
-- Check `VITE_API_URL` in Vercel has no trailing slash.
-- Make sure the redeploy completed (not just "queued").
+**"Backend offline" shows after deploy**
+- Check that all env vars were added and a redeploy was triggered after adding them.
+- Open browser DevTools → Network tab → look for failed `/api/health` calls.
+- Check Vercel → Functions logs for the actual error.
 
-**CORS error in the browser console**
-- The Vercel URL isn't in `CORS_ORIGINS` in `backend/.env`.
-- Add it and run `docker compose restart backend`.
+**API returns 500 with "TURSO_DATABASE_URL env var is not set"**
+- The env var wasn't saved properly. Re-add it in Vercel → Settings → Environment Variables, then redeploy.
 
-**Tunnel URL works in browser but 502 in the app**
-- The backend container may have crashed. Check: `docker compose logs backend`.
-- Restart: `docker compose restart backend`.
+**Messages aren't being sent on schedule**
+- Verify `CRON_SECRET` is set in Vercel.
+- Check Vercel dashboard → Cron Jobs → see if the job ran and what it returned.
+- Check Functions logs for the `/api/cron/send-messages` invocation.
 
-**Events disappear after restarting Docker**
-- You ran `docker compose down -v` which deletes the volume. Always use `docker compose down` (without `-v`) to preserve data.
+**WhatsApp messages fail**
+- The phone number must be registered as a test number in the Meta developer dashboard (unless you have a verified business).
+- Check that `WHATSAPP_ACCESS_TOKEN` hasn't expired (use a permanent token, not a temporary one).
+
+**Email fails with "Invalid login"**
+- Gmail requires a 16-character App Password, not your regular password.
+- Make sure 2FA is enabled on the Google account first.

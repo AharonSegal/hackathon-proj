@@ -1,181 +1,104 @@
 # Running Locally
 
-How to run the frontend and backend on your machine for development.
+How to run the app on your machine for development. No Docker, no Python — just Node.js and the Vercel CLI.
 
 ---
 
 ## Prerequisites
 
 - **Node.js** 20+ and npm
-- **Python** 3.12+ (only needed if running the backend without Docker)
-- **Docker Desktop** (recommended for the backend — handles all dependencies)
+- **Vercel CLI** — `npm i -g vercel`
 - **Git**
+- A **Turso** database (free tier) — [turso.tech](https://turso.tech)
 
 ---
 
-## Backend
-
-### Option A — Docker (recommended)
-
-This is the easiest way. Docker handles Python, dependencies, and the database volume.
+## 1. Clone and install
 
 ```bash
-# From the repo root:
-docker compose up backend
+git clone https://github.com/your-username/hackathon-proj.git
+cd hackathon-proj/frontend
+npm install
 ```
-
-The backend starts at **http://localhost:8000**.
-
-To rebuild after code changes:
-```bash
-docker compose up backend --build
-```
-
-To stop:
-```bash
-docker compose down
-```
-
-The SQLite database is stored in a Docker named volume (`calendar_db`) — your data survives container restarts and rebuilds.
 
 ---
 
-### Option B — Python venv (no Docker)
+## 2. Set up Turso
 
-```bash
-cd backend
-
-# Create and activate a virtual environment
-python -m venv .venv
-
-# Windows (PowerShell):
-.venv\Scripts\Activate.ps1
-# Windows (bash / Git Bash):
-source .venv/Scripts/activate
-# macOS / Linux:
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment variables
-cp .env.example .env
-# Open .env and fill in your credentials (see below)
-
-# Run the server
-uvicorn main:app --reload --port 8000
-```
-
-The backend starts at **http://localhost:8000** with hot-reload on code changes.
-
-The SQLite database file is created at `backend/calendar.db` (or wherever `DATABASE_URL` points in your `.env`).
+1. Sign up at [turso.tech](https://turso.tech).
+2. Create a database: `turso db create calendar-app`
+3. Get the URL: `turso db show calendar-app --url`
+4. Generate a token: `turso db tokens create calendar-app`
 
 ---
 
-### Environment variables
+## 3. Create your local env file
 
-Create `backend/.env` by copying `.env.example`:
+In the `frontend/` directory, create a `.env` file (do **not** commit this):
 
 ```env
-# WhatsApp — from Meta Developer dashboard
-WHATSAPP_ACCESS_TOKEN=your_permanent_access_token
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+# Turso
+TURSO_DATABASE_URL=libsql://your-db.turso.io
+TURSO_AUTH_TOKEN=your-token
 
-# Email — SMTP credentials
+# WhatsApp (optional — only needed to test sending)
+WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
+WHATSAPP_ACCESS_TOKEN=your-access-token
+
+# Email / SMTP (optional — only needed to test sending)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your@gmail.com
-SMTP_PASSWORD=your_16char_app_password    # Google: Account → Security → App Passwords
+SMTP_PASSWORD=your-16-char-app-password
 EMAIL_FROM_NAME=Calendar App
 
-# Database (leave as-is for local dev)
-DATABASE_URL=sqlite:///./calendar.db
-
-# CORS — add your frontend origin
-CORS_ORIGINS=http://localhost:5173
+# Cron secret (any random string)
+CRON_SECRET=dev-secret
 ```
 
-**WhatsApp + email credentials are optional.** The backend starts and works fine without them — you just can't send messages until they're filled in. Use the test buttons in the Settings page to verify once you add them.
+See `.env.example` in the repo root for a template.
 
 ---
 
-### Verify the backend is running
-
-```bash
-curl http://localhost:8000/api/health
-# → {"status":"ok"}
-```
-
-Or open **http://localhost:8000/docs** in your browser for the interactive Swagger UI.
-
----
-
-## Frontend
+## 4. Run with Vercel Dev
 
 ```bash
 cd frontend
-npm install
-npm run dev
+vercel dev
 ```
 
-The frontend starts at **http://localhost:5173**.
+`vercel dev` serves both the React frontend **and** the API routes (`frontend/api/`) on a single port (usually **http://localhost:3000**). This matches production exactly — no separate server needed.
 
-Vite automatically proxies any request to `/api/*` to `http://localhost:8000`, so you don't need to set any environment variables for local development.
-
----
-
-### What to expect
-
-- If the backend is running: the app connects and loads real data.
-- If the backend is **not** running: you'll see the "Backend offline — showing cached data" pill in the bottom-right corner. The app still works with any data cached from previous sessions.
+> **Why not `npm run dev`?** `vite dev` only serves the React bundle; it doesn't execute the TypeScript API routes. `vercel dev` emulates the full Vercel environment locally.
 
 ---
 
-## Running both at once (Docker Compose)
-
-To run the backend **and** a production-built frontend together in Docker:
+## 5. Verify it's working
 
 ```bash
-# From the repo root:
-docker compose up --build
+curl http://localhost:3000/api/health
+# → {"status":"ok"}
 ```
 
-| Service | URL |
-|---|---|
-| Frontend (nginx) | http://localhost:3000 |
-| Backend (FastAPI) | http://localhost:8000 |
-
-> Note: The Docker frontend serves the production build. For development with hot-reload, run the frontend with `npm run dev` separately and the backend with `docker compose up backend`.
+Then open **http://localhost:3000** in your browser. The app should connect immediately and the "Backend offline" pill should not appear.
 
 ---
 
-## Useful commands
+## What to expect
 
-```bash
-# View backend logs
-docker compose logs -f backend
-
-# Open a shell inside the backend container
-docker exec -it calendar-backend bash
-
-# Inspect the SQLite database
-docker exec -it calendar-backend sqlite3 /app/data/calendar.db ".tables"
-
-# Rebuild only the frontend Docker image
-docker compose build frontend
-
-# Remove all containers and the database volume (wipes all data)
-docker compose down -v
-```
+- If Turso is connected: the app loads real data.
+- If Turso is unreachable or env vars are missing: API calls return 500 and the frontend falls back to localStorage cache, showing the "Backend offline" pill.
 
 ---
 
 ## Common issues
 
-**`ModuleNotFoundError` when running uvicorn** — make sure your venv is activated before running `pip install` and `uvicorn`.
+**`vercel dev` command not found** — install the CLI: `npm i -g vercel`, then run `vercel login`.
 
-**Port 8000 already in use** — another process is using the port. Either stop it or change the port: `uvicorn main:app --port 8001` (and update `CORS_ORIGINS` + the Vite proxy target accordingly).
+**`TURSO_DATABASE_URL env var is not set`** — make sure you created `frontend/.env` (not `.env` at the repo root). `vercel dev` loads `.env` from the project root it's run in.
 
-**`CORS` errors in the browser** — your frontend origin isn't in the `CORS_ORIGINS` env var. Add it (comma-separated) and restart the backend.
+**API routes return 500** — check the `vercel dev` terminal output for the actual error. Most common: missing env vars or a Turso auth error.
 
-**Calendar shows nothing / empty grid** — the layout needs the backend to be reachable at least once to populate the cache. If you just started everything, give it a few seconds and refresh.
+**Calendar shows nothing** — open the browser console. If you see a `401` or `500` from `/api/events`, the Turso credentials are wrong. Fix the `.env` and restart `vercel dev`.
+
+**WhatsApp / email sends fail in test** — credentials might be missing or wrong. Use the test buttons in Settings → they show the exact error from the API.

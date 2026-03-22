@@ -9,6 +9,15 @@ import { eventApi, messageApi } from '@/shared/hooks/useApi';
 import { HDate } from '@hebcal/core';
 import { gematriyaDay, hebrewMonthName } from '@/pages/Calendar/hooks/useCalendar';
 
+const COLOR_DOT: Record<string, string> = {
+  indigo:  'bg-indigo-500',
+  emerald: 'bg-emerald-500',
+  amber:   'bg-amber-500',
+  rose:    'bg-rose-500',
+  sky:     'bg-sky-500',
+  violet:  'bg-violet-500',
+};
+
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
     <div className="card flex items-center gap-4">
@@ -77,7 +86,7 @@ export function DashboardPage() {
             <div className="space-y-2">
               {todayEvents.map(ev => (
                 <div key={ev.id} className="flex items-center gap-3 p-2 rounded-lg bg-slate-900/50">
-                  <div className={`w-2 h-2 rounded-full bg-${ev.color}-500`} />
+                  <div className={`w-2 h-2 rounded-full ${COLOR_DOT[ev.color] ?? 'bg-slate-500'}`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-slate-200 truncate">{ev.title}</p>
                     {ev.startTime && <p className="text-xs text-slate-500">{ev.startTime}</p>}

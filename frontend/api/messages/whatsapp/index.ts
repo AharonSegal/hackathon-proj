@@ -16,6 +16,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'to and message are required' });
     }
 
+    if (!/^\+\d{7,15}$/.test(String(to))) {
+      return res.status(400).json({ error: 'Phone number must be in E.164 format, e.g. +1234567890' });
+    }
+
     const id          = randomUUID();
     const now         = new Date().toISOString();
     const scheduledAt = scheduleAt ?? now;

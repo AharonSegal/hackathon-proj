@@ -6,31 +6,35 @@ A personal full-stack calendar with Hebrew/Gregorian dual-calendar support, Jewi
 
 ## What it is
 
-A single-user web app. You get a calendar that speaks both Hebrew and Gregorian, shows Jewish holidays and the weekly parasha automatically, lets you attach scheduled WhatsApp messages or emails to any event, and displays halachic times for your location every day. The frontend is always functional — even with no backend it shows cached data and gracefully reports the connection state.
+A single-user web app. You get a calendar that speaks both Hebrew and Gregorian, shows Jewish holidays and the weekly parasha automatically, lets you attach scheduled WhatsApp messages or emails to any event, and displays halachic times for your location every day. The frontend is always functional — even when offline it shows cached data and gracefully reports the connection state.
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────┐      HTTPS       ┌────────────────────────────┐
-│  Vercel (React frontend) │ ◄──────────────► │  Cloudflare Tunnel         │
-│  port 443                │                  │  *.trycloudflare.com       │
-└──────────────────────────┘                  └──────────┬─────────────────┘
-                                                         │ localhost:8000
-                                              ┌──────────▼─────────────────┐
-                                              │  Docker: calendar-backend   │
-                                              │  FastAPI + SQLite           │
-                                              │  Named volume: calendar_db  │
-                                              └────────────────────────────┘
+User's browser
+      │  HTTPS
+      ▼
+┌─────────────────────────────────┐
+│  Vercel                          │
+│  React SPA  +  API routes        │
+│  (TypeScript serverless fns)     │
+└────────────┬────────────────────┘
+             │  libsql over HTTPS
+             ▼
+┌─────────────────────────────────┐
+│  Turso                           │
+│  cloud SQLite database           │
+│  (managed, always-on)            │
+└─────────────────────────────────┘
 ```
 
 - **Frontend** — React 18 + TypeScript + Vite, deployed to Vercel
-- **Backend** — FastAPI (Python 3.12), runs locally inside Docker
-- **Database** — SQLite persisted to a named Docker volume (`calendar_db`)
-- **Tunnel** — Cloudflare Tunnel (free trycloudflare.com) exposes the local backend to the Vercel frontend over HTTPS
-- **Messaging** — Meta WhatsApp Business Cloud API (Graph API v21) + async SMTP via aiosmtplib
-- **Scheduling** — APScheduler runs inside the backend process, polling pending messages every 60 seconds
+- **API** — TypeScript Vercel serverless functions in `frontend/api/`
+- **Database** — Turso (cloud SQLite via `@libsql/client`) — no Docker, no local server
+- **Messaging** — Meta WhatsApp Business Cloud API (Graph API v21) + SMTP via `nodemailer`
+- **Scheduling** — Vercel Cron Job (`0 * * * *`) polls and sends pending messages every hour
 
 ---
 
@@ -38,7 +42,7 @@ A single-user web app. You get a calendar that speaks both Hebrew and Gregorian,
 
 ```
 hackathon-proj/
-├── frontend/                   React app (Vite + Tailwind)
+├── frontend/                   React app + Vercel API routes
 │   ├── src/
 │   │   ├── pages/
 │   │   │   ├── Calendar/       Hebrew/Gregorian calendar grid + event modal
@@ -52,20 +56,37 @@ hackathon-proj/
 │   │       ├── context/        SettingsContext (localStorage-backed)
 │   │       ├── types/          event.types.ts, settings.types.ts
 │   │       └── colors/         Shared color palette constants
-│   ├── Dockerfile              Multi-stage: Node builder → nginx:alpine
-│   └── nginx.conf              SPA fallback + deferred-DNS proxy to backend
-├── backend/                    FastAPI app
-│   ├── routers/                events, whatsapp, email_router, messages, settings_router
-│   ├── services/               whatsapp_service, email_service, scheduler
-│   ├── models/                 SQLAlchemy ORM (Event, MessageLog)
-│   ├── schemas/                Pydantic request/response schemas
-│   ├── database.py             SQLAlchemy engine + pydantic-settings config
-│   ├── main.py                 App factory, CORS, lifespan (DB init + scheduler)
-│   ├── Dockerfile              python:3.12-slim, uvicorn on 0.0.0.0:8000
-│   └── requirements.txt
-├── docker-compose.yml          Runs backend + frontend together
-├── RUNNING_LOCALLY.md          Step-by-step: run each part on your machine
-└── DEPLOY.md                   How the live Vercel + Docker + Cloudflare setup works
+│   ├── api/                    Vercel serverless API routes
+│   │   ├── health.ts           GET /api/health
+│   │   ├── settings.ts         POST /api/settings (stub)
+│   │   ├── events/
+│   │   │   ├── index.ts        GET + POST /api/events
+│   │   │   └── [id].ts         PUT + DELETE /api/events/:id
+│   │   ├── messages/
+│   │   │   ├── logs.ts         GET /api/messages/logs
+│   │   │   ├── email/
+│   │   │   │   ├── index.ts    POST /api/messages/email
+│   │   │   │   └── test.ts     POST /api/messages/email/test
+│   │   │   └── whatsapp/
+│   │   │       ├── index.ts    POST /api/messages/whatsapp
+│   │   │       └── test.ts     POST /api/messages/whatsapp/test
+│   │   └── cron/
+│   │       └── send-messages.ts  Vercel Cron: send pending messages
+│   ├── lib/                    Shared server-side helpers
+│   │   ├── db.ts               Turso client singleton + row mappers
+│   │   ├── email.ts            nodemailer SMTP sender
+│   │   └── whatsapp.ts         Meta Graph API WhatsApp sender
+│   ├── vercel.json             SPA rewrite + cron schedule
+│   ├── tsconfig.server.json    TS config for API/lib (CommonJS)
+│   └── package.json
+├── docs/                       All project documentation
+│   ├── general.md              ← you are here
+│   ├── frontend.md             Frontend deep-dive
+│   ├── backend.md              API routes + server-side deep-dive
+│   ├── running-locally.md      Local dev guide
+│   ├── deploy.md               Vercel + Turso production setup
+│   └── CHANGELOG.md            Change history
+└── .env.example                All required environment variables
 ```
 
 ---
@@ -84,12 +105,14 @@ hackathon-proj/
 | Daily Times | 11 configurable halachic times (Alot HaShachar → Tzet Shabbat) for any lat/lng/timezone |
 | Settings | Calendar mode, week start, 10 holiday toggles, 11 zmanim toggles, location, SMTP config, WhatsApp credentials |
 | Offline resilience | localStorage cache for events + message logs; "Backend offline" pill; frontend never crashes |
+| Cron scheduling | Vercel Cron fires hourly, picks up all pending messages whose `scheduled_at` has passed |
 
 ---
 
 ## Docs
 
-- Run everything locally → [RUNNING_LOCALLY.md](RUNNING_LOCALLY.md)
-- Live deployment setup → [DEPLOY.md](DEPLOY.md)
-- Frontend deep-dive → [frontend/README.md](frontend/README.md)
-- Backend deep-dive → [backend/README.md](backend/README.md)
+- Run everything locally → [running-locally.md](running-locally.md)
+- Live deployment setup → [deploy.md](deploy.md)
+- Frontend deep-dive → [frontend.md](frontend.md)
+- API/backend deep-dive → [backend.md](backend.md)
+- Change history → [CHANGELOG.md](CHANGELOG.md)

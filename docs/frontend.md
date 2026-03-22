@@ -1,6 +1,6 @@
 # Frontend
 
-React 18 + TypeScript + Vite single-page application. Dark-themed, fully responsive, and designed to work gracefully even when the backend is offline.
+React 18 + TypeScript + Vite single-page application. Dark-themed, fully responsive, and designed to work gracefully even when offline.
 
 ---
 
@@ -100,10 +100,16 @@ The core of the app. Driven by `useCalendar.ts`, which:
 - Primary label: Hebrew gematriya numeral (Hebrew mode) or Gregorian day number
 - Secondary label: the other system's date
 - Holiday labels from `hebrewEvents` (small text, muted)
-- User event pills (color-coded)
+- User event pills (color-coded, using static `COLOR_MAP` — not dynamic Tailwind classes)
 - Shabbat tint on Saturday columns
 
 **EventModal** lets you create or edit an event. Optional "Scheduled actions" section lets you attach a scheduled WhatsApp message and/or email with a custom send datetime.
+
+### Dashboard
+
+Shows four stat cards (total events, today's events, pending messages, sent messages), a "Today" panel listing today's events with color dots, and an "Upcoming Events" panel with the next 5 events (Gregorian + Hebrew dates).
+
+Event color dots use a static `COLOR_DOT` map (not dynamic Tailwind interpolation) to ensure Tailwind's JIT compiler retains the color classes.
 
 ### Daily Times (Zmanim)
 
@@ -142,6 +148,8 @@ Write endpoints (create/update/delete/send) throw on failure — the calling pag
 
 `useBackendStatus.ts` is a **singleton poller** (only one HTTP request in flight at a time, no matter how many components subscribe). It pings `GET /api/health` every 30 seconds and broadcasts `'checking' | 'online' | 'offline'` to all subscribers via a `Set` of callbacks. `BackendStatus.tsx` listens and shows a fixed pill in the bottom-right corner when offline.
 
+Because the API routes are on the same Vercel domain as the frontend, `/api/health` is always available — the "offline" state only occurs when there is a genuine connectivity or Turso issue.
+
 ---
 
 ## Routing
@@ -157,15 +165,20 @@ Write endpoints (create/update/delete/send) throw on failure — the calling pag
 
 All routes are wrapped in `AppLayout` (sidebar + outlet).
 
+The SPA fallback is configured in `vercel.json`:
+```json
+{ "source": "/((?!api/).*)", "destination": "/index.html" }
+```
+
 ---
 
 ## API communication
 
 `useApi.ts` builds an Axios instance with:
-- `baseURL`: `VITE_API_URL/api` when the env var is set (production), otherwise `/api` (proxied by Vite in dev or nginx in Docker).
-- `timeout`: 8000 ms — prevents hanging indefinitely when the tunnel is slow.
+- `baseURL: '/api'` — same-origin requests, no CORS, no env var needed
+- `timeout: 8000 ms` — prevents hanging indefinitely
 
-The `VITE_API_URL` environment variable is set in Vercel to the current Cloudflare Tunnel URL.
+The API routes live in `frontend/api/` and are served by Vercel on the same domain as the React bundle.
 
 ---
 
@@ -182,16 +195,10 @@ Extended in `tailwind.config.ts`:
 
 The `.card` utility class (defined in `globals.css`) applies `bg-app-surface border border-app-border rounded-xl p-4`.
 
----
-
-## Environment variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_API_URL` | Production only | Full URL of the backend, e.g. `https://xyz.trycloudflare.com`. Omit in local dev — the Vite proxy handles `/api`. |
+**Important**: Dynamic Tailwind class interpolation (e.g. `` `bg-${color}-500` ``) does not work because Tailwind's JIT scanner cannot detect these at build time. All color-mapped classes use static lookup objects (e.g. `COLOR_DOT`, `COLOR_MAP`).
 
 ---
 
 ## Build output
 
-`npm run build` produces `dist/` — a fully static bundle. In production this is served by nginx inside the Docker container, or deployed directly to Vercel.
+`npm run build` produces `dist/` — a fully static bundle deployed to Vercel's CDN.

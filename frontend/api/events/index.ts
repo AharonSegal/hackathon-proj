@@ -68,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         sql: 'SELECT * FROM events WHERE id = ?',
         args: [id],
       });
+      if (row.rows.length === 0) return res.status(500).json({ error: 'Failed to create event' });
       return res.status(201).json(rowToEvent(row.rows[0] as Record<string, unknown>));
     }
 

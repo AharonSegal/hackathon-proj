@@ -1,6 +1,6 @@
-# Backend
+# API / Backend
 
-FastAPI application (Python 3.12) providing REST API, SQLite persistence, async message sending (WhatsApp + email), and background scheduling.
+TypeScript serverless functions deployed to Vercel, backed by Turso (cloud SQLite). No Docker, no Python, no local server required.
 
 ---
 
@@ -8,231 +8,206 @@ FastAPI application (Python 3.12) providing REST API, SQLite persistence, async 
 
 | Library | Version | Purpose |
 |---|---|---|
-| FastAPI | 0.115 | ASGI web framework, auto-generated OpenAPI docs |
-| Uvicorn | 0.34 | ASGI server (with standard extras for WebSocket support) |
-| SQLAlchemy | 2.0 | ORM, declarative models, connection pooling |
-| Pydantic | 2.10 | Request/response validation and serialization |
-| pydantic-settings | 2.7 | Load config from `.env` file |
-| APScheduler | 3.10 | In-process background scheduler (AsyncIOScheduler) |
-| aiosmtplib | 3.0 | Async SMTP client (TLS + STARTTLS) |
-| httpx | 0.28 | Async HTTP client for WhatsApp Graph API calls |
-| pytz | 2024 | Timezone support for scheduler |
-| email-validator | 2.2 | Validate email addresses in Pydantic schemas |
-| python-multipart | 0.0.20 | Required by FastAPI for form data support |
+| `@vercel/node` | ^5 | Vercel serverless function types (`VercelRequest`, `VercelResponse`) |
+| `@libsql/client` | ^0.14 | Turso / libSQL client for cloud SQLite |
+| `nodemailer` | ^6.9 | Sync SMTP email sending (STARTTLS + TLS) |
+| `node:crypto` | built-in | `randomUUID()` for generating UUIDs |
 
 ---
 
 ## Project structure
 
 ```
-backend/
-├── main.py                 App factory: FastAPI instance, CORS, routers, lifespan
-├── database.py             SQLAlchemy engine + SessionLocal + Settings (pydantic)
-├── requirements.txt
-├── .env.example            Template for all required environment variables
-│
-├── models/
-│   ├── event.py            Event ORM model (SQLite table: events)
-│   └── message.py          MessageLog ORM model (SQLite table: message_logs)
-│
-├── schemas/
-│   ├── event.py            EventCreate, EventUpdate, EventOut (Pydantic v2)
-│   └── message.py          WhatsAppSend, EmailSend, MessageLogOut
-│
-├── routers/
-│   ├── events.py           CRUD for calendar events
-│   ├── whatsapp.py         Send/schedule WhatsApp messages
-│   ├── email_router.py     Send/schedule emails
-│   ├── messages.py         Fetch message log
-│   └── settings_router.py  Receive settings from frontend (stub — settings live in frontend localStorage)
-│
-└── services/
-    ├── whatsapp_service.py  Call Meta Graph API v21 to send WhatsApp messages
-    ├── email_service.py     Send email via aiosmtplib (STARTTLS on port 587)
-    └── scheduler.py         APScheduler: poll pending messages every 60 s and send them
+frontend/
+├── api/                         Vercel serverless API routes
+│   ├── health.ts                GET /api/health
+│   ├── settings.ts              POST /api/settings (stub)
+│   ├── events/
+│   │   ├── index.ts             GET + POST /api/events
+│   │   └── [id].ts              PUT + DELETE /api/events/:id
+│   ├── messages/
+│   │   ├── logs.ts              GET /api/messages/logs
+│   │   ├── email/
+│   │   │   ├── index.ts         POST /api/messages/email
+│   │   │   └── test.ts          POST /api/messages/email/test
+│   │   └── whatsapp/
+│   │       ├── index.ts         POST /api/messages/whatsapp
+│   │       └── test.ts          POST /api/messages/whatsapp/test
+│   └── cron/
+│       └── send-messages.ts     Vercel Cron job (runs every hour)
+└── lib/
+    ├── db.ts                    Turso client singleton + row mappers
+    ├── email.ts                 nodemailer SMTP wrapper
+    └── whatsapp.ts              Meta Graph API v21 wrapper
 ```
 
 ---
 
 ## API endpoints
 
-All routes are mounted under `/api`.
+All routes are served on the same Vercel domain as the React frontend.
 
 ### Health
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/health` | Returns `{"status": "ok"}`. Used by the frontend's backend-status poller. |
+| GET | `/api/health` | Returns `{"status":"ok"}`. No DB dependency — used by the frontend poller. |
 
 ### Events
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/events` | List all events. Optional `?year=&month=` to filter by month. |
-| POST | `/api/events` | Create a new event. Returns the created event with its generated UUID. |
-| PUT | `/api/events/{id}` | Update an event by ID. Accepts partial updates. |
-| DELETE | `/api/events/{id}` | Delete an event. Returns 204. |
+| GET | `/api/events` | List all events. Optional `?year=&month=` to filter by month (`LIKE 'YYYY-MM%'`). |
+| POST | `/api/events` | Create a new event. Returns the created event (camelCase). |
+| PUT | `/api/events/:id` | Partial update — only fields present in the body are changed. |
+| DELETE | `/api/events/:id` | Delete an event. Returns 204. |
 
 ### WhatsApp messages
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/messages/whatsapp` | Send immediately (if no `schedule_at`) or schedule for later. Creates a `MessageLog` row. |
-| POST | `/api/messages/whatsapp/test` | Send a test WhatsApp to a given number. Used by the Settings test button. |
+| POST | `/api/messages/whatsapp` | Send immediately (no `scheduleAt`) or queue for later. Creates a `message_logs` row. |
+| POST | `/api/messages/whatsapp/test` | Send a test WhatsApp message. Used by the Settings test button. |
 
 ### Email messages
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/messages/email` | Send immediately or schedule. Accepts multiple recipients. Creates a `MessageLog` row. |
-| POST | `/api/messages/email/test` | Send a test email to a given address. Used by the Settings test button. |
+| POST | `/api/messages/email` | Send immediately or queue for later. Accepts multiple recipients. Creates a `message_logs` row. |
+| POST | `/api/messages/email/test` | Send a test email. Used by the Settings test button. |
 
 ### Message log
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/messages/logs` | Return all `MessageLog` rows, newest first. |
+| GET | `/api/messages/logs` | Returns last 200 `message_logs` rows, ordered by `scheduled_at DESC`. |
 
 ### Settings
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/settings` | Accepts settings JSON from the frontend. Currently a stub (settings are stored in frontend localStorage). |
+| POST | `/api/settings` | Stub — accepts settings JSON, does nothing (settings live in frontend localStorage). |
 
 ---
 
 ## Data models
 
-### Event (`events` table)
+### events table
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | String (UUID) | Primary key, generated by the router |
-| `title` | String | Required |
-| `description` | String | Optional |
-| `date` | String | ISO format `YYYY-MM-DD` |
-| `start_time` | String | `HH:mm`, null for all-day events |
-| `end_time` | String | `HH:mm`, null for all-day events |
-| `color` | String | One of: indigo, emerald, amber, rose, sky, violet |
-| `all_day` | Boolean | Default true |
-| `scheduled_email` | JSON | Serialized `ScheduledEmailPayload` object, or null |
-| `scheduled_whatsapp` | JSON | Serialized `ScheduledWhatsAppPayload` object, or null |
-| `created_at` | DateTime | Server default |
-| `updated_at` | DateTime | Auto-updated on change |
+| `id` | TEXT (UUID) | Primary key |
+| `title` | TEXT | Required |
+| `description` | TEXT | Optional |
+| `date` | TEXT | `YYYY-MM-DD` |
+| `start_time` | TEXT | `HH:mm`, null for all-day |
+| `end_time` | TEXT | `HH:mm`, null for all-day |
+| `color` | TEXT | One of: `indigo`, `emerald`, `amber`, `rose`, `sky`, `violet` |
+| `all_day` | INTEGER | `1` = true, `0` = false |
+| `scheduled_email` | TEXT | JSON-serialized email payload, or null |
+| `scheduled_whatsapp` | TEXT | JSON-serialized WhatsApp payload, or null |
+| `created_at` | TEXT | ISO datetime |
+| `updated_at` | TEXT | ISO datetime |
 
-The `scheduled_email` and `scheduled_whatsapp` columns store the message payload attached to the event at creation time. They are separate from the `MessageLog` table — they represent the intent, not the delivery record.
-
-### MessageLog (`message_logs` table)
+### message_logs table
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | String (UUID) | Primary key |
-| `type` | String | `"whatsapp"` or `"email"` |
-| `status` | String | `"pending"`, `"sent"`, or `"failed"` |
-| `recipient` | String | Phone number or comma-separated email addresses |
-| `subject` | String | Email subject (null for WhatsApp) |
-| `message` | String | Message body |
-| `scheduled_at` | DateTime (UTC) | When to send; equals creation time for immediate sends |
-| `sent_at` | DateTime (UTC) | Set when delivery succeeds |
-| `error` | String | Error message if delivery failed |
-| `event_id` | String | Optional reference to the source event |
+| `id` | TEXT (UUID) | Primary key |
+| `type` | TEXT | `"whatsapp"` or `"email"` |
+| `status` | TEXT | `"pending"`, `"sent"`, or `"failed"` |
+| `recipient` | TEXT | Phone number or comma-separated emails |
+| `subject` | TEXT | Email subject (null for WhatsApp) |
+| `message` | TEXT | Message body |
+| `scheduled_at` | TEXT | ISO datetime — when to send |
+| `sent_at` | TEXT | ISO datetime — set on successful delivery |
+| `error` | TEXT | Error message on failure |
+| `event_id` | TEXT | Optional reference to the source event |
+| `created_at` | TEXT | ISO datetime |
 
 ---
 
-## Background scheduler
+## DB singleton — `lib/db.ts`
 
-`services/scheduler.py` uses an `AsyncIOScheduler` (APScheduler 3.x) that runs inside the same event loop as FastAPI.
+`ensureInit()` is a lazy singleton pattern safe for serverless cold starts:
 
-**Job**: `process_pending_messages` — runs every **60 seconds**.
+1. First call: creates the Turso `Client` from `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`.
+2. Runs `CREATE TABLE IF NOT EXISTS` for both tables (idempotent).
+3. Sets `_initialized = true` — subsequent calls return the cached client immediately.
 
-Logic per tick:
-1. Query all `MessageLog` rows where `status = 'pending'` and `scheduled_at <= now (UTC)`.
-2. For each row:
-   - `type = 'whatsapp'` → call `send_whatsapp_message(recipient, message)`.
-   - `type = 'email'` → split `recipient` by comma, call `send_email(to_list, subject, message)`.
-3. On success: set `status = 'sent'`, `sent_at = now`.
-4. On failure: set `status = 'failed'`, `error = str(exc)`.
-5. Commit all changes in one transaction.
-
-The scheduler is started in the FastAPI `lifespan` context manager (on startup) and stopped cleanly on shutdown.
+`rowToEvent()` and `rowToLog()` convert snake_case database columns to camelCase JSON for API responses.
 
 ---
 
-## WhatsApp service
+## Cron job — `api/cron/send-messages.ts`
 
-`services/whatsapp_service.py` calls the **Meta WhatsApp Business Cloud API v21**:
+Triggered by Vercel Cron on the schedule `0 * * * *` (top of every hour).
+
+**Security**: Vercel sets `Authorization: Bearer <CRON_SECRET>` on every cron call. The handler rejects any request without this header.
+
+**Logic per invocation**:
+1. Query `message_logs WHERE status = 'pending' AND scheduled_at <= now`.
+2. For each row, send via WhatsApp or email based on `type`.
+3. On success: update `status = 'sent'`, `sent_at = now`.
+4. On failure: update `status = 'failed'`, `error = <message>`.
+5. Continue processing remaining rows regardless of individual failures.
+
+---
+
+## WhatsApp service — `lib/whatsapp.ts`
+
+Calls Meta WhatsApp Business Cloud API v21:
 
 ```
 POST https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages
 Authorization: Bearer {WHATSAPP_ACCESS_TOKEN}
+Content-Type: application/json
 ```
 
-Sends a `text` type message. The phone number must be in E.164 format (e.g. `+972501234567`).
+Sends a `text` type message. Phone numbers must be in E.164 format (e.g. `+972501234567`). Non-2xx responses throw an `Error` with the HTTP status code.
 
 **To get credentials:**
 1. Create a Meta Developer account → add a WhatsApp Business app.
-2. From the app dashboard: WhatsApp → API Setup → copy the Phone Number ID and generate a permanent access token.
-3. Add the recipient's number as a test number during development.
+2. App dashboard → WhatsApp → API Setup → copy Phone Number ID and generate a permanent access token.
+3. Register recipient numbers as test numbers during development.
 
 ---
 
-## Email service
+## Email service — `lib/email.ts`
 
-`services/email_service.py` uses `aiosmtplib` for async SMTP:
+Uses `nodemailer` with a transporter configured from env vars:
 
-- Connects to `SMTP_HOST:SMTP_PORT` (default: `smtp.gmail.com:587`).
-- Uses STARTTLS (`start_tls=True`).
-- Authenticates with `SMTP_USER` / `SMTP_PASSWORD`.
-- Sends a `MIMEText` email with `Content-Type: text/plain; charset=utf-8`.
+- Port 465: `secure: true` (TLS from the start)
+- Port 587 (default): `secure: false` + STARTTLS upgrade
 
 **Gmail setup:**
 1. Enable 2-Factor Authentication on your Google account.
-2. Go to Google Account → Security → App Passwords → create a password for "Mail".
-3. Use that 16-character app password as `SMTP_PASSWORD` (not your Google login password).
+2. Google Account → Security → App Passwords → generate one for "Mail".
+3. Use that 16-character password as `SMTP_PASSWORD`.
 
 ---
 
-## Configuration
+## Environment variables
 
-All configuration is read from environment variables (via pydantic-settings, which loads `.env` automatically).
+Set these in Vercel → Settings → Environment Variables.
 
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | `sqlite:///./calendar.db` | SQLAlchemy database URL. In Docker this is `sqlite:///./data/calendar.db` so it lands on the named volume. |
-| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated list of allowed origins. Add your Vercel URL in production. |
-| `WHATSAPP_ACCESS_TOKEN` | `""` | Meta permanent access token |
-| `WHATSAPP_PHONE_NUMBER_ID` | `""` | Meta phone number ID |
-| `SMTP_HOST` | `smtp.gmail.com` | SMTP server hostname |
-| `SMTP_PORT` | `587` | SMTP port (587 = STARTTLS) |
-| `SMTP_USER` | `""` | SMTP username (your email address) |
-| `SMTP_PASSWORD` | `""` | SMTP password or app password |
-| `EMAIL_FROM_NAME` | `Calendar App` | Display name in the From header |
+| Variable | Description |
+|---|---|
+| `TURSO_DATABASE_URL` | `libsql://your-db.turso.io` — from Turso dashboard |
+| `TURSO_AUTH_TOKEN` | Turso database auth token |
+| `WHATSAPP_PHONE_NUMBER_ID` | Meta phone number ID |
+| `WHATSAPP_ACCESS_TOKEN` | Meta permanent access token |
+| `SMTP_HOST` | SMTP server (default: `smtp.gmail.com`) |
+| `SMTP_PORT` | SMTP port (default: `587`) |
+| `SMTP_USER` | SMTP username / email |
+| `SMTP_PASSWORD` | SMTP password or app password |
+| `EMAIL_FROM_NAME` | Display name in From header (default: `Calendar App`) |
+| `CRON_SECRET` | Any random string — authenticates Vercel Cron calls |
 
-Copy `.env.example` to `.env` and fill in your values.
-
----
-
-## Docker
-
-The `Dockerfile` uses `python:3.12-slim`:
-
-```dockerfile
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-The container exposes port `8000`. The database file is stored in `/app/data/calendar.db` which is mounted from the `calendar_db` named Docker volume — so data persists across container rebuilds.
+See `.env.example` at the repo root for a copy-paste template.
 
 ---
 
-## Interactive API docs
+## TypeScript config — `tsconfig.server.json`
 
-When the backend is running, visit:
-
-- **Swagger UI** → `http://localhost:8000/docs`
-- **ReDoc** → `http://localhost:8000/redoc`
-
-All endpoints, request bodies, and response schemas are documented automatically by FastAPI.
+API routes and `lib/` are compiled with `module: "CommonJS"` and `moduleResolution: "node"` because Vercel's Node.js runtime expects CommonJS modules (not ESM). This is separate from the frontend's `tsconfig.json` which uses `"module": "ESNext"`.

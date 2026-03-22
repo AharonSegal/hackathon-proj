@@ -16,6 +16,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'to (array), subject, and body are required' });
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if ((to as string[]).some(addr => !emailRegex.test(addr))) {
+      return res.status(400).json({ error: 'One or more email addresses are invalid' });
+    }
+
     const id          = randomUUID();
     const now         = new Date().toISOString();
     const scheduledAt = scheduleAt ?? now;
