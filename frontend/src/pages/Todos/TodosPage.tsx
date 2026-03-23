@@ -2,20 +2,16 @@
  * pages/Todos/TodosPage.tsx
  * --------------------------
  * Checklist page with rocket-launch completion animation and confetti.
- *
- * Completion sequence per item:
- *  1. Click rocket → shake animation (0.5 s)
- *  2. Rocket flies off screen (1 s, starts at 0.5 s)
- *  3. Item fades/slides out (starts at 1.5 s)
- *  4. Confetti fires full-screen for ~3 s (recycle=false)
+ * Task creation/editing uses the full Todoist-style TaskEditor.
  */
 
 import { useState, useRef } from 'react';
 import ReactConfetti from 'react-confetti';
-import { Rocket, Plus, CheckSquare, Check, Trash2, X } from 'lucide-react';
+import { Rocket, CheckSquare, Check, Trash2, Flag, Calendar, Plus, Pencil } from 'lucide-react';
 import { useTodos } from '@/shared/context/TodosContext';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';
-import { GradientButton } from '@/shared/components/ui/GradientButton';
+import { TaskEditor, type TaskFormData } from './components/TaskEditor';
+import type { Todo } from '@/shared/hooks/useApi';
 
 const ROCKET_STYLES = `
   @keyframes rocketShake {
@@ -40,58 +36,100 @@ const ROCKET_STYLES = `
   .todo-out     { animation: todoSlideOut 0.45s ease-out forwards; }
 `;
 
+const PRIORITY_COLORS: Record<number, string> = {
+  1: '#db4c3f',
+  2: '#f49c18',
+  3: '#4073ff',
+  4: '#808080',
+};
+
+function formatDueDate(date: string): string {
+  const d = new Date(date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  if (diff === -1) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function isOverdue(date: string): boolean {
+  const d = new Date(date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d < today;
+}
+
+type EditorMode = { mode: 'add' } | { mode: 'edit'; todo: Todo } | null;
+
 export function TodosPage() {
-  const { todos, createTodo, completeTodo, deleteTodo } = useTodos();
-  const [input, setInput] = useState('');
+  const { todos, createTodo, completeTodo, deleteTodo, updateTodo } = useTodos();
+  const [editorMode, setEditorMode] = useState<EditorMode>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [confetti, setConfetti] = useState(false);
 
-  // Track which item is mid-animation and what phase
   const [animPhase, setAnimPhase] = useState<{ id: string; phase: 'shake' | 'fly' | 'out' } | null>(null);
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
   const confettiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleAdd = () => {
-    const title = input.trim();
-    if (!title) return;
-    createTodo(title);
-    setInput('');
+  const handleSave = (data: TaskFormData) => {
+    if (editorMode?.mode === 'edit') {
+      updateTodo(editorMode.todo.id, {
+        title: data.title,
+        description: data.description || null,
+        dueDate: data.dueDate,
+        dueTime: data.dueTime,
+        deadline: data.deadline,
+        priority: data.priority,
+        location: data.location || null,
+        reminderConfig: data.reminders.length > 0 ? data.reminders : null,
+        recurrence: data.recurrence,
+        recurrenceEnd: data.recurrenceEnd,
+        project: data.project,
+      });
+    } else {
+      createTodo({
+        title: data.title,
+        description: data.description || null,
+        dueDate: data.dueDate,
+        dueTime: data.dueTime,
+        deadline: data.deadline,
+        priority: data.priority,
+        location: data.location || null,
+        reminderConfig: data.reminders.length > 0 ? data.reminders : null,
+        recurrence: data.recurrence,
+        recurrenceEnd: data.recurrenceEnd,
+        project: data.project,
+      });
+    }
+    setEditorMode(null);
   };
 
   const handleRocket = (id: string) => {
-    if (animPhase) return; // one at a time
+    if (animPhase) return;
 
-    // Phase 1 – shake (0–500 ms) + fire confetti immediately
     setAnimPhase({ id, phase: 'shake' });
     setConfetti(true);
-
-    // Phase 2 – fly (500–1500 ms)
     setTimeout(() => setAnimPhase({ id, phase: 'fly' }), 500);
-
-    // Phase 3 – slide item out (1500–1950 ms)
     setTimeout(() => {
       setAnimPhase({ id, phase: 'out' });
       setRemovingIds(prev => new Set([...prev, id]));
     }, 1500);
-
-    // Mark complete + clean up (2000 ms)
     setTimeout(() => {
       completeTodo(id);
       setAnimPhase(null);
-      setRemovingIds(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      setRemovingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
     }, 2000);
 
-    // Stop confetti after 4 s
     if (confettiTimer.current) clearTimeout(confettiTimer.current);
     confettiTimer.current = setTimeout(() => setConfetti(false), 4000);
   };
 
   const activeTodos    = todos.filter(t => !t.completed);
   const completedTodos = todos.filter(t =>  t.completed);
+
+  const editingTodo = editorMode?.mode === 'edit' ? editorMode.todo : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -114,23 +152,39 @@ export function TodosPage() {
         subtitle={activeTodos.length > 0 ? `${activeTodos.length} task${activeTodos.length !== 1 ? 's' : ''} remaining` : 'All done!'}
       />
 
-      {/* Add input */}
+      {/* Editor / Add button area */}
       <div className="px-6 py-4 border-b border-slate-800">
-        <div className="flex gap-2 max-w-2xl">
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            placeholder="Add a new task..."
-            className="flex-1 h-9 px-4 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm outline-none focus:border-indigo-500 placeholder:text-slate-500 transition-colors"
-          />
-          <GradientButton
-            text="Add"
-            icon={Plus}
-            onClick={handleAdd}
-            disabled={!input.trim()}
-            size="md"
-          />
+        <div className="max-w-2xl">
+          {editorMode ? (
+            <TaskEditor
+              key={editingTodo?.id ?? 'new'}
+              initialData={editingTodo ? {
+                title:       editingTodo.title,
+                description: editingTodo.description ?? '',
+                dueDate:     editingTodo.dueDate,
+                dueTime:     editingTodo.dueTime,
+                deadline:    editingTodo.deadline,
+                priority:    editingTodo.priority as 1 | 2 | 3 | 4,
+                location:    editingTodo.location ?? '',
+                reminders:   editingTodo.reminderConfig ?? [],
+                recurrence:  editingTodo.recurrence,
+                recurrenceEnd: editingTodo.recurrenceEnd,
+                project:     editingTodo.project,
+                attachments: [],
+              } : undefined}
+              isEditing={editorMode.mode === 'edit'}
+              onSave={handleSave}
+              onCancel={() => setEditorMode(null)}
+            />
+          ) : (
+            <button
+              onClick={() => setEditorMode({ mode: 'add' })}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-dashed border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors w-full"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="text-sm">Add a task</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -151,24 +205,60 @@ export function TodosPage() {
             const isShaking = animPhase?.id === todo.id && animPhase.phase === 'shake';
             const isFlying  = animPhase?.id === todo.id && animPhase.phase === 'fly';
             const isOut     = removingIds.has(todo.id);
+            const isBeingEdited = editingTodo?.id === todo.id;
+            const pColor = PRIORITY_COLORS[todo.priority ?? 4];
+            const overdue = todo.dueDate ? isOverdue(todo.dueDate) : false;
 
             return (
               <div
                 key={todo.id}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-800 border border-slate-700 ${isOut ? 'todo-out' : ''}`}
+                className={`flex items-start gap-3 px-4 py-3 rounded-lg bg-slate-800 border border-slate-700 ${isOut ? 'todo-out' : ''} ${isBeingEdited ? 'opacity-50' : ''}`}
               >
-                {/* Empty checkbox (visual only — rocket = complete) */}
-                <div className="w-5 h-5 rounded border-2 border-slate-600 shrink-0" />
+                {/* Checkbox visual */}
+                <div className="w-5 h-5 rounded border-2 shrink-0 mt-0.5" style={{ borderColor: pColor }} />
 
-                {/* Title */}
-                <span className="flex-1 text-sm text-slate-100">{todo.title}</span>
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-slate-100 block">{todo.title}</span>
+                  {/* Meta row */}
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {todo.dueDate && (
+                      <span className="flex items-center gap-1 text-xs" style={{ color: overdue ? '#db4c3f' : '#64748b' }}>
+                        <Calendar className="h-3 w-3" />
+                        {formatDueDate(todo.dueDate)}
+                      </span>
+                    )}
+                    {todo.priority < 4 && (
+                      <span className="flex items-center gap-1 text-xs" style={{ color: pColor }}>
+                        <Flag className="h-3 w-3" fill={pColor} />
+                        P{todo.priority}
+                      </span>
+                    )}
+                    {todo.location && (
+                      <span className="text-xs text-slate-500 truncate max-w-24">{todo.location}</span>
+                    )}
+                    {todo.recurrence !== 'none' && (
+                      <span className="text-xs text-slate-500">{todo.recurrence}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Edit button */}
+                <button
+                  onClick={() => setEditorMode({ mode: 'edit', todo })}
+                  disabled={!!animPhase}
+                  title="Edit task"
+                  className="p-1.5 rounded text-slate-600 hover:text-indigo-400 disabled:opacity-40 transition-colors shrink-0"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
 
                 {/* Rocket button */}
                 <button
                   onClick={() => handleRocket(todo.id)}
                   disabled={!!animPhase}
                   title="Complete with rocket!"
-                  className="p-1.5 rounded text-slate-400 hover:text-indigo-400 disabled:opacity-40 transition-colors"
+                  className="p-1.5 rounded text-slate-400 hover:text-indigo-400 disabled:opacity-40 transition-colors shrink-0"
                 >
                   <Rocket
                     className={`h-4 w-4 ${isShaking ? 'rocket-shake' : ''} ${isFlying ? 'rocket-fly' : ''}`}
@@ -194,7 +284,7 @@ export function TodosPage() {
                   className="flex items-center gap-1 text-xs text-slate-600 hover:text-rose-400 transition-colors"
                   title="Clear all completed"
                 >
-                  <X className="h-3 w-3" />
+                  <Trash2 className="h-3 w-3" />
                   Clear all
                 </button>
               </div>

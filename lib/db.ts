@@ -128,12 +128,22 @@ export async function ensureInit(): Promise<Client> {
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS todos (
-      id           TEXT PRIMARY KEY,
-      title        TEXT NOT NULL,
-      completed    INTEGER NOT NULL DEFAULT 0,
-      completed_at TEXT,
-      created_at   TEXT DEFAULT (datetime('now')),
-      updated_at   TEXT DEFAULT (datetime('now'))
+      id              TEXT PRIMARY KEY,
+      title           TEXT NOT NULL,
+      description     TEXT,
+      completed       INTEGER NOT NULL DEFAULT 0,
+      completed_at    TEXT,
+      due_date        TEXT,
+      due_time        TEXT,
+      deadline        TEXT,
+      priority        INTEGER NOT NULL DEFAULT 4,
+      location        TEXT,
+      reminder_config TEXT,
+      recurrence      TEXT NOT NULL DEFAULT 'none',
+      recurrence_end  TEXT,
+      project         TEXT NOT NULL DEFAULT 'Inbox',
+      created_at      TEXT DEFAULT (datetime('now')),
+      updated_at      TEXT DEFAULT (datetime('now'))
     )
   `);
 
@@ -142,6 +152,16 @@ export async function ensureInit(): Promise<Client> {
     'ALTER TABLE todos ADD COLUMN completed_at TEXT',
     'ALTER TABLE todos ADD COLUMN created_at TEXT',
     'ALTER TABLE todos ADD COLUMN updated_at TEXT',
+    'ALTER TABLE todos ADD COLUMN description TEXT',
+    'ALTER TABLE todos ADD COLUMN due_date TEXT',
+    'ALTER TABLE todos ADD COLUMN due_time TEXT',
+    'ALTER TABLE todos ADD COLUMN deadline TEXT',
+    "ALTER TABLE todos ADD COLUMN priority INTEGER NOT NULL DEFAULT 4",
+    'ALTER TABLE todos ADD COLUMN location TEXT',
+    'ALTER TABLE todos ADD COLUMN reminder_config TEXT',
+    "ALTER TABLE todos ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'none'",
+    'ALTER TABLE todos ADD COLUMN recurrence_end TEXT',
+    "ALTER TABLE todos ADD COLUMN project TEXT NOT NULL DEFAULT 'Inbox'",
   ];
   for (const sql of todoMigrations) {
     try { await db.execute(sql); } catch { /* already exists */ }
@@ -295,12 +315,26 @@ export function rowToTrashEvent(row: Row) {
 }
 
 export function rowToTodo(row: Row) {
+  let reminderConfig = null;
+  if (row.reminder_config && typeof row.reminder_config === 'string') {
+    try { reminderConfig = JSON.parse(row.reminder_config); } catch { /* ignore */ }
+  }
   return {
-    id:          row.id as string,
-    title:       row.title as string,
-    completed:   Boolean(row.completed),
-    completedAt: (row.completed_at as string | null) ?? null,
-    createdAt:   row.created_at as string,
-    updatedAt:   row.updated_at as string,
+    id:            row.id as string,
+    title:         row.title as string,
+    description:   (row.description as string | null) ?? null,
+    completed:     Boolean(row.completed),
+    completedAt:   (row.completed_at as string | null) ?? null,
+    dueDate:       (row.due_date as string | null) ?? null,
+    dueTime:       (row.due_time as string | null) ?? null,
+    deadline:      (row.deadline as string | null) ?? null,
+    priority:      (row.priority as number | null) ?? 4,
+    location:      (row.location as string | null) ?? null,
+    reminderConfig,
+    recurrence:    (row.recurrence as string | null) ?? 'none',
+    recurrenceEnd: (row.recurrence_end as string | null) ?? null,
+    project:       (row.project as string | null) ?? 'Inbox',
+    createdAt:     row.created_at as string,
+    updatedAt:     row.updated_at as string,
   };
 }

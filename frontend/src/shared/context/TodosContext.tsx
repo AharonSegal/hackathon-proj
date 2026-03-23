@@ -7,7 +7,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { todosApi, type Todo } from '@/shared/hooks/useApi';
+import { todosApi, type Todo, type TodoCreateInput, type TodoUpdateInput } from '@/shared/hooks/useApi';
 
 const CACHE_KEY = 'cache_v1_todos';
 
@@ -23,9 +23,9 @@ function saveCache(todos: Todo[]) {
 
 interface TodosContextValue {
   todos: Todo[];
-  createTodo: (title: string) => void;
+  createTodo: (input: TodoCreateInput) => void;
   completeTodo: (id: string) => void;
-  updateTodo: (id: string, title: string) => void;
+  updateTodo: (id: string, patch: TodoUpdateInput) => void;
   deleteTodo: (id: string) => void;
 }
 
@@ -46,19 +46,30 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const createTodo = (title: string) => {
+  const createTodo = (input: TodoCreateInput) => {
+    const now = new Date().toISOString();
     const todo: Todo = {
-      id:          crypto.randomUUID(),
-      title,
-      completed:   false,
-      completedAt: null,
-      createdAt:   new Date().toISOString(),
-      updatedAt:   new Date().toISOString(),
+      id:            input.id ?? crypto.randomUUID(),
+      title:         input.title,
+      description:   input.description ?? null,
+      completed:     false,
+      completedAt:   null,
+      dueDate:       input.dueDate ?? null,
+      dueTime:       input.dueTime ?? null,
+      deadline:      input.deadline ?? null,
+      priority:      input.priority ?? 4,
+      location:      input.location ?? null,
+      reminderConfig:input.reminderConfig ?? null,
+      recurrence:    input.recurrence ?? 'none',
+      recurrenceEnd: input.recurrenceEnd ?? null,
+      project:       input.project ?? 'Inbox',
+      createdAt:     now,
+      updatedAt:     now,
     };
     const snapshot = todosRef.current;
     commit([todo, ...snapshot]);
 
-    todosApi.create({ id: todo.id, title })
+    todosApi.create({ ...input, id: todo.id })
       .then(saved => commit(todosRef.current.map(t => t.id === todo.id ? saved : t)))
       .catch(() => { commit(snapshot); toast.error('Failed to create todo'); });
   };
@@ -73,12 +84,12 @@ export function TodosProvider({ children }: { children: ReactNode }) {
       .catch(() => { commit(snapshot); toast.error('Failed to complete todo'); });
   };
 
-  const updateTodo = (id: string, title: string) => {
+  const updateTodo = (id: string, patch: TodoUpdateInput) => {
     const snapshot = todosRef.current;
     commit(snapshot.map(t =>
-      t.id === id ? { ...t, title, updatedAt: new Date().toISOString() } : t,
+      t.id === id ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t,
     ));
-    todosApi.update(id, { title })
+    todosApi.update(id, patch)
       .catch(() => { commit(snapshot); toast.error('Failed to update todo'); });
   };
 

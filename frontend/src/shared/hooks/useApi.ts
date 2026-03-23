@@ -46,13 +46,60 @@ export interface TrashData {
   events: TrashEvent[];
 }
 
+export interface ReminderItem {
+  id: string;
+  mode: 'datetime' | 'before';
+  value: string;
+}
+
 export interface Todo {
   id: string;
   title: string;
+  description: string | null;
   completed: boolean;
   completedAt: string | null;
+  dueDate: string | null;
+  dueTime: string | null;
+  deadline: string | null;
+  priority: number;
+  location: string | null;
+  reminderConfig: ReminderItem[] | null;
+  recurrence: string;
+  recurrenceEnd: string | null;
+  project: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TodoCreateInput {
+  id?: string;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+  dueTime?: string | null;
+  deadline?: string | null;
+  priority?: number;
+  location?: string | null;
+  reminderConfig?: ReminderItem[] | null;
+  recurrence?: string;
+  recurrenceEnd?: string | null;
+  project?: string;
+}
+
+export interface TodoUpdateInput {
+  title?: string;
+  description?: string | null;
+  completed?: boolean;
+  completedAt?: string | null;
+  dueDate?: string | null;
+  dueTime?: string | null;
+  deadline?: string | null;
+  priority?: number;
+  location?: string | null;
+  reminderConfig?: ReminderItem[] | null;
+  recurrence?: string;
+  recurrenceEnd?: string | null;
+  project?: string;
 }
 
 const api = axios.create({
@@ -265,11 +312,11 @@ export const todosApi = {
     }
   },
 
-  create: async (todo: { id?: string; title: string }): Promise<Todo> => {
-    return await api.post<Todo>('/todos', todo).then(r => r.data);
+  create: async (input: TodoCreateInput): Promise<Todo> => {
+    return await api.post<Todo>('/todos', input).then(r => r.data);
   },
 
-  update: async (id: string, patch: { title?: string; completed?: boolean; completedAt?: string }): Promise<Todo> => {
+  update: async (id: string, patch: TodoUpdateInput): Promise<Todo> => {
     return await api.put<Todo>(`/todos/${id}`, patch).then(r => r.data);
   },
 
