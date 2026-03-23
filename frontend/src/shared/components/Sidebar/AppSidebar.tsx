@@ -32,12 +32,15 @@ export function AppSidebar() {
   // Nav items use translated labels from the i18n hook
   const NAV_ITEMS = [
     { to: '/dashboard',   label: t.nav_dashboard,   icon: LayoutDashboard },
-    { to: '/calendar',    label: t.nav_calendar,    icon: CalendarDays },
     { to: '/events',      label: t.nav_events,      icon: ListOrdered },
-    { to: '/daily-times', label: t.nav_daily_times, icon: Clock },
-    { to: '/messages',    label: t.nav_messages,    icon: MessageSquare },
-    { to: '/notes',       label: t.nav_notes,       icon: NotebookPen },
     { to: '/todos',       label: t.nav_todos,       icon: CheckSquare },
+    { to: '/notes',       label: t.nav_notes,       icon: NotebookPen },
+    { to: '/messages',    label: t.nav_messages,    icon: MessageSquare },
+  ];
+
+  const BOTTOM_ITEMS = [
+    { to: '/calendar',    label: t.nav_calendar,    icon: CalendarDays },
+    { to: '/daily-times', label: t.nav_daily_times, icon: Clock },
   ];
 
   // Active-indicator chevron: points toward the content area
@@ -88,8 +91,31 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      {/* Trash + Settings at bottom */}
+      {/* Bottom section: Calendar, Daily Times, Trash, Settings */}
       <div className="px-3 py-4 border-t border-slate-800 space-y-1">
+        {BOTTOM_ITEMS.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              clsx(
+                'group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-primary-600 text-white'
+                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800',
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Icon size={17} />
+                <span className="flex-1">{label}</span>
+                {isActive && <ActiveChevron size={14} className="opacity-60" />}
+              </>
+            )}
+          </NavLink>
+        ))}
+        <div className="my-1 border-t border-slate-800/60" />
         <NavLink
           to="/trash"
           className={({ isActive }) =>

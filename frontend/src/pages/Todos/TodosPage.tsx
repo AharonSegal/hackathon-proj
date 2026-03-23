@@ -111,7 +111,7 @@ export function TodosPage() {
 
       <PageHeader
         title="Todos"
-        subtitle="Rocket-launch your tasks"
+        subtitle={activeTodos.length > 0 ? `${activeTodos.length} task${activeTodos.length !== 1 ? 's' : ''} remaining` : 'All done!'}
       />
 
       {/* Add input */}

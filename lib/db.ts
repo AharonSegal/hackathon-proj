@@ -137,6 +137,43 @@ export async function ensureInit(): Promise<Client> {
     )
   `);
 
+  // ── Seed example data (INSERT OR IGNORE — idempotent on every cold start) ───
+  const _d = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+  const _now = new Date().toISOString();
+
+  // Sample todos
+  for (const [id, title, days] of [
+    ['SEED-TODO-001', 'Plan Shabbat dinner menu 🍽️',          2],
+    ['SEED-TODO-002', 'Buy candles for Friday night 🕯️',      1],
+    ['SEED-TODO-003', 'Send weekly status update to team',    0],
+  ] as [string, string, number][]) {
+    const ts = days === 0 ? _now : _d(days);
+    await db.execute({
+      sql: 'INSERT OR IGNORE INTO todos (id, title, completed, created_at, updated_at) VALUES (?, ?, 0, ?, ?)',
+      args: [id, title, ts, ts],
+    });
+  }
+
+  // Trashed note
+  await db.execute({
+    sql: 'INSERT OR IGNORE INTO notes (id, title, content, pinned, tags, deleted_at, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?, ?, ?)',
+    args: ['SEED-TRASH-NOTE-001', 'Old Shopping List', '[]', '[]', _d(3), _d(7), _d(3)],
+  });
+  await db.execute({
+    sql: 'INSERT OR IGNORE INTO trash (id, entity_id, entity_type, deleted_at) VALUES (?, ?, ?, ?)',
+    args: ['SEED-TRASH-ENTRY-001', 'SEED-TRASH-NOTE-001', 'note', _d(3)],
+  });
+
+  // Trashed event
+  await db.execute({
+    sql: "INSERT OR IGNORE INTO events (id, title, date, color, all_day, tags, recurrence, deleted_at, created_at, updated_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)",
+    args: ['SEED-TRASH-EVENT-001', 'Cancelled Team Meeting', '2026-03-10', 'rose', '[]', 'none', _d(5), _d(10), _d(5)],
+  });
+  await db.execute({
+    sql: 'INSERT OR IGNORE INTO trash (id, entity_id, entity_type, deleted_at) VALUES (?, ?, ?, ?)',
+    args: ['SEED-TRASH-ENTRY-002', 'SEED-TRASH-EVENT-001', 'event', _d(5)],
+  });
+
   _initialized = true;
   return db;
 }

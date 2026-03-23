@@ -25,12 +25,12 @@ import { useT } from '@/shared/i18n/useT';
 
 const NAV_ITEMS = [
   { to: '/dashboard',   icon: LayoutDashboard, labelKey: 'nav_dashboard'   },
-  { to: '/calendar',    icon: CalendarDays,    labelKey: 'nav_calendar'    },
   { to: '/events',      icon: ListOrdered,     labelKey: 'nav_events'      },
-  { to: '/daily-times', icon: Clock,           labelKey: 'nav_daily_times' },
-  { to: '/messages',    icon: MessageSquare,   labelKey: 'nav_messages'    },
-  { to: '/notes',       icon: NotebookPen,     labelKey: 'nav_notes'       },
   { to: '/todos',       icon: CheckSquare,     labelKey: 'nav_todos'       },
+  { to: '/notes',       icon: NotebookPen,     labelKey: 'nav_notes'       },
+  { to: '/messages',    icon: MessageSquare,   labelKey: 'nav_messages'    },
+  { to: '/calendar',    icon: CalendarDays,    labelKey: 'nav_calendar'    },
+  { to: '/daily-times', icon: Clock,           labelKey: 'nav_daily_times' },
   { to: '/trash',       icon: Trash2,          labelKey: 'nav_trash'       },
   { to: '/settings',    icon: Settings,        labelKey: 'nav_settings'    },
 ] as const;
