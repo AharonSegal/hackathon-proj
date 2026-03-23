@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const now = new Date().toISOString();
 
       const setClauses: string[] = [];
-      const args: unknown[] = [];
+      const args: (string | number | boolean | null)[] = [];
 
       for (const [jsKey, dbCol] of Object.entries(FIELD_MAP)) {
         if (!(jsKey in b)) continue;
