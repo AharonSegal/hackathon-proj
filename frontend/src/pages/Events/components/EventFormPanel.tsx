@@ -8,6 +8,7 @@
 import { useState, useEffect, KeyboardEvent } from 'react';
 import { X, Trash2, Paperclip } from 'lucide-react';
 import { clsx } from 'clsx';
+import { GradientButton } from '@/shared/components/ui/GradientButton';
 import { AnimatePresence } from 'framer-motion';
 import { type CalendarEvent, type EventColor, EVENT_COLOR_HEX, RECURRENCE_OPTIONS } from '@/shared/types/event.types';
 import { type Folder } from '@/shared/types/note.types';
@@ -319,13 +320,12 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
           >
             Cancel
           </button>
-          <button
+          <GradientButton
+            text={isEdit ? 'Save Changes' : 'Save Event'}
             onClick={handleSave}
             disabled={!title.trim() || !date}
-            className="px-4 py-1.5 rounded-md text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isEdit ? 'Save Changes' : 'Save Event'}
-          </button>
+            size="sm"
+          />
         </div>
       </div>
 

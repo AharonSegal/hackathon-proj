@@ -11,6 +11,7 @@ import { type CalendarEvent } from '@/shared/types/event.types';
 import { type Folder as FolderType, FOLDER_COLORS } from '@/shared/types/note.types';
 import { EventCard } from './EventCard';
 import { Button } from '@/shared/components/ui/Button';
+import { GradientButton } from '@/shared/components/ui/GradientButton';
 
 interface EventsListProps {
   events: CalendarEvent[];
@@ -97,14 +98,8 @@ export function EventsList({
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-700">
         <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Events</h2>
         <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" onClick={onCreateFolder} className="h-7 gap-1 text-xs text-slate-400 hover:text-slate-200">
-            <Folder className="h-3.5 w-3.5" />
-            Folder
-          </Button>
-          <Button size="sm" onClick={onCreateEvent} className="h-7 gap-1.5 text-xs">
-            <Plus className="h-3.5 w-3.5" />
-            New
-          </Button>
+          <GradientButton size="sm" icon={Folder} text="Folder" onClick={onCreateFolder} />
+          <GradientButton size="sm" icon={Plus}   text="New"    onClick={onCreateEvent} />
         </div>
       </div>
 
@@ -373,10 +368,7 @@ function EmptyState({ search, onCreateEvent }: { search: string; onCreateEvent: 
         <>
           <p className="text-sm font-medium text-slate-300">No events yet</p>
           <p className="text-xs text-slate-500">Create your first event to get started</p>
-          <Button size="sm" variant="ghost" onClick={onCreateEvent} className="mt-1 text-xs h-7">
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Event
-          </Button>
+          <GradientButton size="sm" icon={Plus} text="New Event" onClick={onCreateEvent} className="mt-1" />
         </>
       )}
     </div>

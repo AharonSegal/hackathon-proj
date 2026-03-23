@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { type Note, type Folder as FolderType, FOLDER_COLORS } from '@/shared/types/note.types';
 import { NoteCard } from './NoteCard';
 import { Button } from '@/shared/components/ui/Button';
+import { GradientButton } from '@/shared/components/ui/GradientButton';
 
 interface NotesListProps {
   notes: Note[];
@@ -119,14 +120,8 @@ export function NotesList({
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-700">
         <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Notes</h2>
         <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" onClick={onCreateFolder} className="h-7 gap-1 text-xs text-slate-400 hover:text-slate-200">
-            <Folder className="h-3.5 w-3.5" />
-            Folder
-          </Button>
-          <Button size="sm" onClick={onCreateNote} className="h-7 gap-1.5 text-xs">
-            <Plus className="h-3.5 w-3.5" />
-            New
-          </Button>
+          <GradientButton size="sm" icon={Folder} text="Folder" onClick={onCreateFolder} />
+          <GradientButton size="sm" icon={Plus}   text="New"    onClick={onCreateNote} />
         </div>
       </div>
 
@@ -459,10 +454,7 @@ function EmptyState({ search, onCreateNote }: { search: string; onCreateNote: ()
         <>
           <p className="text-sm font-medium text-slate-300">No notes yet</p>
           <p className="text-xs text-slate-500">Create your first note to get started</p>
-          <Button size="sm" variant="ghost" onClick={onCreateNote} className="mt-1 text-xs h-7">
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Note
-          </Button>
+          <GradientButton size="sm" icon={Plus} text="New Note" onClick={onCreateNote} className="mt-1" />
         </>
       )}
     </div>
