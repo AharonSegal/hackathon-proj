@@ -18,11 +18,14 @@ import { type Note, type Folder as FolderType, FOLDER_COLORS } from '@/shared/ty
 interface NoteCardProps {
   note: Note;
   isSelected: boolean;
+  isMultiSelected: boolean;
+  isSelectionMode: boolean;
   folders: FolderType[];
   onSelect: () => void;
   onTogglePin: () => void;
   onDelete: () => void;
   onMoveToFolder: (folderId: string | null) => void;
+  onToggleMultiSelect: (e: React.MouseEvent) => void;
 }
 
 function formatNoteDate(iso: string): string {
@@ -49,7 +52,10 @@ function getBlockPreview(raw: string): string | null {
   }
 }
 
-export function NoteCard({ note, isSelected, folders, onSelect, onTogglePin, onDelete, onMoveToFolder }: NoteCardProps) {
+export function NoteCard({
+  note, isSelected, isMultiSelected, isSelectionMode,
+  folders, onSelect, onTogglePin, onDelete, onMoveToFolder, onToggleMultiSelect,
+}: NoteCardProps) {
   const preview = getBlockPreview(note.content);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
 
@@ -70,13 +76,32 @@ export function NoteCard({ note, isSelected, folders, onSelect, onTogglePin, onD
       onClick={onSelect}
       className={clsx(
         'group relative cursor-pointer rounded-lg border p-3 transition-all duration-150 border-l-[3px] flex gap-1.5',
-        isSelected
+        isMultiSelected
+          ? 'border-indigo-500/50 border-l-indigo-500 bg-indigo-900/20 ring-2 ring-indigo-500/50 shadow-sm'
+          : isSelected
           ? 'border-primary-600 border-l-primary-500 bg-primary-900/20 shadow-sm'
           : note.pinned
           ? 'border-slate-700 border-l-primary-500 bg-slate-800/50 hover:bg-slate-800'
           : 'border-slate-700 border-l-transparent bg-slate-800/50 hover:bg-slate-800 hover:border-l-slate-600',
       )}
     >
+      {/* Checkbox — left of drag handle */}
+      <div
+        className={clsx(
+          'shrink-0 flex items-start pt-0.5 transition-opacity',
+          isSelectionMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+        )}
+        onClick={e => e.stopPropagation()}
+      >
+        <input
+          type="checkbox"
+          checked={isMultiSelected}
+          onChange={() => {}}
+          onClick={e => { e.stopPropagation(); onToggleMultiSelect(e); }}
+          className="accent-indigo-500 h-3.5 w-3.5 rounded cursor-pointer"
+        />
+      </div>
+
       {/* Drag handle */}
       <div
         className="shrink-0 flex items-start pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"

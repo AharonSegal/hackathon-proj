@@ -15,6 +15,7 @@ import {
   Clock,
   MessageSquare,
   NotebookPen,
+  ListOrdered,
   Settings,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -23,6 +24,7 @@ import { useT } from '@/shared/i18n/useT';
 const NAV_ITEMS = [
   { to: '/dashboard',   icon: LayoutDashboard, labelKey: 'nav_dashboard'   },
   { to: '/calendar',    icon: CalendarDays,    labelKey: 'nav_calendar'    },
+  { to: '/events',      icon: ListOrdered,     labelKey: 'nav_events'      },
   { to: '/daily-times', icon: Clock,           labelKey: 'nav_daily_times' },
   { to: '/messages',    icon: MessageSquare,   labelKey: 'nav_messages'    },
   { to: '/notes',       icon: NotebookPen,     labelKey: 'nav_notes'       },
@@ -45,14 +47,14 @@ export function MobileNav() {
           to={to}
           className={({ isActive }) =>
             clsx(
-              'flex-1 flex flex-col items-center justify-center py-2 gap-0.5',
-              'text-[10px] font-medium transition-colors',
+              'flex-1 min-w-0 flex flex-col items-center justify-center py-2 gap-0.5',
+              'text-[9px] font-medium transition-colors',
               isActive ? 'text-primary-400' : 'text-slate-500 active:text-slate-300',
             )
           }
         >
-          <Icon size={20} strokeWidth={1.75} />
-          <span>{t[labelKey as LabelKey]}</span>
+          <Icon size={18} strokeWidth={1.75} />
+          <span className="truncate w-full text-center">{t[labelKey as LabelKey]}</span>
         </NavLink>
       ))}
     </nav>

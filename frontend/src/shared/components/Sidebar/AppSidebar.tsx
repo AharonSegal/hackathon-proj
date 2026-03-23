@@ -16,6 +16,7 @@ import {
   Settings,
   LayoutDashboard,
   NotebookPen,
+  ListOrdered,
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ export function AppSidebar() {
   const NAV_ITEMS = [
     { to: '/dashboard',   label: t.nav_dashboard,   icon: LayoutDashboard },
     { to: '/calendar',    label: t.nav_calendar,    icon: CalendarDays },
+    { to: '/events',      label: t.nav_events,      icon: ListOrdered },
     { to: '/daily-times', label: t.nav_daily_times, icon: Clock },
     { to: '/messages',    label: t.nav_messages,    icon: MessageSquare },
     { to: '/notes',       label: t.nav_notes,       icon: NotebookPen },

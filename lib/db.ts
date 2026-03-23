@@ -102,6 +102,17 @@ export async function ensureInit(): Promise<Client> {
     await db.execute('ALTER TABLE notes ADD COLUMN folder_id TEXT');
   } catch { /* column already exists */ }
 
+  // Add new columns to events (migrations – safe to run multiple times)
+  const eventMigrations = [
+    "ALTER TABLE events ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'",
+    'ALTER TABLE events ADD COLUMN folder_id TEXT',
+    "ALTER TABLE events ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'none'",
+    'ALTER TABLE events ADD COLUMN recurrence_end TEXT',
+  ];
+  for (const sql of eventMigrations) {
+    try { await db.execute(sql); } catch { /* column already exists */ }
+  }
+
   _initialized = true;
   return db;
 }
@@ -121,6 +132,11 @@ export function rowToEvent(row: Row) {
     try { scheduledWhatsApp = JSON.parse(row.scheduled_whatsapp); } catch { /* ignore */ }
   }
 
+  let tags: string[] = [];
+  if (row.tags && typeof row.tags === 'string') {
+    try { tags = JSON.parse(row.tags); } catch { /* ignore */ }
+  }
+
   return {
     id:               row.id as string,
     title:            row.title as string,
@@ -132,6 +148,10 @@ export function rowToEvent(row: Row) {
     allDay:           Boolean(row.all_day),
     scheduledEmail:   scheduledEmail,
     scheduledWhatsApp: scheduledWhatsApp,
+    tags,
+    folderId:         (row.folder_id as string | null) ?? null,
+    recurrence:       (row.recurrence as string) ?? 'none',
+    recurrenceEnd:    (row.recurrence_end as string | null) ?? undefined,
     createdAt:        row.created_at as string,
     updatedAt:        row.updated_at as string,
   };

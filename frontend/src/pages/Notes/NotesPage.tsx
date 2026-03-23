@@ -27,6 +27,7 @@ export function NotesPage() {
     notes, selectedNote, setSelectedNote,
     createNote, updateNote, deleteNote,
     togglePin, renameNote, updateTags, restoreNote, moveToFolder,
+    bulkDelete, bulkMoveToFolder,
   } = useNotes();
 
   const { folders, createFolder, renameFolder, updateFolderColor, deleteFolder } = useFolders();
@@ -119,6 +120,8 @@ export function NotesPage() {
           onUpdateFolderColor={updateFolderColor}
           onDeleteFolder={handleDeleteFolder}
           onSelectFolder={setSelectedFolderId}
+          onBulkDelete={bulkDelete}
+          onBulkMoveToFolder={bulkMoveToFolder}
         />
       </div>
     );
@@ -145,6 +148,8 @@ export function NotesPage() {
           onUpdateFolderColor={updateFolderColor}
           onDeleteFolder={handleDeleteFolder}
           onSelectFolder={setSelectedFolderId}
+          onBulkDelete={bulkDelete}
+          onBulkMoveToFolder={bulkMoveToFolder}
         />
       </div>
 

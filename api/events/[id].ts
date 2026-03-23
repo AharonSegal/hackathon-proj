@@ -55,6 +55,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         swJson = b.scheduledWhatsApp ? JSON.stringify(b.scheduledWhatsApp) : null;
       }
 
+      const tags = 'tags' in b ? JSON.stringify(Array.isArray(b.tags) ? b.tags : []) : String(cur.tags ?? '[]');
+      const folderId = 'folderId' in b ? (b.folderId === null ? null : String(b.folderId)) : ((cur.folder_id as string | null) ?? null);
+      const recurrence = 'recurrence' in b ? String(b.recurrence) : String(cur.recurrence ?? 'none');
+      const recurrenceEnd = 'recurrenceEnd' in b ? (b.recurrenceEnd ? String(b.recurrenceEnd) : null) : ((cur.recurrence_end as string | null) ?? null);
+
       const now = new Date().toISOString();
 
       await db.execute({
@@ -62,6 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               title = ?, description = ?, date = ?,
               start_time = ?, end_time = ?, color = ?, all_day = ?,
               scheduled_email = ?, scheduled_whatsapp = ?,
+              tags = ?, folder_id = ?, recurrence = ?, recurrence_end = ?,
               updated_at = ?
               WHERE id = ?`,
         args: [
@@ -74,6 +80,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           allDay ? 1 : 0,
           seJson,
           swJson,
+          tags,
+          folderId,
+          recurrence,
+          recurrenceEnd,
           now,
           id,
         ],

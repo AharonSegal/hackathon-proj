@@ -42,6 +42,8 @@ interface NotesContextValue {
   updateTags: (id: string, tags: string[]) => void;
   restoreNote: (note: Note) => void;
   moveToFolder: (id: string, folderId: string | null) => void;
+  bulkDelete: (ids: string[]) => void;
+  bulkMoveToFolder: (ids: string[], folderId: string | null) => void;
 }
 
 const NotesContext = createContext<NotesContextValue | null>(null);
@@ -147,6 +149,20 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     notesApi.update(id, { folderId }).catch(() => { commit(snapshot); toast.error('Failed to move note'); });
   };
 
+  const bulkDelete = (ids: string[]) => {
+    const snapshot = notesRef.current;
+    commit(snapshot.filter(n => !ids.includes(n.id)));
+    Promise.all(ids.map(id => notesApi.delete(id)))
+      .catch(() => { commit(snapshot); toast.error('Failed to delete some notes'); });
+  };
+
+  const bulkMoveToFolder = (ids: string[], folderId: string | null) => {
+    const snapshot = notesRef.current;
+    commit(snapshot.map(n => ids.includes(n.id) ? { ...n, folderId, updatedAt: new Date().toISOString() } : n));
+    Promise.all(ids.map(id => notesApi.update(id, { folderId })))
+      .catch(() => { commit(snapshot); toast.error('Failed to move some notes'); });
+  };
+
   const restoreNote = (note: Note) => {
     const snapshot = notesRef.current;
     const exists = snapshot.some(n => n.id === note.id);
@@ -165,6 +181,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       notes, selectedNote, setSelectedNote,
       createNote, updateNote, deleteNote,
       togglePin, renameNote, updateTags, restoreNote, moveToFolder,
+      bulkDelete, bulkMoveToFolder,
     }}>
       {children}
     </NotesContext.Provider>
