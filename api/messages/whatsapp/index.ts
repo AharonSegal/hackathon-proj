@@ -26,6 +26,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // ── Test mode: POST /api/messages/whatsapp?test=true ─────────────────────
+  if (req.query.test === 'true') {
+    try {
+      const { to } = req.body ?? {};
+      if (!to) return res.status(400).json({ error: "Missing 'to' field" });
+      await sendWhatsApp(String(to), '✅ Test message from Calendar App!');
+      return res.status(200).json({ ok: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return res.status(502).json({ error: msg });
+    }
+  }
+
   try {
     const db = await ensureInit();
     const { to, message, scheduleAt, eventId } = req.body ?? {};

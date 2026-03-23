@@ -38,13 +38,14 @@ function notify(d: BackendDetail) {
 const check = async () => {
   notify({ ...globalDetail, status: 'checking' });
   try {
-    const res = await axios.get<{ status: string; db?: string; latencyMs?: number }>(
-      '/api/health',
+    const res = await axios.get<{ db?: { status?: string }; latencyMs?: number }>(
+      '/api/debug',
       { timeout: 8000 },
     );
+    const dbStatus = res.data.db?.status;
     notify({
-      status: res.data.status === 'ok' ? 'online' : 'offline',
-      db: res.data.db ?? 'ok',
+      status: dbStatus === 'connected' ? 'online' : 'offline',
+      db: dbStatus === 'connected' ? 'ok' : (dbStatus ?? 'unknown'),
       latencyMs: res.data.latencyMs,
     });
   } catch (err) {

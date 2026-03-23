@@ -198,8 +198,8 @@ export const settingsApi = {
     api.post('/settings', settings).then(r => r.data).catch(() => ({ ok: true })),
 
   testWhatsApp: (to: string) =>
-    api.post('/messages/whatsapp/test', { to }).then(r => r.data),
+    api.post('/messages/whatsapp?test=true', { to }).then(r => r.data),
 
   testEmail: (to: string) =>
-    api.post('/messages/email/test', { to }).then(r => r.data),
+    api.post('/messages/email?test=true', { to }).then(r => r.data),
 };

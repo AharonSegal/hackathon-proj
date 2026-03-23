@@ -35,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const tags     = 'tags'     in b
         ? JSON.stringify(Array.isArray(b.tags) ? b.tags : [])
         : String(cur.tags ?? '[]');
-      const folderId = 'folderId' in b ? (b.folderId === null ? null : String(b.folderId)) : (cur.folder_id ?? null);
+      const folderId = 'folderId' in b ? (b.folderId === null ? null : String(b.folderId)) : ((cur.folder_id as string | null) ?? null);
       const now = new Date().toISOString();
 
       await db.execute({
