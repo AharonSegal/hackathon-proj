@@ -22,13 +22,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
       const { year, month } = req.query;
 
-      let sql  = 'SELECT * FROM events';
+      let sql  = 'SELECT * FROM events WHERE deleted_at IS NULL';
       const args: string[] = [];
 
       if (year && month) {
         const y = String(year).padStart(4, '0');
         const m = String(month).padStart(2, '0');
-        sql += ' WHERE date LIKE ?';
+        sql += ' AND date LIKE ?';
         args.push(`${y}-${m}%`);
       }
       sql += ' ORDER BY date ASC';

@@ -10,6 +10,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { randomUUID } from 'node:crypto';
 import { ensureInit, rowToEvent } from '../../lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -23,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Fetch current row once — used for both PUT (merge) and DELETE (existence check)
     const existing = await db.execute({
-      sql: 'SELECT * FROM events WHERE id = ?',
+      sql: 'SELECT * FROM events WHERE id = ? AND deleted_at IS NULL',
       args: [id],
     });
 
@@ -96,9 +97,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(rowToEvent(updated.rows[0] as Record<string, unknown>));
     }
 
-    // ── DELETE /api/events/:id ───────────────────────────────────────────────
+    // ── DELETE /api/events/:id — soft delete ─────────────────────────────────
     if (req.method === 'DELETE') {
-      await db.execute({ sql: 'DELETE FROM events WHERE id = ?', args: [id] });
+      const now = new Date().toISOString();
+      await db.execute({ sql: 'UPDATE events SET deleted_at = ? WHERE id = ?', args: [now, id] });
+      await db.execute({
+        sql: 'INSERT INTO trash (id, entity_id, entity_type, deleted_at) VALUES (?, ?, ?, ?)',
+        args: [randomUUID(), id, 'event', now],
+      });
       return res.status(204).end();
     }
 

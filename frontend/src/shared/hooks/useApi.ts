@@ -20,6 +20,41 @@ import axios from 'axios';
 import { CalendarEvent, MessageLog } from '@/shared/types/event.types';
 import { type Note, type Folder } from '@/shared/types/note.types';
 
+// ─── Shared types ──────────────────────────────────────────────────────────────
+
+export interface TrashNote {
+  trashId: string;
+  entityId: string;
+  entityType: 'note';
+  deletedAt: string;
+  title: string;
+  folderId: string | null;
+}
+
+export interface TrashEvent {
+  trashId: string;
+  entityId: string;
+  entityType: 'event';
+  deletedAt: string;
+  title: string;
+  date: string;
+  folderId: string | null;
+}
+
+export interface TrashData {
+  notes: TrashNote[];
+  events: TrashEvent[];
+}
+
+export interface Todo {
+  id: string;
+  title: string;
+  completed: boolean;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const api = axios.create({
   baseURL: '/api',
   timeout: 8000,
@@ -188,6 +223,58 @@ export const foldersApi = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/folders/${id}`);
     removeFromCache(CACHE_KEYS.folders, id);
+  },
+};
+
+// ─── Trash ────────────────────────────────────────────────────────────────────
+
+export const trashApi = {
+  getAll: async (): Promise<TrashData> => {
+    try {
+      return await api.get<TrashData>('/trash').then(r => r.data);
+    } catch {
+      return { notes: [], events: [] };
+    }
+  },
+
+  restore: async (trashId: string): Promise<void> => {
+    await api.put(`/trash/${trashId}`);
+  },
+
+  deletePermanently: async (trashId: string): Promise<void> => {
+    await api.delete(`/trash/${trashId}`);
+  },
+
+  emptyAll: async (): Promise<void> => {
+    await api.delete('/trash');
+  },
+};
+
+// ─── Todos ────────────────────────────────────────────────────────────────────
+
+const TODOS_CACHE_KEY = 'cache_v1_todos';
+
+export const todosApi = {
+  getAll: async (): Promise<Todo[]> => {
+    try {
+      const data = await api.get<Todo[]>('/todos').then(r => r.data);
+      try { localStorage.setItem(TODOS_CACHE_KEY, JSON.stringify(data)); } catch { /* full */ }
+      return data;
+    } catch {
+      try { return JSON.parse(localStorage.getItem(TODOS_CACHE_KEY) ?? '[]'); } catch { return []; }
+    }
+  },
+
+  create: async (todo: { id?: string; title: string }): Promise<Todo> => {
+    return await api.post<Todo>('/todos', todo).then(r => r.data);
+  },
+
+  update: async (id: string, patch: { title?: string; completed?: boolean; completedAt?: string }): Promise<Todo> => {
+    return await api.put<Todo>(`/todos/${id}`, patch).then(r => r.data);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/todos/${id}`);
   },
 };
 

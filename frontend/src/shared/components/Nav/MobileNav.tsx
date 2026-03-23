@@ -17,6 +17,8 @@ import {
   NotebookPen,
   ListOrdered,
   Settings,
+  Trash2,
+  CheckSquare,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useT } from '@/shared/i18n/useT';
@@ -28,6 +30,8 @@ const NAV_ITEMS = [
   { to: '/daily-times', icon: Clock,           labelKey: 'nav_daily_times' },
   { to: '/messages',    icon: MessageSquare,   labelKey: 'nav_messages'    },
   { to: '/notes',       icon: NotebookPen,     labelKey: 'nav_notes'       },
+  { to: '/todos',       icon: CheckSquare,     labelKey: 'nav_todos'       },
+  { to: '/trash',       icon: Trash2,          labelKey: 'nav_trash'       },
   { to: '/settings',    icon: Settings,        labelKey: 'nav_settings'    },
 ] as const;
 

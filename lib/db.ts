@@ -113,6 +113,30 @@ export async function ensureInit(): Promise<Client> {
     try { await db.execute(sql); } catch { /* column already exists */ }
   }
 
+  // Soft-delete support
+  try { await db.execute('ALTER TABLE notes ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
+  try { await db.execute('ALTER TABLE events ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS trash (
+      id          TEXT PRIMARY KEY,
+      entity_id   TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      deleted_at  TEXT NOT NULL
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS todos (
+      id           TEXT PRIMARY KEY,
+      title        TEXT NOT NULL,
+      completed    INTEGER NOT NULL DEFAULT 0,
+      completed_at TEXT,
+      created_at   TEXT DEFAULT (datetime('now')),
+      updated_at   TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
   _initialized = true;
   return db;
 }
@@ -197,5 +221,39 @@ export function rowToFolder(row: Row) {
     color:     (row.color as string) ?? 'slate',
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
+  };
+}
+
+export function rowToTrashNote(row: Row) {
+  return {
+    trashId:    row.trash_id as string,
+    entityId:   row.id as string,
+    entityType: 'note' as const,
+    deletedAt:  row.deleted_at as string,
+    title:      row.title as string,
+    folderId:   (row.folder_id as string | null) ?? null,
+  };
+}
+
+export function rowToTrashEvent(row: Row) {
+  return {
+    trashId:    row.trash_id as string,
+    entityId:   row.id as string,
+    entityType: 'event' as const,
+    deletedAt:  row.deleted_at as string,
+    title:      row.title as string,
+    date:       row.date as string,
+    folderId:   (row.folder_id as string | null) ?? null,
+  };
+}
+
+export function rowToTodo(row: Row) {
+  return {
+    id:          row.id as string,
+    title:       row.title as string,
+    completed:   Boolean(row.completed),
+    completedAt: (row.completed_at as string | null) ?? null,
+    createdAt:   row.created_at as string,
+    updatedAt:   row.updated_at as string,
   };
 }

@@ -8,6 +8,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { randomUUID } from 'node:crypto';
 import { ensureInit, rowToNote } from '../../lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -19,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing note id' });
     }
 
-    const existing = await db.execute({ sql: 'SELECT * FROM notes WHERE id = ?', args: [id] });
+    const existing = await db.execute({ sql: 'SELECT * FROM notes WHERE id = ? AND deleted_at IS NULL', args: [id] });
     if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'Note not found' });
     }
@@ -47,9 +48,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(rowToNote(updated.rows[0] as Record<string, unknown>));
     }
 
-    // ── DELETE /api/notes/:id ────────────────────────────────────────────────
+    // ── DELETE /api/notes/:id — soft delete ──────────────────────────────────
     if (req.method === 'DELETE') {
-      await db.execute({ sql: 'DELETE FROM notes WHERE id = ?', args: [id] });
+      const now = new Date().toISOString();
+      await db.execute({ sql: 'UPDATE notes SET deleted_at = ? WHERE id = ?', args: [now, id] });
+      await db.execute({
+        sql: 'INSERT INTO trash (id, entity_id, entity_type, deleted_at) VALUES (?, ?, ?, ?)',
+        args: [randomUUID(), id, 'note', now],
+      });
       return res.status(204).end();
     }
 

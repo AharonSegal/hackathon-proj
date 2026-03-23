@@ -19,6 +19,8 @@ import {
   ListOrdered,
   ChevronRight,
   ChevronLeft,
+  Trash2,
+  CheckSquare,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useT } from '@/shared/i18n/useT';
@@ -35,6 +37,7 @@ export function AppSidebar() {
     { to: '/daily-times', label: t.nav_daily_times, icon: Clock },
     { to: '/messages',    label: t.nav_messages,    icon: MessageSquare },
     { to: '/notes',       label: t.nav_notes,       icon: NotebookPen },
+    { to: '/todos',       label: t.nav_todos,       icon: CheckSquare },
   ];
 
   // Active-indicator chevron: points toward the content area
@@ -85,8 +88,22 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      {/* Settings at bottom */}
-      <div className="px-3 py-4 border-t border-slate-800">
+      {/* Trash + Settings at bottom */}
+      <div className="px-3 py-4 border-t border-slate-800 space-y-1">
+        <NavLink
+          to="/trash"
+          className={({ isActive }) =>
+            clsx(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+              isActive
+                ? 'bg-primary-600 text-white'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800',
+            )
+          }
+        >
+          <Trash2 size={17} />
+          <span>{t.nav_trash}</span>
+        </NavLink>
         <NavLink
           to="/settings"
           className={({ isActive }) =>

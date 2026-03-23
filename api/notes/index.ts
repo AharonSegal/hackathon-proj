@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── GET /api/notes ───────────────────────────────────────────────────────
     if (req.method === 'GET') {
       const result = await db.execute(
-        'SELECT * FROM notes ORDER BY pinned DESC, updated_at DESC',
+        'SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY pinned DESC, updated_at DESC',
       );
       return res.status(200).json(
         result.rows.map(r => rowToNote(r as Record<string, unknown>)),
