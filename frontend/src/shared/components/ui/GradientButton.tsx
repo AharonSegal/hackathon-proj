@@ -22,13 +22,14 @@ function injectStyles() {
     .gb-sweep {
       position: relative;
       overflow: hidden;
-      background: #0f172a;
-      border: 1px solid rgba(99,102,241,0.25);
-      transition: transform 0.2s ease, border-color 0.2s;
+      background: #4f46e5;
+      border: 1px solid rgba(99,102,241,0.6);
+      transition: transform 0.2s ease, border-color 0.2s, background 0.2s;
     }
     .gb-sweep:hover:not(:disabled) {
       transform: scale(1.05);
-      border-color: rgba(99,102,241,0.5);
+      background: #4338ca;
+      border-color: rgba(168,85,247,0.7);
     }
     .gb-sweep:disabled { opacity: 0.5; cursor: not-allowed; }
     .gb-sweep::before {
@@ -42,8 +43,8 @@ function injectStyles() {
         to right,
         transparent 0%,
         transparent 15%,
-        rgba(99,102,241,0.5) 40%,
-        rgba(168,85,247,0.4) 55%,
+        rgba(255,255,255,0.15) 40%,
+        rgba(168,85,247,0.5)  55%,
         transparent 72%,
         transparent 100%
       );
