@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   Trash2,
   CheckSquare,
+  BookOpen,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useT } from '@/shared/i18n/useT';
@@ -36,6 +37,7 @@ export function AppSidebar() {
     { to: '/todos',       label: t.nav_todos,       icon: CheckSquare },
     { to: '/notes',       label: t.nav_notes,       icon: NotebookPen },
     { to: '/messages',    label: t.nav_messages,    icon: MessageSquare },
+    { to: '/daily-log',   label: t.nav_daily_log,   icon: BookOpen },
   ];
 
   const BOTTOM_ITEMS = [

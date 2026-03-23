@@ -1,5 +1,6 @@
 # Next Session — Feature Roadmap
-
+claude --dangerously-skip-permissions
+no
 Each step must be implemented and pushed as a **separate commit**.
 
 ---
@@ -135,3 +136,4 @@ Convert the reference `@emotion/react` keyframes to standard CSS keyframes injec
 1. `feat: add soft-delete trash bin (DB + API + UI)`
 2. `feat: add GradientButton component and replace primary buttons`
 3. `feat: add Todos page with rocket animation and confetti`
+ic

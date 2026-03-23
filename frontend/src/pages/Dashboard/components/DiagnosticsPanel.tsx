@@ -1,13 +1,23 @@
 /**
  * Dashboard/components/DiagnosticsPanel.tsx
  * -------------------------------------------
- * Developer diagnostics panel.
+ * Developer diagnostics panel shown on the Dashboard page.
  *
- * "Run Diagnostics" — queries each entity list endpoint and shows live DB counts.
- * "Test All CRUD"   — runs a full CREATE→READ→UPDATE→DELETE cycle for every
- *                     entity: Events, Notes, Todos. Deletes go through the Trash
- *                     (soft-delete) and the panel verifies the ID appears in trash
- *                     before performing permanent deletion.
+ * "DB Counts"     — fires parallel GET requests to every entity endpoint and
+ *                   displays the live row count + total round-trip latency.
+ *                   Covers: Events, Notes, Todos, Trash, WorkLog Entries.
+ *
+ * "Test All CRUD" — runs a sequential CREATE → READ → UPDATE → DELETE cycle
+ *                   for every entity group:
+ *   Group 1 — Events    (soft-delete via Trash, restore, then permanent delete)
+ *   Group 2 — Notes     (soft-delete via Trash, then permanent delete)
+ *   Group 3 — Todos     (hard-delete, no trash)
+ *   Group 4 — WorkLog   (hard-delete, no trash; tests entry CRUD)
+ *   Group 5 — WorkLog Schema    (GET then round-trip PUT with restore)
+ *   Group 6 — WorkLog Prefs     (GET then round-trip PUT with restore)
+ *
+ * Each step records: group, step name, status (ok/fail/skip), detail string,
+ * and round-trip latency in ms.
  */
 
 import { useCallback, useState } from 'react';
@@ -33,6 +43,7 @@ interface DiagCounts {
   todos: number;
   trashNotes: number;
   trashEvents: number;
+  worklogEntries: number;
   latencyMs: number;
 }
 
@@ -74,19 +85,21 @@ export function DiagnosticsPanel() {
     setDiagData(null);
     const t0 = Date.now();
     try {
-      const [eventsRes, notesRes, todosRes, trashRes] = await Promise.all([
-        axios.get<{ id: string }[]>('/api/events', { timeout: 8000 }),
-        axios.get<{ id: string }[]>('/api/notes',  { timeout: 8000 }),
-        axios.get<{ id: string }[]>('/api/todos',  { timeout: 8000 }),
+      const [eventsRes, notesRes, todosRes, trashRes, worklogRes] = await Promise.all([
+        axios.get<{ id: string }[]>('/api/events',          { timeout: 8000 }),
+        axios.get<{ id: string }[]>('/api/notes',           { timeout: 8000 }),
+        axios.get<{ id: string }[]>('/api/todos',           { timeout: 8000 }),
         axios.get<{ notes: unknown[]; events: unknown[] }>('/api/trash', { timeout: 8000 }),
+        axios.get<{ id: string }[]>('/api/worklog/entries', { timeout: 8000 }),
       ]);
       setDiagData({
-        events:      eventsRes.data.length,
-        notes:       notesRes.data.length,
-        todos:       todosRes.data.length,
-        trashNotes:  trashRes.data.notes.length,
-        trashEvents: trashRes.data.events.length,
-        latencyMs:   Date.now() - t0,
+        events:         eventsRes.data.length,
+        notes:          notesRes.data.length,
+        todos:          todosRes.data.length,
+        trashNotes:     trashRes.data.notes.length,
+        trashEvents:    trashRes.data.events.length,
+        worklogEntries: worklogRes.data.length,
+        latencyMs:      Date.now() - t0,
       });
     } catch (e) {
       setDiagErr(fmtErr(e));
@@ -358,6 +371,145 @@ export function DiagnosticsPanel() {
         Date.now() - t0);
     } catch (e) { push(G3, 'VERIFY GONE', 'fail', fmtErr(e)); }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // GROUP 4 — WORKLOG ENTRIES (Daily Log feature)
+    // ════════════════════════════════════════════════════════════════════════
+
+    const G4 = 'WorkLog';
+    const wlTitle  = `[TEST] WorkLog @ ${new Date().toISOString()}`;
+    const wlTitle2 = wlTitle + ' — UPDATED ✓';
+    const wlDate   = new Date().toISOString().slice(0, 10);
+    let wlId: string | null = null;
+
+    // 24. CREATE entry
+    try {
+      const t0  = Date.now();
+      const res = await axios.post('/api/worklog/entries', {
+        id:              `DIAG-WL-${Date.now()}`,
+        date:            wlDate,
+        dayNumber:       1,
+        project:         'DiagTest',
+        categories:      ['research'],
+        title:           wlTitle,
+        description:     'Automated CRUD diagnostic',
+        technologies:    [],
+        teamType:        'solo',
+        codingLanguages: [],
+      }, { timeout: 10000 });
+      wlId = res.data?.id ?? null;
+      push(G4, 'CREATE', res.status === 201 && wlId ? 'ok' : 'fail',
+        `POST /api/worklog/entries → ${res.status}  id=${wlId}`, Date.now() - t0);
+    } catch (e) { push(G4, 'CREATE', 'fail', fmtErr(e)); }
+
+    // 25. READ list — verify entry present
+    if (wlId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ id: string }[]>('/api/worklog/entries', { timeout: 10000 });
+      const found = res.data.find(e => e.id === wlId);
+      push(G4, 'READ LIST', found ? 'ok' : 'fail',
+        found ? `GET /api/worklog/entries → found (${res.data.length} total)` : `NOT found in ${res.data.length} entries`,
+        Date.now() - t0);
+    } catch (e) { push(G4, 'READ LIST', 'fail', fmtErr(e)); }
+
+    // 26. READ single
+    if (wlId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ id: string; title: string }>(`/api/worklog/entries/${wlId}`, { timeout: 10000 });
+      const ok  = res.data?.id === wlId;
+      push(G4, 'READ SINGLE', ok ? 'ok' : 'fail',
+        `GET /api/worklog/entries/${wlId} → id ${ok ? '✓' : '✗'}`,
+        Date.now() - t0);
+    } catch (e) { push(G4, 'READ SINGLE', 'fail', fmtErr(e)); }
+
+    // 27. UPDATE
+    if (wlId) try {
+      const t0  = Date.now();
+      const res = await axios.put(`/api/worklog/entries/${wlId}`, { title: wlTitle2 }, { timeout: 10000 });
+      const ok  = res.data?.title === wlTitle2;
+      push(G4, 'UPDATE', ok ? 'ok' : 'fail',
+        `PUT /api/worklog/entries/${wlId} → title ${ok ? '✓' : `✗ got "${res.data?.title}"`}`,
+        Date.now() - t0);
+    } catch (e) { push(G4, 'UPDATE', 'fail', fmtErr(e)); }
+
+    // 28. DELETE
+    if (wlId) try {
+      const t0  = Date.now();
+      const res = await axios.delete(`/api/worklog/entries/${wlId}`, { timeout: 10000 });
+      push(G4, 'DELETE', res.status === 204 ? 'ok' : 'fail',
+        `DELETE /api/worklog/entries/${wlId} → ${res.status}`, Date.now() - t0);
+    } catch (e) { push(G4, 'DELETE', 'fail', fmtErr(e)); }
+
+    // 29. VERIFY GONE
+    if (wlId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ id: string }[]>('/api/worklog/entries', { timeout: 10000 });
+      const inList = res.data.some(e => e.id === wlId);
+      push(G4, 'VERIFY GONE', !inList ? 'ok' : 'fail',
+        inList ? `❌ Entry still in list` : `✓ Gone from worklog entries`,
+        Date.now() - t0);
+    } catch (e) { push(G4, 'VERIFY GONE', 'fail', fmtErr(e)); }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GROUP 5 — WORKLOG SCHEMA
+    // ════════════════════════════════════════════════════════════════════════
+
+    const G5 = 'WorkLog Schema';
+
+    // 30. GET schema
+    let originalSchema: unknown = null;
+    try {
+      const t0  = Date.now();
+      const res = await axios.get('/api/worklog/schema', { timeout: 10000 });
+      originalSchema = res.data;
+      const hasProjects = Array.isArray(res.data?.projects);
+      push(G5, 'GET SCHEMA', hasProjects ? 'ok' : 'fail',
+        `GET /api/worklog/schema → projects: ${JSON.stringify(res.data?.projects)?.slice(0, 60)}`,
+        Date.now() - t0);
+    } catch (e) { push(G5, 'GET SCHEMA', 'fail', fmtErr(e)); }
+
+    // 31. PUT schema (round-trip: add + remove a diag project)
+    if (originalSchema) try {
+      const t0      = Date.now();
+      const patched = { ...(originalSchema as Record<string, unknown>), projects: [...((originalSchema as { projects: string[] }).projects), '__DIAG__'] };
+      const putRes  = await axios.put('/api/worklog/schema', patched, { timeout: 10000 });
+      const added   = (putRes.data?.projects as string[])?.includes('__DIAG__');
+      // Restore original immediately
+      await axios.put('/api/worklog/schema', originalSchema, { timeout: 10000 });
+      push(G5, 'PUT SCHEMA', added ? 'ok' : 'fail',
+        `PUT /api/worklog/schema → __DIAG__ ${added ? '✓ added then restored' : '✗ not persisted'}`,
+        Date.now() - t0);
+    } catch (e) { push(G5, 'PUT SCHEMA', 'fail', fmtErr(e)); }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GROUP 6 — WORKLOG PREFERENCES
+    // ════════════════════════════════════════════════════════════════════════
+
+    const G6 = 'WorkLog Prefs';
+
+    // 32. GET preferences
+    let originalPrefs: unknown = null;
+    try {
+      const t0  = Date.now();
+      const res = await axios.get('/api/worklog/preferences', { timeout: 10000 });
+      originalPrefs = res.data ?? {};
+      push(G6, 'GET PREFS', 'ok',
+        `GET /api/worklog/preferences → ${JSON.stringify(res.data ?? {}).slice(0, 80)}`,
+        Date.now() - t0);
+    } catch (e) { push(G6, 'GET PREFS', 'fail', fmtErr(e)); }
+
+    // 33. PUT preferences (round-trip)
+    if (originalPrefs !== null) try {
+      const t0      = Date.now();
+      const patched = { ...(originalPrefs as Record<string, unknown>), __diagTest: true };
+      const putRes  = await axios.put('/api/worklog/preferences', patched, { timeout: 10000 });
+      const ok      = putRes.data?.__diagTest === true;
+      // Restore original
+      await axios.put('/api/worklog/preferences', originalPrefs, { timeout: 10000 });
+      push(G6, 'PUT PREFS', ok ? 'ok' : 'fail',
+        `PUT /api/worklog/preferences → __diagTest ${ok ? '✓ persisted then restored' : '✗ not persisted'}`,
+        Date.now() - t0);
+    } catch (e) { push(G6, 'PUT PREFS', 'fail', fmtErr(e)); }
+
     setCrudRunning(false);
   }, []);
 
@@ -380,7 +532,7 @@ export function DiagnosticsPanel() {
   const allOk       = totalSteps > 0 && failedSteps === 0;
 
   // Group labels for visual separators
-  const groups = ['Events', 'Notes', 'Todos'] as const;
+  const groups = ['Events', 'Notes', 'Todos', 'WorkLog', 'WorkLog Schema', 'WorkLog Prefs'] as const;
 
   return (
     <div className="card space-y-4">
@@ -425,12 +577,13 @@ export function DiagnosticsPanel() {
       {diagData && (
         <div className="rounded-lg bg-slate-900/60 px-3 py-2 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono">
           {[
-            ['Events',       diagData.events],
-            ['Notes',        diagData.notes],
-            ['Todos',        diagData.todos],
-            ['Trash Notes',  diagData.trashNotes],
-            ['Trash Events', diagData.trashEvents],
-            ['Latency',      `${diagData.latencyMs}ms`],
+            ['Events',        diagData.events],
+            ['Notes',         diagData.notes],
+            ['Todos',         diagData.todos],
+            ['Trash Notes',   diagData.trashNotes],
+            ['Trash Events',  diagData.trashEvents],
+            ['WorkLog',       diagData.worklogEntries],
+            ['Latency',       `${diagData.latencyMs}ms`],
           ].map(([label, val]) => (
             <div key={String(label)} className="flex flex-col">
               <span className="text-slate-500">{label}</span>
@@ -517,7 +670,7 @@ export function DiagnosticsPanel() {
               allOk ? 'text-emerald-400' : 'text-rose-400'
             }`}>
               {allOk
-                ? `✅ All ${totalSteps} steps passed — Events + Notes + Todos fully operational`
+                ? `✅ All ${totalSteps} steps passed — Events + Notes + Todos + WorkLog fully operational`
                 : `❌ ${failedSteps} of ${totalSteps} steps failed`}
             </div>
           )}

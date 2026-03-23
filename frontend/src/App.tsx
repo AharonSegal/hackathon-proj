@@ -25,6 +25,7 @@ import { NotesPage } from '@/pages/Notes/NotesPage';
 import { EventsPage } from '@/pages/Events/EventsPage';
 import { TrashPage } from '@/pages/Trash/TrashPage';
 import { TodosPage } from '@/pages/Todos/TodosPage';
+import DailyLogPage from '@/pages/DailyLog/DailyLogPage';
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
                     <Route path="/messages" element={<MessagesPage />} />
                     <Route path="/notes" element={<NotesPage />} />
                     <Route path="/todos" element={<TodosPage />} />
+                    <Route path="/daily-log" element={<DailyLogPage />} />
                     <Route path="/trash" element={<TrashPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
