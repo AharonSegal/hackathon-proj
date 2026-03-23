@@ -234,9 +234,15 @@ export function TodosPage() {
                         P{todo.priority}
                       </span>
                     )}
-                    {todo.location && (
-                      <span className="text-xs text-slate-500 truncate max-w-24">{todo.location}</span>
-                    )}
+                    {todo.location && (() => {
+                      try {
+                        const p = JSON.parse(todo.location);
+                        const label = p.address || p.place || p.other || '';
+                        return label ? <span className="text-xs text-slate-500 truncate max-w-24">{label}</span> : null;
+                      } catch {
+                        return <span className="text-xs text-slate-500 truncate max-w-24">{todo.location}</span>;
+                      }
+                    })()}
                     {todo.recurrence !== 'none' && (
                       <span className="text-xs text-slate-500">{todo.recurrence}</span>
                     )}
