@@ -66,7 +66,7 @@ export function NoteCard({ note, isSelected, folders, onSelect, onTogglePin, onD
       exit={{ opacity: 0, y: -4 }}
       transition={{ duration: 0.15 }}
       draggable
-      onDragStart={e => e.dataTransfer.setData('noteId', note.id)}
+      onDragStartCapture={(e) => e.dataTransfer.setData('noteId', note.id)}
       onClick={onSelect}
       className={clsx(
         'group relative cursor-pointer rounded-lg border p-3 transition-all duration-150 border-l-[3px] flex gap-1.5',
