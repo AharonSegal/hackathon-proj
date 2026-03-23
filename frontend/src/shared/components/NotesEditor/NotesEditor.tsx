@@ -13,14 +13,17 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Pin, Trash2, Tag, X } from 'lucide-react';
+import { Pin, Trash2, Tag, X, Paperclip } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { clsx } from 'clsx';
+import { AnimatePresence } from 'framer-motion';
 import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/shadcn';
 import type { Block } from '@blocknote/core';
 import { type Note } from '@/shared/types/note.types';
 import { Button } from '@/shared/components/ui/Button';
+import { AttachmentModal } from '@/shared/components/Attachments/AttachmentModal';
+import { getAttachmentCount } from '@/shared/hooks/useAttachments';
 
 interface NotesEditorProps {
   note: Note;
@@ -42,9 +45,14 @@ function parseBlocks(raw: string): Block[] {
 }
 
 export function NotesEditor({ note, onUpdate, onRename, onUpdateTags, onTogglePin, onDelete }: NotesEditorProps) {
-  const [titleValue, setTitleValue] = useState(note.title);
-  const [tagInput, setTagInput] = useState('');
+  const [titleValue,          setTitleValue]          = useState(note.title);
+  const [tagInput,            setTagInput]            = useState('');
+  const [attachmentModalOpen, setAttachmentModalOpen] = useState(false);
+  const [attachCount,         setAttachCount]         = useState(() => getAttachmentCount(note.id));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Refresh attachment count when note changes
+  useEffect(() => { setAttachCount(getAttachmentCount(note.id)); }, [note.id]);
 
   // Create the BlockNote editor with initial content from note
   const editor = useCreateBlockNote({
@@ -128,6 +136,18 @@ export function NotesEditor({ note, onUpdate, onRename, onUpdateTags, onTogglePi
           />
         </div>
 
+        {/* Attachment button — below tags */}
+        <button
+          onClick={() => setAttachmentModalOpen(true)}
+          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors w-fit"
+        >
+          <Paperclip size={12} className="shrink-0" />
+          {attachCount > 0
+            ? <span className="text-indigo-400">{attachCount} attachment{attachCount !== 1 ? 's' : ''}</span>
+            : <span>Add attachment</span>
+          }
+        </button>
+
         {/* Toolbar row: timestamp + pin + delete */}
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-slate-500">
@@ -168,6 +188,18 @@ export function NotesEditor({ note, onUpdate, onRename, onUpdateTags, onTogglePi
           className="h-full"
         />
       </div>
+
+      {/* Attachment modal */}
+      <AnimatePresence>
+        {attachmentModalOpen && (
+          <AttachmentModal
+            entityId={note.id}
+            entityType="note"
+            entityTitle={note.title || 'Untitled Note'}
+            onClose={() => { setAttachmentModalOpen(false); setAttachCount(getAttachmentCount(note.id)); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

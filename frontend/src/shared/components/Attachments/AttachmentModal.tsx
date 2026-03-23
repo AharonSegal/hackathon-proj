@@ -127,7 +127,15 @@ export function AttachmentModal({ entityId, entityType, entityTitle, onClose }: 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
-          {/* Drop zone */}
+          {/* Shared hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={onFileChange}
+          />
+
+          {/* Desktop: full drag-and-drop zone (hidden on mobile) */}
           <div
             onDragEnter={onDragEnter}
             onDragLeave={onDragLeave}
@@ -135,20 +143,13 @@ export function AttachmentModal({ entityId, entityType, entityTitle, onClose }: 
             onDrop={onDrop}
             onClick={() => fileInputRef.current?.click()}
             className={clsx(
-              'relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed',
+              'relative hidden sm:flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed',
               'py-8 px-4 cursor-pointer transition-all duration-200 select-none',
               isDragging
                 ? 'border-indigo-500 bg-indigo-500/10 scale-[1.01]'
                 : 'border-slate-700 bg-slate-800/40 hover:border-indigo-600/60 hover:bg-slate-800/60',
             )}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              onChange={onFileChange}
-            />
-
             <div className={clsx(
               'w-12 h-12 rounded-xl flex items-center justify-center transition-colors',
               isDragging ? 'bg-indigo-500/20' : 'bg-slate-800',
@@ -174,6 +175,25 @@ export function AttachmentModal({ entityId, entityType, entityTitle, onClose }: 
                   Browse files
                 </button>
                 <p className="text-[10px] text-slate-600">Any file type · Max 3 MB per file</p>
+              </>
+            )}
+          </div>
+
+          {/* Mobile: browse-only (no drag zone) */}
+          <div className="sm:hidden flex flex-col items-center gap-3 py-4">
+            {isUploading ? (
+              <p className="text-sm text-slate-400">Uploading…</p>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors flex items-center gap-2"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4" />
+                  Browse files
+                </button>
+                <p className="text-[10px] text-slate-500">Any file type · Max 3 MB per file</p>
               </>
             )}
           </div>
