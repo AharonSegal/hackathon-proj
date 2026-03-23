@@ -1,192 +1,25 @@
-/**
- * pages/DailyLog/pages/SchemaManager/SchemaManagerPage.tsx
- * ----------------------------------------------------------
- * Settings page for customising the Daily Log schema — the set of projects,
- * categories, and technologies that appear in the log entry form.
- *
- * Purpose: lets the user add / remove / reorder projects, categories, and
- * technology entries without needing to edit code.
- *
- * Sections:
- * - Projects      — add/remove project names; optionally attach project info
- *                   (description, tags, team info) via ProjectInfo cards
- * - Categories    — add/remove category labels
- * - Technologies  — add/remove technology entries grouped by tech group;
- *                   each tech can have sub-technologies
- *
- * Features:
- * - Fuzzy duplicate detection via findSimilar() (warns before adding)
- * - Danger zone: "Reset to Defaults" restores the bundled defaultSchema
- * - Danger zone: "Clear All Data" wipes all worklog_entries from the DB
- * - All changes are persisted immediately via AppContext.updateSchema()
- * - Bulk JSON import/export of the entire schema
- */
-
 import { useState } from 'react';
-import styled from '@emotion/styled';
 import { Plus, Trash2, AlertTriangle, FileText, X, Check } from 'lucide-react';
+import { toast } from 'sonner';
+import { clsx } from 'clsx';
+import { Button } from '@/shared/components/ui/Button';
+import { Input, Textarea } from '@/shared/components/ui/Input';
+import { Modal } from '@/shared/components/ui/Modal';
 import { useApp } from '../../context/AppContext';
-import useToast from '../../hooks/useToast';
 import defaultSchema, { GROUP_LABELS, GROUP_ORDER } from '../../utils/defaultSchema';
-import { Card, CardHeader, CardTitle, Button, Input, TextArea, InputLabel, Chip, Modal, Toast, SearchInput, Toggle } from '../../ui';
-import { colors, spacing, typography, transitions } from '../../theme';
 import { capitalize, findSimilar } from '../../utils/helpers';
 import type { ProjectInfo } from '../../utils/types';
 
-const Section = styled.div`
-  margin-bottom: ${spacing.lg};
-`;
+const INPUT_CLS =
+  'w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 ' +
+  'focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500';
 
-const ListItem = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: ${spacing.xs} ${spacing.sm};
-  border-radius: 6px;
-  transition: background ${transitions.fast};
-  &:hover { background: ${colors.bg.hover}; }
-`;
-
-const ItemLabel = styled.span`
-  font-size: ${typography.size.md};
-  color: ${colors.text.primary};
-`;
-
-const RemBtn = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: ${colors.text.tertiary};
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all ${transitions.fast};
-  &:hover { background: ${colors.danger.muted}; color: ${colors.danger.primary}; }
-  svg { width: 14px; height: 14px; }
-`;
-
-const AddRow = styled.div`
-  display: flex;
-  gap: ${spacing.xs};
-  align-items: center;
-  margin-top: ${spacing.sm};
-`;
-
-const GroupLabel = styled.h4`
-  font-size: ${typography.size.xs};
-  font-weight: ${typography.weight.semibold};
-  color: ${colors.text.tertiary};
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: ${spacing.md} 0 ${spacing.xs};
-`;
-
-const TechCard = styled.div`
-  background: ${colors.bg.elevated};
-  border: 1px solid ${colors.border.default};
-  border-radius: 8px;
-  padding: ${spacing.sm} ${spacing.md};
-  margin-bottom: ${spacing.xs};
-  transition: all ${transitions.normal};
-  &:hover { border-color: ${colors.border.light}; }
-`;
-
-const TechHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: ${spacing.xs};
-`;
-
-const SubTechRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${spacing.xxs};
-  margin-top: ${spacing.xs};
-`;
-
-const DuplicateAlert = styled.div`
-  margin-top: ${spacing.xs};
-  padding: ${spacing.xs} ${spacing.sm};
-  background: ${colors.warning.muted};
-  border: 1px solid ${colors.warning.primary};
-  border-radius: 8px;
-  color: ${colors.warning.text};
-  font-size: ${typography.size.sm};
-  font-weight: ${typography.weight.medium};
-`;
-
-const DangerZone = styled.div`
-  border: 1px solid ${colors.danger.primary}40;
-  border-radius: 12px;
-  padding: ${spacing.lg};
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.sm};
-`;
-
-const PiFormField = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.xxs};
-`;
-
-const TechPickerWrap = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.xs};
-`;
-
-const TechPickerList = styled.div`
-  background: ${colors.bg.elevated};
-  border: 1px solid ${colors.border.default};
-  border-radius: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-  padding: ${spacing.xs};
-`;
-
-const TechPickerItem = styled.button<{ selected: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: ${spacing.xs};
-  width: 100%;
-  text-align: left;
-  padding: ${spacing.xs} ${spacing.sm};
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: ${typography.size.sm};
-  color: ${({ selected }) => selected ? colors.accent.primary : colors.text.primary};
-  background: ${({ selected }) => selected ? colors.accent.muted : 'transparent'};
-  font-weight: ${({ selected }) => selected ? typography.weight.medium : typography.weight.normal};
-  transition: background ${transitions.fast};
-  &:hover { background: ${({ selected }) => selected ? colors.accent.muted : colors.bg.hover}; }
-  svg { width: 13px; height: 13px; flex-shrink: 0; }
-`;
-
-const ChipsRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${spacing.xxs};
-`;
-
-const InfoBadge = styled.span`
-  font-size: ${typography.size.xs};
-  color: ${colors.accent.primary};
-  background: ${colors.accent.muted};
-  border-radius: 10px;
-  padding: 1px 7px;
-  font-weight: ${typography.weight.medium};
-  margin-left: ${spacing.xs};
-`;
+const SELECT_CLS =
+  'bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 ' +
+  'focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500';
 
 export default function SchemaManagerPage() {
   const { state, updateSchema, clearData } = useApp();
-  const { toasts, addToast, removeToast } = useToast();
   const schema = state.schema;
 
   const [newProject, setNewProject] = useState('');
@@ -199,11 +32,12 @@ export default function SchemaManagerPage() {
   const [newTechGroup, setNewTechGroup] = useState('languages');
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
   const [newSub, setNewSub] = useState('');
+  const [dupAlert, setDupAlert] = useState('');
 
   const [confirmModal, setConfirmModal] = useState<{ type: string; name?: string } | null>(null);
   const [similarModal, setSimilarModal] = useState<{ type: 'project' | 'category' | 'tech' | 'subTech'; input: string; match: string; techName?: string } | null>(null);
-  const [dupAlert, setDupAlert] = useState('');
 
+  // Project info modal
   const [projectInfoModal, setProjectInfoModal] = useState<string | null>(null);
   const [piTitle, setPiTitle] = useState('');
   const [piDescription, setPiDescription] = useState('');
@@ -238,7 +72,7 @@ export default function SchemaManagerPage() {
         } as ProjectInfo,
       },
     });
-    addToast('success', `Project info saved for "${projectInfoModal}"`);
+    toast.success(`Project info saved for "${projectInfoModal}"`);
     setProjectInfoModal(null);
   };
 
@@ -246,20 +80,15 @@ export default function SchemaManagerPage() {
   const filteredPiTechs = piTechSearch
     ? allTechNames.filter((n) => n.toLowerCase().includes(piTechSearch.toLowerCase()))
     : allTechNames;
+  const togglePiTech = (name: string) =>
+    setPiTechStack((prev) => prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]);
 
-  const togglePiTech = (name: string) => {
-    setPiTechStack((prev) =>
-      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
-    );
-  };
-
+  // Projects CRUD
   const doAddProject = (name: string) => {
     updateSchema({ ...schema, projects: [...schema.projects, name] });
-    setNewProject('');
-    setAddingProject(false);
-    addToast('success', `Project "${name}" added`);
+    setNewProject(''); setAddingProject(false);
+    toast.success(`Project "${name}" added`);
   };
-
   const addProject = () => {
     const formatted = capitalize(newProject.trim());
     if (!formatted) return;
@@ -268,25 +97,22 @@ export default function SchemaManagerPage() {
     setDupAlert('');
     const similar = findSimilar(formatted, schema.projects);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
-      setSimilarModal({ type: 'project', input: formatted, match: similar });
-      return;
+      setSimilarModal({ type: 'project', input: formatted, match: similar }); return;
     }
     doAddProject(formatted);
   };
-
   const removeProject = (name: string) => {
     updateSchema({ ...schema, projects: schema.projects.filter((p) => p !== name) });
-    addToast('success', `Project "${name}" removed`);
+    toast.success(`Project "${name}" removed`);
     setConfirmModal(null);
   };
 
+  // Categories CRUD
   const doAddCategory = (name: string) => {
     updateSchema({ ...schema, categories: [...schema.categories, name] });
-    setNewCat('');
-    setAddingCat(false);
-    addToast('success', `Category "${name}" added`);
+    setNewCat(''); setAddingCat(false);
+    toast.success(`Category "${name}" added`);
   };
-
   const addCategory = () => {
     const formatted = capitalize(newCat.trim());
     if (!formatted) return;
@@ -295,46 +121,41 @@ export default function SchemaManagerPage() {
     setDupAlert('');
     const similar = findSimilar(formatted, schema.categories);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
-      setSimilarModal({ type: 'category', input: formatted, match: similar });
-      return;
+      setSimilarModal({ type: 'category', input: formatted, match: similar }); return;
     }
     doAddCategory(formatted);
   };
-
   const removeCategory = (name: string) => {
     updateSchema({ ...schema, categories: schema.categories.filter((c) => c !== name) });
-    addToast('success', `Category "${name}" removed`);
+    toast.success(`Category "${name}" removed`);
     setConfirmModal(null);
   };
 
+  // Technologies CRUD
   const doAddTech = (name: string) => {
     updateSchema({ ...schema, technologies: [...schema.technologies, { name, group: newTechGroup, subTechs: [] }] });
-    setNewTechName('');
-    setAddingTech(false);
-    addToast('success', `Technology "${name}" added`);
+    setNewTechName(''); setAddingTech(false);
+    toast.success(`Technology "${name}" added`);
   };
-
   const addTech = () => {
     const formatted = capitalize(newTechName.trim());
     if (!formatted) return;
     const existing = schema.technologies.find((x) => x.name.toLowerCase() === formatted.toLowerCase());
     if (existing) { setDupAlert(`"${existing.name}" already exists`); return; }
     setDupAlert('');
-    const techNames = schema.technologies.map((t) => t.name);
-    const similar = findSimilar(formatted, techNames);
+    const similar = findSimilar(formatted, schema.technologies.map((t) => t.name));
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
-      setSimilarModal({ type: 'tech', input: formatted, match: similar });
-      return;
+      setSimilarModal({ type: 'tech', input: formatted, match: similar }); return;
     }
     doAddTech(formatted);
   };
-
   const removeTech = (name: string) => {
     updateSchema({ ...schema, technologies: schema.technologies.filter((t) => t.name !== name) });
-    addToast('success', `Technology "${name}" removed`);
+    toast.success(`Technology "${name}" removed`);
     setConfirmModal(null);
   };
 
+  // Sub-techs CRUD
   const doAddSubTech = (techName: string, name: string) => {
     updateSchema({
       ...schema,
@@ -342,11 +163,9 @@ export default function SchemaManagerPage() {
         tech.name === techName ? { ...tech, subTechs: [...tech.subTechs, name] } : tech
       ),
     });
-    setNewSub('');
-    setAddingSubFor(null);
-    addToast('success', `Sub-tech "${name}" added to ${techName}`);
+    setNewSub(''); setAddingSubFor(null);
+    toast.success(`Sub-tech "${name}" added to ${techName}`);
   };
-
   const addSubTech = (techName: string) => {
     const formatted = capitalize(newSub.trim());
     if (!formatted) return;
@@ -357,12 +176,10 @@ export default function SchemaManagerPage() {
     setDupAlert('');
     const similar = findSimilar(formatted, tech.subTechs);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
-      setSimilarModal({ type: 'subTech', input: formatted, match: similar, techName });
-      return;
+      setSimilarModal({ type: 'subTech', input: formatted, match: similar, techName }); return;
     }
     doAddSubTech(techName, formatted);
   };
-
   const removeSubTech = (techName: string, sub: string) => {
     updateSchema({
       ...schema,
@@ -375,7 +192,6 @@ export default function SchemaManagerPage() {
   const filteredTechs = techSearch
     ? schema.technologies.filter((t) => t.name.toLowerCase().includes(techSearch.toLowerCase()))
     : schema.technologies;
-
   const techsByGroup: Record<string, typeof schema.technologies> = {};
   filteredTechs.forEach((t) => {
     if (!techsByGroup[t.group]) techsByGroup[t.group] = [];
@@ -386,126 +202,140 @@ export default function SchemaManagerPage() {
   const categoryInUse = (name: string) => state.entries.some((e) => e.categories.includes(name));
   const techInUse = (name: string) => state.entries.some((e) => e.technologies.some((t) => t.tech === name));
 
-  return (
-    <div>
-      <Toast toasts={toasts} removeToast={removeToast} />
+  const handleConfirm = () => {
+    if (!confirmModal) return;
+    if (confirmModal.type === 'project') removeProject(confirmModal.name!);
+    else if (confirmModal.type === 'category') removeCategory(confirmModal.name!);
+    else if (confirmModal.type === 'tech') removeTech(confirmModal.name!);
+    else if (confirmModal.type === 'resetData') { clearData(); toast.success('All data cleared'); setConfirmModal(null); }
+    else if (confirmModal.type === 'resetSchema') { updateSchema(defaultSchema); toast.success('Schema reset to defaults'); setConfirmModal(null); }
+  };
 
-      {/* Project Info Modal */}
-      <Modal
-        open={!!projectInfoModal}
-        onClose={() => setProjectInfoModal(null)}
-        title={`Project info — ${projectInfoModal}`}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-          <PiFormField>
-            <InputLabel>Title</InputLabel>
+  return (
+    <div className="space-y-4 p-4 sm:p-6">
+      {/* ── Project info modal ─────────────────────────────────────── */}
+      <Modal open={!!projectInfoModal} onClose={() => setProjectInfoModal(null)} title={`Project info — ${projectInfoModal}`}>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Title</label>
             <Input value={piTitle} onChange={(e) => setPiTitle(e.target.value)} placeholder="Short project title..." />
-          </PiFormField>
-          <PiFormField>
-            <InputLabel>Tech stack</InputLabel>
-            <TechPickerWrap>
-              {piTechStack.length > 0 && (
-                <ChipsRow>
-                  {piTechStack.map((t) => (
-                    <Chip key={t} label={t} onRemove={() => togglePiTech(t)} />
-                  ))}
-                </ChipsRow>
-              )}
-              <SearchInput value={piTechSearch} onChange={setPiTechSearch} placeholder="Search all technologies..." />
-              <TechPickerList>
-                {filteredPiTechs.map((name) => (
-                  <TechPickerItem key={name} selected={piTechStack.includes(name)} onClick={() => togglePiTech(name)} type="button">
-                    {piTechStack.includes(name) && <Check />}
-                    {name}
-                  </TechPickerItem>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Tech stack</label>
+            {piTechStack.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {piTechStack.map((t) => (
+                  <span key={t} className="flex items-center gap-1 bg-slate-700 text-slate-200 rounded-full px-2.5 py-0.5 text-xs">
+                    {t}
+                    <button type="button" onClick={() => togglePiTech(t)} className="hover:text-white"><X size={11} /></button>
+                  </span>
                 ))}
-              </TechPickerList>
-            </TechPickerWrap>
-          </PiFormField>
-          <PiFormField>
-            <InputLabel>Team</InputLabel>
-            <Toggle
-              options={[{ value: 'solo', label: 'Solo' }, { value: 'team', label: 'Team' }]}
-              value={piTeamType}
-              onChange={(val) => setPiTeamType(val as 'solo' | 'team')}
+              </div>
+            )}
+            <input
+              value={piTechSearch}
+              onChange={(e) => setPiTechSearch(e.target.value)}
+              placeholder="Search all technologies..."
+              className={INPUT_CLS}
             />
-          </PiFormField>
+            <div className="bg-slate-900 border border-slate-700 rounded-lg max-h-44 overflow-y-auto mt-1">
+              {filteredPiTechs.map((name) => (
+                <button
+                  key={name} type="button" onClick={() => togglePiTech(name)}
+                  className={clsx(
+                    'flex items-center gap-2 w-full text-left px-3 py-2 text-sm transition-colors',
+                    piTechStack.includes(name)
+                      ? 'text-primary-400 bg-primary-500/10 font-medium'
+                      : 'text-slate-300 hover:bg-slate-800',
+                  )}
+                >
+                  {piTechStack.includes(name) && <Check size={13} />}
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Team</label>
+            <div className="inline-flex rounded-lg border border-slate-600 p-0.5 gap-0.5">
+              {(['solo', 'team'] as const).map((t) => (
+                <button
+                  key={t} type="button" onClick={() => setPiTeamType(t)}
+                  className={clsx(
+                    'rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-colors',
+                    piTeamType === t ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-slate-100',
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {piTeamType === 'team' && (
-            <PiFormField>
-              <InputLabel>Team size</InputLabel>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Team size</label>
               <Input
                 type="number" min={2} max={500}
                 value={piTeamSize ?? ''}
                 onChange={(e) => setPiTeamSize(e.target.value ? parseInt(e.target.value) : undefined)}
                 placeholder="Number of people..."
-                style={{ maxWidth: 160 }}
+                className="max-w-[160px]"
               />
-            </PiFormField>
+            </div>
           )}
-          <PiFormField>
-            <InputLabel>Description</InputLabel>
-            <TextArea value={piDescription} onChange={(e) => setPiDescription(e.target.value)} placeholder="Short summary of the project..." rows={3} />
-          </PiFormField>
-          <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'flex-end', paddingTop: spacing.xs }}>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Description</label>
+            <Textarea value={piDescription} onChange={(e) => setPiDescription(e.target.value)} placeholder="Short summary of the project..." rows={3} />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-700">
             <Button variant="ghost" onClick={() => setProjectInfoModal(null)} type="button">Cancel</Button>
             <Button onClick={saveProjectInfo} type="button">Save</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Confirm Modal */}
-      <Modal
-        open={!!confirmModal}
-        onClose={() => setConfirmModal(null)}
-        title="Confirm Deletion"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setConfirmModal(null)}>Cancel</Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                if (!confirmModal) return;
-                if (confirmModal.type === 'project') removeProject(confirmModal.name!);
-                else if (confirmModal.type === 'category') removeCategory(confirmModal.name!);
-                else if (confirmModal.type === 'tech') removeTech(confirmModal.name!);
-                else if (confirmModal.type === 'resetData') { clearData(); addToast('success', 'All data cleared'); setConfirmModal(null); }
-                else if (confirmModal.type === 'resetSchema') { updateSchema(defaultSchema); addToast('success', 'Schema reset to defaults'); setConfirmModal(null); }
-              }}
-            >
-              Delete
-            </Button>
-          </>
-        }
-      >
-        <p style={{ color: colors.text.secondary }}>
-          {confirmModal?.type === 'resetData' && 'This will delete all entries and preferences. Schema will be kept. This cannot be undone.'}
-          {confirmModal?.type === 'resetSchema' && 'This will reset the schema to defaults. All custom projects, categories, and technologies will be lost.'}
-          {confirmModal?.name && `Are you sure you want to remove "${confirmModal.name}"?`}
+      {/* ── Confirm delete/reset modal ─────────────────────────────── */}
+      <Modal open={!!confirmModal} onClose={() => setConfirmModal(null)} title="Confirm">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-300">
+            {confirmModal?.type === 'resetData' && 'This will delete all entries and preferences. Schema will be kept. This cannot be undone.'}
+            {confirmModal?.type === 'resetSchema' && 'This will reset the schema to defaults. All custom projects, categories, and technologies will be lost.'}
+            {confirmModal?.name && `Are you sure you want to remove "${confirmModal.name}"?`}
+          </p>
           {confirmModal?.name && (
             (confirmModal.type === 'project' && projectInUse(confirmModal.name)) ||
             (confirmModal.type === 'category' && categoryInUse(confirmModal.name)) ||
             (confirmModal.type === 'tech' && techInUse(confirmModal.name))
           ) && (
-            <span style={{ display: 'block', marginTop: spacing.xs, color: colors.warning.text }}>
-              <AlertTriangle size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+            <p className="flex items-center gap-1.5 text-sm text-amber-400">
+              <AlertTriangle size={14} />
               This item is used in existing entries.
-            </span>
+            </p>
           )}
-        </p>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-700">
+            <Button variant="ghost" onClick={() => setConfirmModal(null)} type="button">Cancel</Button>
+            <Button variant="danger" onClick={handleConfirm} type="button">
+              {confirmModal?.type?.startsWith('reset') ? 'Reset' : 'Delete'}
+            </Button>
+          </div>
+        </div>
       </Modal>
 
-      {/* Similar item modal */}
-      <Modal
-        open={!!similarModal}
-        onClose={() => setSimilarModal(null)}
-        title={`Similar ${similarModal?.type === 'subTech' ? 'sub-tech' : similarModal?.type} found`}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => {
-              setSimilarModal(null);
-              setNewProject(''); setNewCat(''); setNewTechName(''); setNewSub('');
-              setAddingProject(false); setAddingCat(false); setAddingTech(false); setAddingSubFor(null);
-            }}>
+      {/* ── Similar item modal ─────────────────────────────────────── */}
+      <Modal open={!!similarModal} onClose={() => setSimilarModal(null)} title="Similar item found">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-300 leading-relaxed">
+            Adding <span className="font-semibold text-primary-400">"{similarModal?.input}"</span> but{' '}
+            <span className="font-semibold text-primary-400">"{similarModal?.match}"</span> already exists.
+            Use the existing one or create a new one?
+          </p>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-700">
+            <Button variant="ghost" onClick={() => { setSimilarModal(null); setNewProject(''); setNewCat(''); setNewTechName(''); setNewSub(''); setAddingProject(false); setAddingCat(false); setAddingTech(false); setAddingSubFor(null); }} type="button">
               Use "{similarModal?.match}"
             </Button>
             <Button onClick={() => {
@@ -515,166 +345,218 @@ export default function SchemaManagerPage() {
               else if (similarModal.type === 'tech') doAddTech(similarModal.input);
               else if (similarModal.type === 'subTech' && similarModal.techName) doAddSubTech(similarModal.techName, similarModal.input);
               setSimilarModal(null);
-            }}>
-              Create "{similarModal?.input}" anyway
+            }} type="button">
+              Create anyway
             </Button>
-          </>
-        }
-      >
-        <p style={{ color: colors.text.secondary, fontSize: typography.size.md, lineHeight: 1.6 }}>
-          You're adding <span style={{ color: colors.accent.primary, fontWeight: typography.weight.semibold }}>"{similarModal?.input}"</span>, but a similar item already exists: <span style={{ color: colors.accent.primary, fontWeight: typography.weight.semibold }}>"{similarModal?.match}"</span>
-          <br />Do you want to use the existing one or create a new one?
-        </p>
+          </div>
+        </div>
       </Modal>
 
-      {/* Projects */}
-      <Section>
-        <Card>
-          <CardHeader>
-            <CardTitle>Projects</CardTitle>
-            <Button variant="secondary" size="sm" onClick={() => setAddingProject(!addingProject)} type="button">
-              <Plus /> Add
-            </Button>
-          </CardHeader>
+      {/* ── Projects section ───────────────────────────────────────── */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-slate-100">Projects</h2>
+          <Button variant="secondary" size="sm" onClick={() => { setAddingProject(!addingProject); setDupAlert(''); }} type="button">
+            <Plus size={14} /> Add
+          </Button>
+        </div>
+
+        <div className="space-y-0.5">
           {schema.projects.map((p) => (
-            <ListItem key={p}>
-              <ItemLabel>
+            <div key={p} className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <span className="text-sm text-slate-200">
                 {p}
                 {schema.projectInfos?.[p]?.title && (
-                  <InfoBadge>{schema.projectInfos[p].title}</InfoBadge>
+                  <span className="ml-2 bg-primary-500/20 text-primary-300 text-xs px-2 py-0.5 rounded-full">
+                    {schema.projectInfos[p].title}
+                  </span>
                 )}
-              </ItemLabel>
-              <div style={{ display: 'flex', gap: spacing.xxs }}>
-                <RemBtn onClick={() => openProjectInfo(p)} type="button" title="Edit project info" style={{ color: colors.accent.primary }}>
-                  <FileText />
-                </RemBtn>
-                <RemBtn onClick={() => setConfirmModal({ type: 'project', name: p })} type="button"><Trash2 /></RemBtn>
+              </span>
+              <div className="flex gap-1">
+                <button
+                  type="button" onClick={() => openProjectInfo(p)} title="Edit project info"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-primary-400 hover:bg-primary-500/10 transition-colors"
+                >
+                  <FileText size={14} />
+                </button>
+                <button
+                  type="button" onClick={() => setConfirmModal({ type: 'project', name: p })}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
-            </ListItem>
+            </div>
           ))}
-          {addingProject && (
-            <>
-              <AddRow>
-                <Input value={newProject} onChange={(e) => { setNewProject(e.target.value); setDupAlert(''); }} placeholder="Project name..." onKeyDown={(e) => e.key === 'Enter' && addProject()} autoFocus style={{ flex: 1 }} />
-                <Button size="sm" onClick={addProject} type="button">Add</Button>
-              </AddRow>
-              {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
-            </>
-          )}
-        </Card>
-      </Section>
+        </div>
 
-      {/* Categories */}
-      <Section>
-        <Card>
-          <CardHeader>
-            <CardTitle>Categories</CardTitle>
-            <Button variant="secondary" size="sm" onClick={() => setAddingCat(!addingCat)} type="button">
-              <Plus /> Add
-            </Button>
-          </CardHeader>
-          {schema.categories.map((c) => (
-            <ListItem key={c}>
-              <ItemLabel>{c}</ItemLabel>
-              <RemBtn onClick={() => setConfirmModal({ type: 'category', name: c })} type="button"><Trash2 /></RemBtn>
-            </ListItem>
-          ))}
-          {addingCat && (
-            <>
-              <AddRow>
-                <Input value={newCat} onChange={(e) => { setNewCat(e.target.value); setDupAlert(''); }} placeholder="Category name..." onKeyDown={(e) => e.key === 'Enter' && addCategory()} autoFocus style={{ flex: 1 }} />
-                <Button size="sm" onClick={addCategory} type="button">Add</Button>
-              </AddRow>
-              {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
-            </>
-          )}
-        </Card>
-      </Section>
-
-      {/* Technologies */}
-      <Section>
-        <Card>
-          <CardHeader>
-            <CardTitle>Technologies</CardTitle>
-            <Button variant="secondary" size="sm" onClick={() => setAddingTech(!addingTech)} type="button">
-              <Plus /> Add
-            </Button>
-          </CardHeader>
-          <div style={{ marginBottom: spacing.md }}>
-            <SearchInput value={techSearch} onChange={setTechSearch} placeholder="Filter technologies..." />
+        {addingProject && (
+          <div className="mt-3 space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={newProject}
+                onChange={(e) => { setNewProject(e.target.value); setDupAlert(''); }}
+                placeholder="Project name..."
+                onKeyDown={(e) => e.key === 'Enter' && addProject()}
+                autoFocus
+                error={dupAlert || undefined}
+              />
+              <Button size="sm" onClick={addProject} type="button" className="shrink-0">Add</Button>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* ── Categories section ─────────────────────────────────────── */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-slate-100">Categories</h2>
+          <Button variant="secondary" size="sm" onClick={() => { setAddingCat(!addingCat); setDupAlert(''); }} type="button">
+            <Plus size={14} /> Add
+          </Button>
+        </div>
+
+        <div className="space-y-0.5">
+          {schema.categories.map((c) => (
+            <div key={c} className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <span className="text-sm text-slate-200">{c}</span>
+              <button
+                type="button" onClick={() => setConfirmModal({ type: 'category', name: c })}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {addingCat && (
+          <div className="mt-3">
+            <div className="flex gap-2">
+              <Input
+                value={newCat}
+                onChange={(e) => { setNewCat(e.target.value); setDupAlert(''); }}
+                placeholder="Category name..."
+                onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+                autoFocus
+                error={dupAlert || undefined}
+              />
+              <Button size="sm" onClick={addCategory} type="button" className="shrink-0">Add</Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Technologies section ───────────────────────────────────── */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-slate-100">Technologies</h2>
+          <Button variant="secondary" size="sm" onClick={() => { setAddingTech(!addingTech); setDupAlert(''); }} type="button">
+            <Plus size={14} /> Add
+          </Button>
+        </div>
+
+        <input
+          value={techSearch}
+          onChange={(e) => setTechSearch(e.target.value)}
+          placeholder="Filter technologies..."
+          className={`${INPUT_CLS} mb-4`}
+        />
+
+        <div className="space-y-4">
           {GROUP_ORDER.map((group) => {
             const techs = techsByGroup[group];
             if (!techs?.length) return null;
             return (
               <div key={group}>
-                <GroupLabel>{GROUP_LABELS[group]}</GroupLabel>
-                {techs.map((tech) => (
-                  <TechCard key={tech.name}>
-                    <TechHeader>
-                      <span style={{ fontWeight: typography.weight.medium, color: colors.text.primary }}>{tech.name}</span>
-                      <RemBtn onClick={() => setConfirmModal({ type: 'tech', name: tech.name })} type="button"><Trash2 /></RemBtn>
-                    </TechHeader>
-                    <SubTechRow>
-                      {tech.subTechs.map((sub) => (
-                        <Chip key={sub} label={sub} onRemove={() => removeSubTech(tech.name, sub)} />
-                      ))}
-                    </SubTechRow>
-                    {addingSubFor === tech.name ? (
-                      <>
-                        <AddRow>
-                          <Input value={newSub} onChange={(e) => { setNewSub(e.target.value); setDupAlert(''); }} placeholder={`Add sub-tech for ${tech.name}...`} onKeyDown={(e) => e.key === 'Enter' && addSubTech(tech.name)} autoFocus style={{ flex: 1, height: '30px', fontSize: typography.size.sm }} />
-                          <Button size="sm" onClick={() => addSubTech(tech.name)} type="button">Add</Button>
-                        </AddRow>
-                        {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
-                      </>
-                    ) : (
-                      <Button variant="ghost" size="sm" onClick={() => setAddingSubFor(tech.name)} type="button" style={{ marginTop: spacing.xs }}>
-                        <Plus /> Add sub-tech
-                      </Button>
-                    )}
-                  </TechCard>
-                ))}
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
+                  {GROUP_LABELS[group]}
+                </h4>
+                <div className="space-y-2">
+                  {techs.map((tech) => (
+                    <div key={tech.name} className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm font-medium text-slate-200">{tech.name}</span>
+                        <button
+                          type="button" onClick={() => setConfirmModal({ type: 'tech', name: tech.name })}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+
+                      {tech.subTechs.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {tech.subTechs.map((sub) => (
+                            <span key={sub} className="flex items-center gap-1 bg-slate-700 text-slate-200 rounded-full px-2 py-0.5 text-xs">
+                              {sub}
+                              <button type="button" onClick={() => removeSubTech(tech.name, sub)} className="hover:text-white transition-colors">
+                                <X size={10} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {addingSubFor === tech.name ? (
+                        <div className="flex gap-1.5 mt-1">
+                          <Input
+                            value={newSub}
+                            onChange={(e) => { setNewSub(e.target.value); setDupAlert(''); }}
+                            placeholder={`Add sub-tech for ${tech.name}...`}
+                            onKeyDown={(e) => e.key === 'Enter' && addSubTech(tech.name)}
+                            autoFocus
+                            error={dupAlert || undefined}
+                          />
+                          <Button size="sm" onClick={() => addSubTech(tech.name)} type="button" className="shrink-0">Add</Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setAddingSubFor(null); setNewSub(''); setDupAlert(''); }} type="button" className="shrink-0 px-2">
+                            <X size={13} />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => setAddingSubFor(tech.name)} type="button">
+                          <Plus size={13} /> Add sub-tech
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })}
-          {addingTech && (
-            <>
-              <AddRow style={{ marginTop: spacing.md }}>
-                <Input value={newTechName} onChange={(e) => { setNewTechName(e.target.value); setDupAlert(''); }} placeholder="Tech name..." autoFocus style={{ flex: 1 }} />
-                <select
-                  value={newTechGroup}
-                  onChange={(e) => setNewTechGroup(e.target.value)}
-                  style={{
-                    background: colors.bg.secondary, border: `1px solid ${colors.border.default}`,
-                    borderRadius: '8px', color: colors.text.primary, padding: `${spacing.xs} ${spacing.sm}`,
-                    fontSize: typography.size.sm, height: '40px',
-                  }}
-                >
-                  {GROUP_ORDER.map((g) => <option key={g} value={g}>{GROUP_LABELS[g]}</option>)}
-                </select>
-                <Button size="sm" onClick={addTech} type="button">Add</Button>
-              </AddRow>
-              {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
-            </>
-          )}
-        </Card>
-      </Section>
+        </div>
 
-      {/* Danger Zone */}
-      <Section>
-        <DangerZone>
-          <h3 style={{ color: colors.danger.text, fontSize: typography.size.lg, fontWeight: typography.weight.semibold }}>
-            Danger Zone
-          </h3>
+        {addingTech && (
+          <div className="mt-4 space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={newTechName}
+                onChange={(e) => { setNewTechName(e.target.value); setDupAlert(''); }}
+                placeholder="Tech name..."
+                autoFocus
+                error={dupAlert || undefined}
+              />
+              <select value={newTechGroup} onChange={(e) => setNewTechGroup(e.target.value)} className={SELECT_CLS}>
+                {GROUP_ORDER.map((g) => <option key={g} value={g}>{GROUP_LABELS[g]}</option>)}
+              </select>
+              <Button size="sm" onClick={addTech} type="button" className="shrink-0">Add</Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Danger zone ────────────────────────────────────────────── */}
+      <div className="border border-rose-500/30 rounded-xl p-4 space-y-3">
+        <h2 className="font-semibold text-rose-400">Danger Zone</h2>
+        <div className="flex flex-wrap gap-2">
           <Button variant="danger" onClick={() => setConfirmModal({ type: 'resetData' })} type="button">
-            <Trash2 /> Reset All Data
+            <Trash2 size={14} /> Reset All Data
           </Button>
           <Button variant="danger" onClick={() => setConfirmModal({ type: 'resetSchema' })} type="button">
-            <Trash2 /> Reset Schema to Defaults
+            <Trash2 size={14} /> Reset Schema to Defaults
           </Button>
-        </DangerZone>
-      </Section>
+        </div>
+      </div>
     </div>
   );
 }

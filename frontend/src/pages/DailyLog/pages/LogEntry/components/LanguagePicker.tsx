@@ -1,57 +1,12 @@
 import { useState, useMemo } from 'react';
-import styled from '@emotion/styled';
+import { clsx } from 'clsx';
+import { X } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
-import { SearchInput, Chip } from '../../../ui';
-import { colors, spacing, typography, transitions } from '../../../theme';
 
 interface Props {
   selected: string[];
   onChange: (langs: string[]) => void;
 }
-
-const Wrap = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.xs};
-`;
-
-const ChipsRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${spacing.xxs};
-`;
-
-const DropdownList = styled.div`
-  background: ${colors.bg.elevated};
-  border: 1px solid ${colors.border.default};
-  border-radius: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-  padding: ${spacing.xs};
-`;
-
-const LangItem = styled.button<{ selected: boolean }>`
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: ${spacing.xs} ${spacing.sm};
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: ${typography.size.sm};
-  color: ${({ selected }) => selected ? colors.accent.primary : colors.text.primary};
-  background: ${({ selected }) => selected ? colors.accent.muted : 'transparent'};
-  font-weight: ${({ selected }) => selected ? typography.weight.medium : typography.weight.normal};
-  transition: background ${transitions.fast};
-  &:hover { background: ${({ selected }) => selected ? colors.accent.muted : colors.bg.hover}; }
-`;
-
-const EmptyMsg = styled.p`
-  font-size: ${typography.size.sm};
-  color: ${colors.text.tertiary};
-  text-align: center;
-  padding: ${spacing.sm} 0;
-`;
 
 export default function LanguagePicker({ selected, onChange }: Props) {
   const { state } = useApp();
@@ -62,48 +17,59 @@ export default function LanguagePicker({ selected, onChange }: Props) {
       .filter((t) => t.group === 'languages')
       .map((t) => t.name)
       .sort(),
-    [state.schema.technologies]
+    [state.schema.technologies],
   );
 
   const filtered = useMemo(() =>
     languages.filter((l) => l.toLowerCase().includes(search.toLowerCase())),
-    [languages, search]
+    [languages, search],
   );
 
   const toggle = (lang: string) => {
-    if (selected.includes(lang)) {
-      onChange(selected.filter((l) => l !== lang));
-    } else {
-      onChange([...selected, lang]);
-    }
+    onChange(selected.includes(lang) ? selected.filter((l) => l !== lang) : [...selected, lang]);
   };
 
   return (
-    <Wrap>
+    <div className="space-y-2">
       {selected.length > 0 && (
-        <ChipsRow>
+        <div className="flex flex-wrap gap-1.5">
           {selected.map((l) => (
-            <Chip key={l} label={l} onRemove={() => toggle(l)} />
+            <span key={l} className="flex items-center gap-1 rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-xs font-medium text-indigo-300 border border-indigo-500/30">
+              {l}
+              <button type="button" onClick={() => toggle(l)} className="hover:text-white transition-colors">
+                <X size={11} />
+              </button>
+            </span>
           ))}
-        </ChipsRow>
+        </div>
       )}
-      <SearchInput value={search} onChange={setSearch} placeholder="Search languages..." />
-      <DropdownList>
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search languages…"
+        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+      />
+      <div className="max-h-44 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900">
         {filtered.length === 0 ? (
-          <EmptyMsg>No languages found</EmptyMsg>
+          <p className="py-3 text-center text-sm text-slate-500">No languages found</p>
         ) : (
           filtered.map((lang) => (
-            <LangItem
+            <button
               key={lang}
-              selected={selected.includes(lang)}
-              onClick={() => toggle(lang)}
               type="button"
+              onClick={() => toggle(lang)}
+              className={clsx(
+                'block w-full px-3 py-2 text-left text-sm transition-colors',
+                selected.includes(lang)
+                  ? 'text-primary-400 font-medium bg-primary-500/10'
+                  : 'text-slate-300 hover:bg-slate-800',
+              )}
             >
               {selected.includes(lang) ? '✓ ' : ''}{lang}
-            </LangItem>
+            </button>
           ))
         )}
-      </DropdownList>
-    </Wrap>
+      </div>
+    </div>
   );
 }

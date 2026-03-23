@@ -2,32 +2,21 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import styled from '@emotion/styled';
-import { Card, CardTitle } from '../../../ui';
-import { colors, spacing } from '../../../theme';
-import { media } from '../../../theme/breakpoints';
 
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: ${spacing.md};
-
-  ${media.aboveMobile} {
-    grid-template-columns: 1fr 1fr;
-  }
-`;
-
-const FullWidth = styled.div`
-  grid-column: 1 / -1;
-`;
+const PALETTE = ['#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#8b5cf6', '#f97316'];
+const ACCENT   = '#6366f1';
+const TEAL     = '#14b8a6';
+const PURPLE   = '#a855f7';
 
 const tooltipStyle = {
-  backgroundColor: colors.bg.elevated,
-  border: `1px solid ${colors.border.default}`,
+  backgroundColor: '#1e293b',
+  border: '1px solid #334155',
   borderRadius: '8px',
-  color: colors.text.primary,
+  color: '#f1f5f9',
   fontSize: '13px',
 };
+
+const axisStyle = { fill: '#94a3b8', fontSize: 11 };
 
 interface ChartsProps {
   tasksOverTime: { date: string; count: number }[];
@@ -38,118 +27,105 @@ interface ChartsProps {
   subTechData: Record<string, string | number>[];
 }
 
-export default function Charts({ tasksOverTime, techUsage, categories, soloTeam, projects, subTechData }: ChartsProps) {
-  const palette = colors.chart;
+function ChartCard({ title, children, fullWidth = false }: { title: string; children: React.ReactNode; fullWidth?: boolean }) {
+  return (
+    <div className={`bg-slate-800 border border-slate-700 rounded-xl p-4${fullWidth ? ' col-span-full' : ''}`}>
+      <h3 className="text-sm font-semibold text-slate-300 mb-4">{title}</h3>
+      {children}
+    </div>
+  );
+}
 
+export default function Charts({ tasksOverTime, techUsage, categories, soloTeam, projects, subTechData }: ChartsProps) {
   const subKeys = new Set<string>();
   subTechData.forEach((row) => {
     Object.keys(row).forEach((k) => { if (k !== 'tech') subKeys.add(k); });
   });
 
   return (
-    <Grid>
-      <FullWidth>
-        <Card>
-          <CardTitle size="0.9rem">Tasks Over Time</CardTitle>
-          <div style={{ marginTop: spacing.md }}>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={tasksOverTime}>
-                <XAxis dataKey="date" tick={{ fill: colors.text.tertiary, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: colors.text.tertiary, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: colors.bg.hover }} />
-                <Bar dataKey="count" fill={colors.accent.primary} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </FullWidth>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <ChartCard title="Tasks Over Time" fullWidth>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={tasksOverTime}>
+            <XAxis dataKey="date" tick={axisStyle} axisLine={false} tickLine={false} />
+            <YAxis tick={axisStyle} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip contentStyle={tooltipStyle} cursor={{ fill: '#334155' }} />
+            <Bar dataKey="count" fill={ACCENT} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
-      <Card>
-        <CardTitle size="0.9rem">Technology Usage</CardTitle>
-        <div style={{ marginTop: spacing.md }}>
-          <ResponsiveContainer width="100%" height={Math.max(200, techUsage.length * 32)}>
-            <BarChart data={techUsage} layout="vertical">
-              <XAxis type="number" tick={{ fill: colors.text.tertiary, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <YAxis type="category" dataKey="name" tick={{ fill: colors.text.secondary, fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: colors.bg.hover }} />
-              <Bar dataKey="count" fill={colors.teal.primary} radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      <ChartCard title="Technology Usage">
+        <ResponsiveContainer width="100%" height={Math.max(200, techUsage.length * 32)}>
+          <BarChart data={techUsage} layout="vertical">
+            <XAxis type="number" tick={axisStyle} axisLine={false} tickLine={false} allowDecimals={false} />
+            <YAxis type="category" dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
+            <Tooltip contentStyle={tooltipStyle} cursor={{ fill: '#334155' }} />
+            <Bar dataKey="count" fill={TEAL} radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
-      <Card>
-        <CardTitle size="0.9rem">Categories</CardTitle>
-        <div style={{ marginTop: spacing.md }}>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={categories} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                {categories.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
-              </Pie>
-              <Tooltip contentStyle={tooltipStyle} />
-              <Legend wrapperStyle={{ fontSize: 12, color: colors.text.secondary }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      <ChartCard title="Categories">
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart>
+            <Pie data={categories} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
+              {categories.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+            </Pie>
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
-      <Card>
-        <CardTitle size="0.9rem">Solo vs Team</CardTitle>
-        <div style={{ marginTop: spacing.md }}>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={soloTeam.map((s) => ({ name: s.name, value: s.count }))}
-                dataKey="value"
-                nameKey="name"
-                cx="50%" cy="50%"
-                innerRadius={50} outerRadius={80}
-                paddingAngle={3}
-              >
-                <Cell fill={colors.accent.primary} />
-                <Cell fill={colors.warning.primary} />
-              </Pie>
-              <Tooltip contentStyle={tooltipStyle} />
-              <Legend wrapperStyle={{ fontSize: 12, color: colors.text.secondary }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      <ChartCard title="Solo vs Team">
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart>
+            <Pie
+              data={soloTeam.map((s) => ({ name: s.name, value: s.count }))}
+              dataKey="value" nameKey="name"
+              cx="50%" cy="50%"
+              innerRadius={50} outerRadius={80} paddingAngle={3}
+            >
+              <Cell fill={ACCENT} />
+              <Cell fill="#f59e0b" />
+            </Pie>
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
-      <Card>
-        <CardTitle size="0.9rem">Projects</CardTitle>
-        <div style={{ marginTop: spacing.md }}>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={projects}>
-              <XAxis dataKey="name" tick={{ fill: colors.text.tertiary, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: colors.text.tertiary, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: colors.bg.hover }} />
-              <Bar dataKey="count" fill={colors.purple.primary} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      <ChartCard title="Projects">
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={projects}>
+            <XAxis dataKey="name" tick={axisStyle} axisLine={false} tickLine={false} />
+            <YAxis tick={axisStyle} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip contentStyle={tooltipStyle} cursor={{ fill: '#334155' }} />
+            <Bar dataKey="count" fill={PURPLE} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
       {subTechData.length > 0 && (
-        <FullWidth>
-          <Card>
-            <CardTitle size="0.9rem">Sub-Tech Breakdown</CardTitle>
-            <div style={{ marginTop: spacing.md }}>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={subTechData}>
-                  <XAxis dataKey="tech" tick={{ fill: colors.text.tertiary, fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: colors.text.tertiary, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: colors.bg.hover }} />
-                  <Legend wrapperStyle={{ fontSize: 11, color: colors.text.secondary }} />
-                  {[...subKeys].map((key, i) => (
-                    <Bar key={key} dataKey={key} stackId="a" fill={palette[i % palette.length]} radius={i === [...subKeys].length - 1 ? [4, 4, 0, 0] : undefined} />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-        </FullWidth>
+        <ChartCard title="Sub-Tech Breakdown" fullWidth>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={subTechData}>
+              <XAxis dataKey="tech" tick={axisStyle} axisLine={false} tickLine={false} />
+              <YAxis tick={axisStyle} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: '#334155' }} />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
+              {[...subKeys].map((key, i) => (
+                <Bar
+                  key={key} dataKey={key} stackId="a"
+                  fill={PALETTE[i % PALETTE.length]}
+                  radius={i === [...subKeys].length - 1 ? [4, 4, 0, 0] : undefined}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
       )}
-    </Grid>
+    </div>
   );
 }

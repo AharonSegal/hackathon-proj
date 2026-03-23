@@ -1,9 +1,9 @@
-import { useRef, useEffect, useState } from 'react';
-import styled from '@emotion/styled';
+import { useRef, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
+import { clsx } from 'clsx';
+import { Button } from '@/shared/components/ui/Button';
+import { Input, Textarea } from '@/shared/components/ui/Input';
 import type { TaskFormState, TechSelection } from '../../../utils/types';
-import { Card, CardHeader, CardTitle, Button, Input, TextArea, InputLabel, InputError, Toggle } from '../../../ui';
-import { colors, spacing, typography } from '../../../theme';
 import CategoryPicker from './CategoryPicker';
 import TechSelector from './TechSelector';
 import LanguagePicker from './LanguagePicker';
@@ -19,114 +19,112 @@ interface Props {
   isNew?: boolean;
 }
 
-const Body = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.md};
-`;
-
-const FieldBlock = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.xxs};
-`;
-
-const teamOptions = [
-  { value: 'solo', label: 'Solo' },
-  { value: 'team', label: 'Team' },
-];
-
 export default function TaskCard({ task, index, error, canRemove, onUpdate, onClear, onRemove, isNew }: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  const [focused, setFocused] = useState(false);
 
   useEffect(() => {
     if (isNew && ref.current) {
-      ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [isNew]);
 
   return (
-    <Card ref={ref} highlighted={focused} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>
-      <CardHeader>
-        <CardTitle size={typography.size.md}>Task {index + 1}</CardTitle>
-        <div style={{ display: 'flex', gap: spacing.xs }}>
+    <div
+      ref={ref}
+      className="rounded-xl border border-slate-700 bg-slate-800 p-4 space-y-4"
+    >
+      {/* Card header */}
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-slate-300">Task {index + 1}</span>
+        <div className="flex items-center gap-1.5">
           <Button variant="ghost" size="sm" onClick={onClear} type="button">Clear</Button>
           {canRemove && (
-            <Button variant="danger" size="sm" onClick={onRemove} type="button" iconOnly>
-              <Trash2 />
+            <Button variant="danger" size="sm" onClick={onRemove} type="button" className="px-2">
+              <Trash2 size={13} />
             </Button>
           )}
         </div>
-      </CardHeader>
+      </div>
 
-      <Body>
-        <FieldBlock>
-          <InputLabel>Categories</InputLabel>
-          <CategoryPicker selected={task.categories} onChange={(cats) => onUpdate({ categories: cats })} />
-        </FieldBlock>
+      {/* Categories */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-slate-400">Categories</label>
+        <CategoryPicker selected={task.categories} onChange={(cats) => onUpdate({ categories: cats })} />
+      </div>
 
-        <FieldBlock>
-          <InputLabel required>Title</InputLabel>
-          <Input
-            value={task.title}
-            onChange={(e) => onUpdate({ title: e.target.value })}
-            placeholder="What did you work on?"
-            hasError={!!error}
-          />
-          {error && <InputError>{error}</InputError>}
-        </FieldBlock>
+      {/* Title */}
+      <div>
+        <Input
+          label="Title *"
+          value={task.title}
+          onChange={(e) => onUpdate({ title: e.target.value })}
+          placeholder="What did you work on?"
+          error={error}
+        />
+      </div>
 
-        <FieldBlock>
-          <InputLabel>Coding Languages</InputLabel>
-          <LanguagePicker
-            selected={task.codingLanguages ?? []}
-            onChange={(langs) => onUpdate({ codingLanguages: langs })}
-          />
-        </FieldBlock>
+      {/* Coding languages */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-slate-400">Coding Languages</label>
+        <LanguagePicker
+          selected={task.codingLanguages ?? []}
+          onChange={(langs) => onUpdate({ codingLanguages: langs })}
+        />
+      </div>
 
-        <FieldBlock>
-          <InputLabel>Technologies</InputLabel>
-          <TechSelector
-            selected={task.technologies}
-            onChange={(techs: TechSelection[]) => onUpdate({ technologies: techs })}
-          />
-        </FieldBlock>
+      {/* Technologies */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-slate-400">Technologies</label>
+        <TechSelector
+          selected={task.technologies}
+          onChange={(techs: TechSelection[]) => onUpdate({ technologies: techs })}
+        />
+      </div>
 
-        <FieldBlock>
-          <InputLabel>Team type</InputLabel>
-          <Toggle
-            options={teamOptions}
-            value={task.teamType}
-            onChange={(val) => onUpdate({ teamType: val as 'solo' | 'team' })}
-          />
-        </FieldBlock>
+      {/* Team type */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-slate-400">Team type</label>
+        <div className="flex rounded-lg border border-slate-600 p-0.5 w-fit">
+          {(['solo', 'team'] as const).map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onUpdate({ teamType: opt })}
+              className={clsx(
+                'rounded-md px-4 py-1.5 text-sm font-medium transition-colors capitalize',
+                task.teamType === opt
+                  ? 'bg-primary-600 text-white'
+                  : 'text-slate-400 hover:text-slate-100',
+              )}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {task.teamType === 'team' && (
-          <FieldBlock>
-            <InputLabel>Team size</InputLabel>
-            <Input
-              type="number"
-              min={2}
-              max={500}
-              value={task.teamSize ?? ''}
-              onChange={(e) => onUpdate({ teamSize: e.target.value ? parseInt(e.target.value) : undefined })}
-              placeholder="Number of people..."
-              style={{ maxWidth: 160 }}
-            />
-          </FieldBlock>
-        )}
+      {/* Team size */}
+      {task.teamType === 'team' && (
+        <Input
+          label="Team size"
+          type="number"
+          min={2}
+          max={500}
+          value={task.teamSize ?? ''}
+          onChange={(e) => onUpdate({ teamSize: e.target.value ? parseInt(e.target.value) : undefined })}
+          placeholder="Number of people…"
+          className="max-w-[160px]"
+        />
+      )}
 
-        <FieldBlock>
-          <InputLabel>Description</InputLabel>
-          <TextArea
-            value={task.description}
-            onChange={(e) => onUpdate({ description: e.target.value })}
-            placeholder="Optional details..."
-            rows={3}
-          />
-        </FieldBlock>
-      </Body>
-    </Card>
+      {/* Description */}
+      <Textarea
+        label="Description"
+        value={task.description}
+        onChange={(e) => onUpdate({ description: e.target.value })}
+        placeholder="Optional details…"
+        rows={3}
+      />
+    </div>
   );
 }

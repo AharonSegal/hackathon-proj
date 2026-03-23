@@ -1,51 +1,16 @@
 import { useState } from 'react';
-import styled from '@emotion/styled';
 import { Plus } from 'lucide-react';
+import { clsx } from 'clsx';
+import { Button } from '@/shared/components/ui/Button';
+import { Input } from '@/shared/components/ui/Input';
+import { Modal } from '@/shared/components/ui/Modal';
 import { useApp } from '../../../context/AppContext';
-import { Pill, Button, Input, Modal } from '../../../ui';
-import { colors, spacing, typography } from '../../../theme';
 import { capitalize, findSimilar } from '../../../utils/helpers';
 
 interface Props {
   selected: string[];
   onChange: (cats: string[]) => void;
 }
-
-const Wrap = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${spacing.xs};
-  align-items: center;
-`;
-
-const AddRow = styled.div`
-  display: flex;
-  gap: ${spacing.xs};
-  align-items: center;
-  margin-top: ${spacing.xs};
-`;
-
-const DuplicateAlert = styled.div`
-  margin-top: ${spacing.xs};
-  padding: ${spacing.xs} ${spacing.sm};
-  background: ${colors.warning.muted};
-  border: 1px solid ${colors.warning.primary};
-  border-radius: 8px;
-  color: ${colors.warning.text};
-  font-size: ${typography.size.sm};
-  font-weight: ${typography.weight.medium};
-`;
-
-const SimilarText = styled.p`
-  color: ${colors.text.secondary};
-  font-size: ${typography.size.md};
-  line-height: 1.6;
-`;
-
-const SimilarName = styled.span`
-  color: ${colors.accent.primary};
-  font-weight: ${typography.weight.semibold};
-`;
 
 export default function CategoryPicker({ selected, onChange }: Props) {
   const { state, updateSchema } = useApp();
@@ -61,87 +26,84 @@ export default function CategoryPicker({ selected, onChange }: Props) {
   const doAdd = async (name: string) => {
     await updateSchema({ ...state.schema, categories: [...state.schema.categories, name] });
     onChange([...selected, name]);
-    setNewCat('');
-    setDupAlert('');
-    setAdding(false);
+    setNewCat(''); setDupAlert(''); setAdding(false);
   };
 
   const handleAdd = () => {
     const formatted = capitalize(newCat.trim());
     if (!formatted) return;
-
     const existing = state.schema.categories.find((c) => c.toLowerCase() === formatted.toLowerCase());
-    if (existing) {
-      setDupAlert(`"${existing}" already exists`);
-      return;
-    }
-
+    if (existing) { setDupAlert(`"${existing}" already exists`); return; }
     setDupAlert('');
-
     const similar = findSimilar(formatted, state.schema.categories);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
-      setSimilarMatch({ input: formatted, match: similar });
-      return;
+      setSimilarMatch({ input: formatted, match: similar }); return;
     }
-
     doAdd(formatted);
   };
 
   return (
-    <div>
-      <Modal
-        open={!!similarMatch}
-        onClose={() => setSimilarMatch(null)}
-        title="Similar category found"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => {
-              if (similarMatch) onChange([...selected, similarMatch.match]);
-              setSimilarMatch(null);
-              setNewCat('');
-              setAdding(false);
-            }}>
-              Use "{similarMatch?.match}"
-            </Button>
-            <Button onClick={() => {
-              if (similarMatch) doAdd(similarMatch.input);
-              setSimilarMatch(null);
-            }}>
-              Create "{similarMatch?.input}" anyway
-            </Button>
-          </>
-        }
-      >
-        <SimilarText>
-          You're adding <SimilarName>"{similarMatch?.input}"</SimilarName>, but a similar category already exists: <SimilarName>"{similarMatch?.match}"</SimilarName>
-          <br />Do you want to use the existing one or create a new one?
-        </SimilarText>
+    <div className="space-y-2">
+      <Modal open={!!similarMatch} onClose={() => setSimilarMatch(null)} title="Similar category found" size="sm">
+        <p className="text-sm text-slate-300 leading-relaxed">
+          You're adding <span className="font-semibold text-primary-400">"{similarMatch?.input}"</span>, but{' '}
+          <span className="font-semibold text-primary-400">"{similarMatch?.match}"</span> already exists.
+        </p>
+        <div className="mt-4 flex gap-2 justify-end">
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (similarMatch) onChange([...selected, similarMatch.match]);
+            setSimilarMatch(null); setNewCat(''); setAdding(false);
+          }}>
+            Use "{similarMatch?.match}"
+          </Button>
+          <Button size="sm" onClick={() => {
+            if (similarMatch) doAdd(similarMatch.input);
+            setSimilarMatch(null);
+          }}>
+            Create anyway
+          </Button>
+        </div>
       </Modal>
 
-      <Wrap>
+      <div className="flex flex-wrap items-center gap-1.5">
         {state.schema.categories.map((cat) => (
-          <Pill key={cat} label={cat} selected={selected.includes(cat)} onClick={() => toggle(cat)} />
+          <button
+            key={cat}
+            type="button"
+            onClick={() => toggle(cat)}
+            className={clsx(
+              'rounded-full px-3 py-1 text-xs font-medium transition-colors border',
+              selected.includes(cat)
+                ? 'bg-primary-600 text-white border-primary-600'
+                : 'border-slate-600 text-slate-300 hover:border-slate-400 hover:text-slate-100',
+            )}
+          >
+            {cat}
+          </button>
         ))}
-        <Button variant="ghost" size="sm" onClick={() => { setAdding(!adding); setDupAlert(''); }} type="button" iconOnly>
-          <Plus />
-        </Button>
-      </Wrap>
+        <button
+          type="button"
+          onClick={() => { setAdding(!adding); setDupAlert(''); }}
+          className="flex items-center justify-center w-7 h-7 rounded-full border border-slate-600 text-slate-400 hover:border-slate-400 hover:text-slate-100 transition-colors"
+        >
+          <Plus size={13} />
+        </button>
+      </div>
 
       {adding && (
-        <>
-          <AddRow>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
             <Input
               value={newCat}
               onChange={(e) => { setNewCat(e.target.value); setDupAlert(''); }}
-              placeholder="Category name..."
+              placeholder="Category name…"
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
               autoFocus
-              style={{ flex: 1, height: '32px' }}
+              error={dupAlert || undefined}
             />
-            <Button size="sm" onClick={handleAdd} type="button">Add</Button>
-          </AddRow>
-          {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
-        </>
+            <Button size="sm" onClick={handleAdd} type="button" className="shrink-0">Add</Button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,39 +1,19 @@
 import { useState } from 'react';
-import styled from '@emotion/styled';
 import { Plus } from 'lucide-react';
+import { Button } from '@/shared/components/ui/Button';
+import { Input } from '@/shared/components/ui/Input';
+import { Modal } from '@/shared/components/ui/Modal';
 import { useApp } from '../../../context/AppContext';
-import { Select, Button, Input, Modal } from '../../../ui';
-import { colors, spacing, typography } from '../../../theme';
 import { capitalize, findSimilar } from '../../../utils/helpers';
+
+const SELECT_CLS =
+  'w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 ' +
+  'focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500';
 
 interface Props {
   value: string;
   onChange: (val: string) => void;
 }
-
-const Row = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${spacing.sm};
-`;
-
-const AddRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${spacing.xs};
-  margin-top: ${spacing.xs};
-`;
-
-const SimilarText = styled.p`
-  color: ${colors.text.secondary};
-  font-size: ${typography.size.md};
-  line-height: 1.6;
-`;
-
-const SimilarName = styled.span`
-  color: ${colors.accent.primary};
-  font-weight: ${typography.weight.semibold};
-`;
 
 export default function ProjectSelector({ value, onChange }: Props) {
   const { state, updateSchema } = useApp();
@@ -64,59 +44,57 @@ export default function ProjectSelector({ value, onChange }: Props) {
   };
 
   return (
-    <div>
+    <div className="space-y-2">
       <Modal
         open={!!similarMatch}
         onClose={() => setSimilarMatch(null)}
         title="Similar project found"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => {
-              if (similarMatch) onChange(similarMatch.match);
-              setSimilarMatch(null);
-              setNewName('');
-              setAdding(false);
-            }}>
-              Use "{similarMatch?.match}"
-            </Button>
-            <Button onClick={() => {
-              if (similarMatch) doAdd(similarMatch.input);
-              setSimilarMatch(null);
-            }}>
-              Create "{similarMatch?.input}" anyway
-            </Button>
-          </>
-        }
+        size="sm"
       >
-        <SimilarText>
-          You're adding <SimilarName>"{similarMatch?.input}"</SimilarName>, but a similar project already exists: <SimilarName>"{similarMatch?.match}"</SimilarName>
+        <p className="text-sm text-slate-300 leading-relaxed">
+          You're adding <span className="font-semibold text-primary-400">"{similarMatch?.input}"</span>, but a similar project already exists:{' '}
+          <span className="font-semibold text-primary-400">"{similarMatch?.match}"</span>.
           <br />Do you want to use the existing one or create a new one?
-        </SimilarText>
+        </p>
+        <div className="mt-4 flex gap-2 justify-end">
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (similarMatch) onChange(similarMatch.match);
+            setSimilarMatch(null); setNewName(''); setAdding(false);
+          }}>
+            Use "{similarMatch?.match}"
+          </Button>
+          <Button size="sm" onClick={() => {
+            if (similarMatch) doAdd(similarMatch.input);
+            setSimilarMatch(null);
+          }}>
+            Create anyway
+          </Button>
+        </div>
       </Modal>
 
-      <Row>
-        <Select value={value} onChange={(e) => onChange(e.target.value)} style={{ flex: 1 }}>
+      <div className="flex items-center gap-2">
+        <select value={value} onChange={(e) => onChange(e.target.value)} className={SELECT_CLS}>
           {state.schema.projects.map((p) => (
             <option key={p} value={p}>{p}</option>
           ))}
-        </Select>
-        <Button variant="secondary" size="sm" onClick={() => setAdding(!adding)} type="button">
-          <Plus /> New
+        </select>
+        <Button variant="secondary" size="sm" onClick={() => setAdding(!adding)} type="button" className="shrink-0">
+          <Plus size={14} /> New
         </Button>
-      </Row>
+      </div>
+
       {adding && (
-        <AddRow>
+        <div className="flex items-center gap-2">
           <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Project name..."
+            placeholder="Project name…"
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             autoFocus
-            style={{ flex: 1 }}
           />
-          <Button size="sm" onClick={handleAdd} type="button">Add</Button>
-          <Button variant="ghost" size="sm" onClick={() => { setAdding(false); setNewName(''); }} type="button">Cancel</Button>
-        </AddRow>
+          <Button size="sm" onClick={handleAdd} type="button" className="shrink-0">Add</Button>
+          <Button variant="ghost" size="sm" onClick={() => { setAdding(false); setNewName(''); }} type="button" className="shrink-0">Cancel</Button>
+        </div>
       )}
     </div>
   );

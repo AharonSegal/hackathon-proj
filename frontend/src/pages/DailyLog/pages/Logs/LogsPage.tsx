@@ -1,220 +1,23 @@
-/**
- * pages/DailyLog/pages/Logs/LogsPage.tsx
- * -----------------------------------------
- * Full list of all worklog entries with search, date filtering, and inline
- * edit / delete functionality.
- *
- * Purpose: lets the user review, update, or remove past log entries.
- *
- * Features:
- * - Full-text search across title and description
- * - Date range filter (start date / end date)
- * - Project filter dropdown
- * - Inline expand to see full entry details
- * - Inline edit modal (reuses LogEntry sub-components)
- * - Delete with confirmation via useToast
- * - Sorted newest-first; results count shown in header
- *
- * Data: reads from AppContext state (already loaded on mount).
- * Mutations go through AppContext.updateEntry / deleteEntry → REST API.
- */
-
 import { useState, useMemo } from 'react';
-import styled from '@emotion/styled';
-import { Trash2, Pencil, ChevronDown, ChevronUp, Users, User } from 'lucide-react';
+import { Trash2, Pencil, ChevronDown, ChevronUp, Users, User, Search } from 'lucide-react';
+import { toast } from 'sonner';
+import { clsx } from 'clsx';
+import { Button } from '@/shared/components/ui/Button';
+import { Input, Textarea } from '@/shared/components/ui/Input';
+import { Modal } from '@/shared/components/ui/Modal';
+import { Badge } from '@/shared/components/ui/Badge';
 import { useApp } from '../../context/AppContext';
-import useToast from '../../hooks/useToast';
-import type { Entry, TaskFormState, TechSelection } from '../../utils/types';
-import { Card, CardHeader, CardTitle, Button, Input, TextArea, InputLabel, Modal, Toast, SearchInput, EmptyState, Chip, Toggle } from '../../ui';
-import { colors, spacing, typography, transitions } from '../../theme';
-import { formatDate, isInDateRange, generateId } from '../../utils/helpers';
+import type { Entry, TechSelection } from '../../utils/types';
+import { formatDate, isInDateRange } from '../../utils/helpers';
 import CategoryPicker from '../LogEntry/components/CategoryPicker';
 import TechSelector from '../LogEntry/components/TechSelector';
 import LanguagePicker from '../LogEntry/components/LanguagePicker';
 
-const FilterBar = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${spacing.xs};
-  margin-bottom: ${spacing.lg};
-  padding: ${spacing.md};
-  background: ${colors.bg.tertiary};
-  border: 1px solid ${colors.border.default};
-  border-radius: 12px;
-`;
+const SELECT_CLS =
+  'bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 ' +
+  'focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500';
 
-const FilterGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.xxs};
-  min-width: 140px;
-  flex: 1;
-`;
-
-const FilterLabel = styled.span`
-  font-size: ${typography.size.xs};
-  font-weight: ${typography.weight.semibold};
-  color: ${colors.text.tertiary};
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const StyledSelect = styled.select`
-  background: ${colors.bg.secondary};
-  border: 1px solid ${colors.border.default};
-  border-radius: 8px;
-  color: ${colors.text.primary};
-  padding: ${spacing.xs} ${spacing.sm};
-  font-size: ${typography.size.sm};
-  height: 36px;
-  cursor: pointer;
-  &:focus { outline: 2px solid ${colors.accent.primary}; }
-`;
-
-const ResultCount = styled.span`
-  font-size: ${typography.size.sm};
-  color: ${colors.text.tertiary};
-  margin-bottom: ${spacing.sm};
-  display: block;
-`;
-
-const EntryCard = styled.div`
-  background: ${colors.bg.secondary};
-  border: 1px solid ${colors.border.default};
-  border-radius: 12px;
-  padding: ${spacing.md};
-  margin-bottom: ${spacing.sm};
-  transition: border-color ${transitions.fast};
-  &:hover { border-color: ${colors.border.light}; }
-`;
-
-const EntryTop = styled.div`
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: ${spacing.sm};
-`;
-
-const EntryMeta = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${spacing.xs};
-  margin-bottom: ${spacing.xs};
-`;
-
-const EntryDate = styled.span`
-  font-size: ${typography.size.sm};
-  color: ${colors.text.tertiary};
-`;
-
-const DayBadge = styled.span`
-  background: ${colors.accent.muted};
-  color: ${colors.accent.primary};
-  padding: 1px ${spacing.xs};
-  border-radius: 6px;
-  font-size: ${typography.size.xs};
-  font-weight: ${typography.weight.semibold};
-`;
-
-const ProjectBadge = styled.span`
-  background: ${colors.bg.elevated};
-  color: ${colors.text.primary};
-  padding: 2px ${spacing.sm};
-  border-radius: 6px;
-  font-size: ${typography.size.xs};
-  font-weight: ${typography.weight.medium};
-  border: 1px solid ${colors.border.default};
-`;
-
-const EntryTitle = styled.h3`
-  font-size: ${typography.size.md};
-  font-weight: ${typography.weight.semibold};
-  color: ${colors.text.primary};
-  margin-bottom: ${spacing.xxs};
-`;
-
-const EntryDesc = styled.p`
-  font-size: ${typography.size.sm};
-  color: ${colors.text.secondary};
-  margin-bottom: ${spacing.xs};
-  line-height: 1.5;
-`;
-
-const TagRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${spacing.xxs};
-  margin-top: ${spacing.xs};
-`;
-
-const Tag = styled.span<{ variant?: 'cat' | 'tech' | 'lang' }>`
-  font-size: ${typography.size.xs};
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-weight: ${typography.weight.medium};
-  background: ${({ variant }) =>
-    variant === 'cat' ? colors.bg.elevated :
-    variant === 'lang' ? `${colors.accent.primary}22` :
-    `${colors.accent.primary}11`};
-  color: ${({ variant }) =>
-    variant === 'lang' ? colors.accent.primary : colors.text.secondary};
-  border: 1px solid ${({ variant }) =>
-    variant === 'lang' ? `${colors.accent.primary}44` : colors.border.default};
-`;
-
-const TeamBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: ${typography.size.xs};
-  color: ${colors.text.tertiary};
-  svg { width: 12px; height: 12px; }
-`;
-
-const ActionRow = styled.div`
-  display: flex;
-  gap: ${spacing.xs};
-  flex-shrink: 0;
-`;
-
-const ExpandBtn = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: ${colors.text.tertiary};
-  font-size: ${typography.size.xs};
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px ${spacing.xs};
-  border-radius: 6px;
-  transition: color ${transitions.fast};
-  &:hover { color: ${colors.text.primary}; background: ${colors.bg.hover}; }
-  svg { width: 14px; height: 14px; }
-`;
-
-const ExpandedContent = styled.div`
-  margin-top: ${spacing.sm};
-  padding-top: ${spacing.sm};
-  border-top: 1px solid ${colors.border.default};
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.xs};
-`;
-
-const SubLabel = styled.span`
-  font-size: ${typography.size.xs};
-  font-weight: ${typography.weight.semibold};
-  color: ${colors.text.tertiary};
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const teamOptions = [
-  { value: 'solo', label: 'Solo' },
-  { value: 'team', label: 'Team' },
-];
+/* ── Edit form ─────────────────────────────────────────────────────────────── */
 
 interface EditFormProps {
   entry: Entry;
@@ -247,61 +50,79 @@ function EditForm({ entry, onSave, onCancel }: EditFormProps) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xxs }}>
-        <InputLabel>Categories</InputLabel>
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Categories</label>
         <CategoryPicker selected={categories} onChange={setCategories} />
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xxs }}>
-        <InputLabel required>Title</InputLabel>
+
+      <div className="space-y-1">
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Title <span className="text-rose-400">*</span>
+        </label>
         <Input
           value={title}
           onChange={(e) => { setTitle(e.target.value); setTitleError(''); }}
           placeholder="What did you work on?"
-          hasError={!!titleError}
+          error={titleError || undefined}
         />
-        {titleError && <span style={{ color: colors.danger.primary, fontSize: typography.size.xs }}>{titleError}</span>}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xxs }}>
-        <InputLabel>Coding Languages</InputLabel>
+
+      <div className="space-y-1">
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Coding Languages</label>
         <LanguagePicker selected={codingLanguages} onChange={setCodingLanguages} />
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xxs }}>
-        <InputLabel>Technologies</InputLabel>
+
+      <div className="space-y-1">
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Technologies</label>
         <TechSelector selected={technologies} onChange={setTechnologies} />
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xxs }}>
-        <InputLabel>Team type</InputLabel>
-        <Toggle
-          options={teamOptions}
-          value={teamType}
-          onChange={(val) => setTeamType(val as 'solo' | 'team')}
-        />
+
+      <div className="space-y-1">
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Team type</label>
+        <div className="inline-flex rounded-lg border border-slate-600 p-0.5 gap-0.5">
+          {(['solo', 'team'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTeamType(t)}
+              className={clsx(
+                'rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-colors',
+                teamType === t
+                  ? 'bg-primary-600 text-white'
+                  : 'text-slate-400 hover:text-slate-100',
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
+
       {teamType === 'team' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xxs }}>
-          <InputLabel>Team size</InputLabel>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Team size</label>
           <Input
-            type="number"
-            min={2}
-            max={500}
+            type="number" min={2} max={500}
             value={teamSize ?? ''}
             onChange={(e) => setTeamSize(e.target.value ? parseInt(e.target.value) : undefined)}
             placeholder="Number of people..."
-            style={{ maxWidth: 160 }}
+            className="max-w-[160px]"
           />
         </div>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xxs }}>
-        <InputLabel>Description</InputLabel>
-        <TextArea
+
+      <div className="space-y-1">
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Description</label>
+        <Textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Optional details..."
           rows={3}
         />
       </div>
-      <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'flex-end', paddingTop: spacing.sm }}>
+
+      <div className="flex justify-end gap-2 pt-2 border-t border-slate-700">
         <Button variant="ghost" onClick={onCancel} type="button">Cancel</Button>
         <Button onClick={handleSave} type="button">Save Changes</Button>
       </div>
@@ -309,76 +130,98 @@ function EditForm({ entry, onSave, onCancel }: EditFormProps) {
   );
 }
 
-function EntryRowItem({ entry, onEdit, onDelete }: { entry: Entry; onEdit: () => void; onDelete: () => void }) {
+/* ── Entry card ────────────────────────────────────────────────────────────── */
+
+function EntryCard({ entry, onEdit, onDelete }: { entry: Entry; onEdit: () => void; onDelete: () => void }) {
   const [expanded, setExpanded] = useState(false);
-  const hasTechs = entry.technologies?.length > 0;
   const hasSubs = entry.technologies?.some((t) => t.subTechs?.length > 0);
 
   return (
-    <EntryCard>
-      <EntryTop>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <EntryMeta>
-            <EntryDate>{formatDate(entry.date)}</EntryDate>
-            <DayBadge>Day #{entry.dayNumber}</DayBadge>
-            <ProjectBadge>{entry.project}</ProjectBadge>
-            <TeamBadge>
-              {entry.teamType === 'team' ? <Users /> : <User />}
+    <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 hover:border-slate-600 transition-colors">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+            <span className="text-xs text-slate-400">{formatDate(entry.date)}</span>
+            <span className="bg-primary-500/20 text-primary-300 px-2 py-0.5 rounded text-xs font-semibold">
+              Day #{entry.dayNumber}
+            </span>
+            <span className="bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-xs font-medium border border-slate-600">
+              {entry.project}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-slate-400">
+              {entry.teamType === 'team' ? <Users size={12} /> : <User size={12} />}
               {entry.teamType === 'team'
                 ? entry.teamSize ? `Team (${entry.teamSize})` : 'Team'
                 : 'Solo'}
-            </TeamBadge>
-          </EntryMeta>
-          <EntryTitle>{entry.title}</EntryTitle>
-          {entry.description && <EntryDesc>{entry.description}</EntryDesc>}
-          <TagRow>
+            </span>
+          </div>
+
+          {/* Title */}
+          <h3 className="font-semibold text-slate-100 mb-1">{entry.title}</h3>
+
+          {/* Description preview */}
+          {entry.description && (
+            <p className="text-sm text-slate-400 mb-2 line-clamp-2">{entry.description}</p>
+          )}
+
+          {/* Tags */}
+          <div className="flex flex-wrap gap-1.5 mt-2">
             {(entry.codingLanguages || []).map((l) => (
-              <Tag key={l} variant="lang">{l}</Tag>
+              <Badge key={l} color="indigo">{l}</Badge>
             ))}
             {(entry.categories || []).map((c) => (
-              <Tag key={c} variant="cat">{c}</Tag>
+              <Badge key={c} color="slate">{c}</Badge>
             ))}
             {(entry.technologies || []).map((t) => (
-              <Tag key={t.tech} variant="tech">{t.tech}</Tag>
+              <Badge key={t.tech} color="violet">{t.tech}</Badge>
             ))}
-          </TagRow>
-          {(hasTechs && hasSubs) && (
-            <ExpandBtn onClick={() => setExpanded(!expanded)} type="button" style={{ marginTop: spacing.xs }}>
-              {expanded ? <ChevronUp /> : <ChevronDown />}
-              {expanded ? 'Hide details' : 'Show sub-techs'}
-            </ExpandBtn>
+          </div>
+
+          {/* Expand sub-techs */}
+          {hasSubs && (
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              className="mt-2 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-md px-2 py-1 transition-colors"
+            >
+              {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              {expanded ? 'Hide sub-techs' : 'Show sub-techs'}
+            </button>
           )}
+
           {expanded && (
-            <ExpandedContent>
+            <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
               {entry.technologies.filter((t) => t.subTechs?.length > 0).map((t) => (
                 <div key={t.tech}>
-                  <SubLabel>{t.tech}</SubLabel>
-                  <TagRow>
-                    {t.subTechs.map((s) => (
-                      <Tag key={s}>{s}</Tag>
-                    ))}
-                  </TagRow>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t.tech}</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {t.subTechs.map((s) => <Badge key={s} color="sky">{s}</Badge>)}
+                  </div>
                 </div>
               ))}
-            </ExpandedContent>
+            </div>
           )}
         </div>
-        <ActionRow>
-          <Button variant="ghost" size="sm" onClick={onEdit} type="button" iconOnly title="Edit">
+
+        {/* Actions */}
+        <div className="flex gap-1.5 shrink-0">
+          <Button variant="ghost" size="sm" onClick={onEdit} type="button" className="px-2" title="Edit">
             <Pencil size={14} />
           </Button>
-          <Button variant="danger" size="sm" onClick={onDelete} type="button" iconOnly title="Delete">
+          <Button variant="danger" size="sm" onClick={onDelete} type="button" className="px-2" title="Delete">
             <Trash2 size={14} />
           </Button>
-        </ActionRow>
-      </EntryTop>
-    </EntryCard>
+        </div>
+      </div>
+    </div>
   );
 }
 
+/* ── Main page ─────────────────────────────────────────────────────────────── */
+
 export default function LogsPage() {
   const { state, updateEntry, deleteEntry } = useApp();
-  const { toasts, addToast, removeToast } = useToast();
 
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState('all');
@@ -386,7 +229,6 @@ export default function LogsPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
-
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [deletingEntry, setDeletingEntry] = useState<Entry | null>(null);
 
@@ -401,44 +243,39 @@ export default function LogsPage() {
       if (teamFilter !== 'all' && e.teamType !== teamFilter) return false;
       if (search) {
         const q = search.toLowerCase();
-        const inTitle = e.title.toLowerCase().includes(q);
-        const inDesc = (e.description || '').toLowerCase().includes(q);
-        const inTech = (e.technologies || []).some((t) => t.tech.toLowerCase().includes(q));
-        const inLang = (e.codingLanguages || []).some((l) => l.toLowerCase().includes(q));
-        const inCat = (e.categories || []).some((c) => c.toLowerCase().includes(q));
-        if (!inTitle && !inDesc && !inTech && !inLang && !inCat) return false;
+        if (
+          !e.title.toLowerCase().includes(q) &&
+          !(e.description || '').toLowerCase().includes(q) &&
+          !(e.technologies || []).some((t) => t.tech.toLowerCase().includes(q)) &&
+          !(e.codingLanguages || []).some((l) => l.toLowerCase().includes(q)) &&
+          !(e.categories || []).some((c) => c.toLowerCase().includes(q))
+        ) return false;
       }
       return true;
     });
-    result = result.sort((a, b) => {
+    return result.sort((a, b) => {
       const d = a.date.localeCompare(b.date);
       return sortOrder === 'desc' ? -d : d;
     });
-    return result;
   }, [state.entries, search, dateRange, projectFilter, categoryFilter, teamFilter, sortOrder]);
 
   const handleSaveEdit = async (updated: Entry) => {
     await updateEntry(updated);
     setEditingEntry(null);
-    addToast('success', 'Entry updated');
+    toast.success('Entry updated');
   };
 
   const handleDelete = async () => {
     if (!deletingEntry) return;
     await deleteEntry(deletingEntry.id);
     setDeletingEntry(null);
-    addToast('success', 'Entry deleted');
+    toast.success('Entry deleted');
   };
 
   return (
-    <div>
-      <Toast toasts={toasts} removeToast={removeToast} />
-
-      <Modal
-        open={!!editingEntry}
-        onClose={() => setEditingEntry(null)}
-        title="Edit Entry"
-      >
+    <div className="space-y-4 p-4 sm:p-6">
+      {/* Edit modal */}
+      <Modal open={!!editingEntry} onClose={() => setEditingEntry(null)} title="Edit Entry">
         {editingEntry && (
           <EditForm
             entry={editingEntry}
@@ -448,84 +285,89 @@ export default function LogsPage() {
         )}
       </Modal>
 
-      <Modal
-        open={!!deletingEntry}
-        onClose={() => setDeletingEntry(null)}
-        title="Delete Entry"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setDeletingEntry(null)}>Cancel</Button>
-            <Button variant="danger" onClick={handleDelete}>Delete</Button>
-          </>
-        }
-      >
-        <p style={{ color: colors.text.secondary }}>
-          Are you sure you want to delete <strong style={{ color: colors.text.primary }}>"{deletingEntry?.title}"</strong>? This cannot be undone.
+      {/* Delete confirm modal */}
+      <Modal open={!!deletingEntry} onClose={() => setDeletingEntry(null)} title="Delete Entry">
+        <p className="text-sm text-slate-300 mb-6">
+          Are you sure you want to delete{' '}
+          <strong className="text-slate-100">"{deletingEntry?.title}"</strong>?
+          {' '}This cannot be undone.
         </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setDeletingEntry(null)} type="button">Cancel</Button>
+          <Button variant="danger" onClick={handleDelete} type="button">Delete</Button>
+        </div>
       </Modal>
 
-      <FilterBar>
-        <FilterGroup style={{ minWidth: 200, flex: 2 }}>
-          <FilterLabel>Search</FilterLabel>
-          <SearchInput value={search} onChange={setSearch} placeholder="Title, tech, category..." />
-        </FilterGroup>
-        <FilterGroup>
-          <FilterLabel>Date range</FilterLabel>
-          <StyledSelect value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
+      {/* Filter bar */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3">
+        {/* Search */}
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Title, tech, category..."
+            className="w-full bg-slate-900 border border-slate-600 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
+          />
+        </div>
+
+        {/* Selects */}
+        <div className="flex flex-wrap gap-2">
+          <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className={SELECT_CLS}>
             <option value="all">All time</option>
             <option value="week">This week</option>
             <option value="month">This month</option>
             <option value="30days">Last 30 days</option>
             <option value="90days">Last 90 days</option>
-          </StyledSelect>
-        </FilterGroup>
-        <FilterGroup>
-          <FilterLabel>Project</FilterLabel>
-          <StyledSelect value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
+          </select>
+          <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className={SELECT_CLS}>
             <option value="all">All projects</option>
             {allProjects.map((p) => <option key={p} value={p}>{p}</option>)}
-          </StyledSelect>
-        </FilterGroup>
-        <FilterGroup>
-          <FilterLabel>Category</FilterLabel>
-          <StyledSelect value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+          </select>
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={SELECT_CLS}>
             <option value="all">All categories</option>
             {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </StyledSelect>
-        </FilterGroup>
-        <FilterGroup>
-          <FilterLabel>Team</FilterLabel>
-          <StyledSelect value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)}>
+          </select>
+          <select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} className={SELECT_CLS}>
             <option value="all">All</option>
             <option value="solo">Solo</option>
             <option value="team">Team</option>
-          </StyledSelect>
-        </FilterGroup>
-        <FilterGroup>
-          <FilterLabel>Sort</FilterLabel>
-          <StyledSelect value={sortOrder} onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}>
+          </select>
+          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')} className={SELECT_CLS}>
             <option value="desc">Newest first</option>
             <option value="asc">Oldest first</option>
-          </StyledSelect>
-        </FilterGroup>
-      </FilterBar>
+          </select>
+        </div>
+      </div>
 
-      <ResultCount>{filtered.length} of {state.entries.length} entries</ResultCount>
+      {/* Results count */}
+      <p className="text-xs text-slate-400">
+        {filtered.length} of {state.entries.length} entries
+      </p>
 
+      {/* List */}
       {filtered.length === 0 ? (
-        <EmptyState
-          title={state.entries.length === 0 ? 'No entries yet' : 'No matching entries'}
-          description={state.entries.length === 0 ? 'Submit your first day log to see it here.' : 'Try adjusting your filters.'}
-        />
+        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-slate-400">
+          <p className="font-medium text-slate-300">
+            {state.entries.length === 0 ? 'No entries yet' : 'No matching entries'}
+          </p>
+          <p className="text-sm">
+            {state.entries.length === 0
+              ? 'Submit your first day log to see it here.'
+              : 'Try adjusting your filters.'}
+          </p>
+        </div>
       ) : (
-        filtered.map((entry) => (
-          <EntryRowItem
-            key={entry.id}
-            entry={entry}
-            onEdit={() => setEditingEntry(entry)}
-            onDelete={() => setDeletingEntry(entry)}
-          />
-        ))
+        <div className="space-y-3">
+          {filtered.map((entry) => (
+            <EntryCard
+              key={entry.id}
+              entry={entry}
+              onEdit={() => setEditingEntry(entry)}
+              onDelete={() => setDeletingEntry(entry)}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

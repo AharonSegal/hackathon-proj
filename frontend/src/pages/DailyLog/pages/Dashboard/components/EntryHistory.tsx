@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import styled from '@emotion/styled';
 import { ChevronDown, ChevronRight, User, Users } from 'lucide-react';
+import { clsx } from 'clsx';
+import { Badge } from '@/shared/components/ui/Badge';
 import type { Entry } from '../../../utils/types';
-import { Card, Badge, Chip } from '../../../ui';
-import { colors, spacing, typography, transitions } from '../../../theme';
 import { formatDate } from '../../../utils/helpers';
 
 interface DayGroup {
@@ -11,81 +10,6 @@ interface DayGroup {
   dayNumber: number;
   entries: Entry[];
 }
-
-const DayHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${spacing.sm};
-  padding: ${spacing.sm} 0;
-  font-weight: ${typography.weight.semibold};
-  color: ${colors.text.primary};
-  font-size: ${typography.size.md};
-`;
-
-const DayNum = styled.span`
-  background: ${colors.accent.muted};
-  color: ${colors.accent.primary};
-  padding: 1px ${spacing.xs};
-  border-radius: 4px;
-  font-size: ${typography.size.xs};
-  font-weight: ${typography.weight.semibold};
-`;
-
-const EntryRow = styled.button`
-  width: 100%;
-  text-align: left;
-  background: ${colors.bg.elevated};
-  border: 1px solid ${colors.border.default};
-  border-radius: 8px;
-  padding: ${spacing.sm} ${spacing.md};
-  cursor: pointer;
-  transition: all ${transitions.normal};
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.xs};
-
-  &:hover {
-    border-color: ${colors.border.light};
-    background: ${colors.bg.hover};
-  }
-`;
-
-const EntryTitle = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${spacing.xs};
-  font-weight: ${typography.weight.medium};
-  color: ${colors.text.primary};
-  font-size: ${typography.size.md};
-  svg { width: 14px; height: 14px; color: ${colors.text.tertiary}; }
-`;
-
-const TechLine = styled.div`
-  font-size: ${typography.size.sm};
-  color: ${colors.text.secondary};
-`;
-
-const TagRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${spacing.xxs};
-`;
-
-const Desc = styled.p`
-  font-size: ${typography.size.sm};
-  color: ${colors.text.secondary};
-  line-height: ${typography.lineHeight.normal};
-  padding-top: ${spacing.xs};
-  border-top: 1px solid ${colors.border.default};
-  margin-top: ${spacing.xs};
-  white-space: pre-wrap;
-`;
-
-const Stack = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing.xs};
-`;
 
 export default function EntryHistory({ history }: { history: DayGroup[] }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -95,50 +19,65 @@ export default function EntryHistory({ history }: { history: DayGroup[] }) {
   if (!history.length) return null;
 
   return (
-    <Card>
-      <h3 style={{ fontSize: typography.size.lg, fontWeight: typography.weight.semibold, color: colors.text.primary, marginBottom: spacing.md }}>
-        Entry History
-      </h3>
-      <Stack>
+    <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <h3 className="text-base font-semibold text-slate-100 mb-4">Entry History</h3>
+      <div className="space-y-3">
         {history.map(({ date, dayNumber, entries }) => (
           <div key={date}>
-            <DayHeader>
-              <DayNum>Day {dayNumber}</DayNum>
-              {formatDate(date)}
-              <span style={{ color: colors.text.tertiary, fontSize: typography.size.sm }}>
-                — {entries[0]?.project}
+            <div className="flex items-center gap-2 py-2 text-sm font-semibold text-slate-200">
+              <span className="bg-primary-500/20 text-primary-300 px-2 py-0.5 rounded text-xs font-semibold">
+                Day {dayNumber}
               </span>
-            </DayHeader>
-            <Stack>
+              {formatDate(date)}
+              <span className="text-slate-500 text-xs font-normal">— {entries[0]?.project}</span>
+            </div>
+
+            <div className="space-y-2">
               {entries.map((e) => {
                 const isOpen = expanded[e.id];
                 return (
-                  <EntryRow key={e.id} onClick={() => toggle(e.id)} type="button">
-                    <EntryTitle>
-                      {isOpen ? <ChevronDown /> : <ChevronRight />}
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => toggle(e.id)}
+                    className="w-full text-left bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 flex flex-col gap-1.5 hover:border-slate-500 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5 font-medium text-slate-100 text-sm">
+                      {isOpen ? <ChevronDown size={14} className="text-slate-400 shrink-0" /> : <ChevronRight size={14} className="text-slate-400 shrink-0" />}
                       {e.title}
-                    </EntryTitle>
-                    <TechLine>
-                      {e.technologies.map((t) => {
-                        const subs = t.subTechs.length ? ` (${t.subTechs.join(', ')})` : '';
-                        return `${t.tech}${subs}`;
-                      }).join(' · ')}
-                    </TechLine>
-                    <TagRow>
-                      {e.categories.map((c) => <Badge key={c} variant="accent">{c}</Badge>)}
-                      <Badge variant={e.teamType === 'solo' ? 'default' : 'warning'}>
-                        {e.teamType === 'solo' ? <User size={10} /> : <Users size={10} />}
-                        {e.teamType}
+                    </div>
+
+                    {e.technologies.length > 0 && (
+                      <p className="text-xs text-slate-400 pl-5">
+                        {e.technologies.map((t) => {
+                          const subs = t.subTechs.length ? ` (${t.subTechs.join(', ')})` : '';
+                          return `${t.tech}${subs}`;
+                        }).join(' · ')}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap gap-1 pl-5">
+                      {e.categories.map((c) => <Badge key={c} color="indigo">{c}</Badge>)}
+                      <Badge color={e.teamType === 'solo' ? 'slate' : 'amber'}>
+                        <span className="flex items-center gap-1">
+                          {e.teamType === 'solo' ? <User size={10} /> : <Users size={10} />}
+                          {e.teamType}
+                        </span>
                       </Badge>
-                    </TagRow>
-                    {isOpen && e.description && <Desc>{e.description}</Desc>}
-                  </EntryRow>
+                    </div>
+
+                    {isOpen && e.description && (
+                      <p className="text-xs text-slate-400 pl-5 pt-2 mt-1 border-t border-slate-700 whitespace-pre-wrap leading-relaxed">
+                        {e.description}
+                      </p>
+                    )}
+                  </button>
                 );
               })}
-            </Stack>
+            </div>
           </div>
         ))}
-      </Stack>
-    </Card>
+      </div>
+    </div>
   );
 }
