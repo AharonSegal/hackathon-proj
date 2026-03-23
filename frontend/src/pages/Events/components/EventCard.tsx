@@ -5,9 +5,11 @@
  */
 
 import { useState } from 'react';
-import { X, Folder, RefreshCw } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { X, Folder, RefreshCw, Paperclip } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
+import { AttachmentModal } from '@/shared/components/Attachments/AttachmentModal';
+import { getAttachmentCount } from '@/shared/hooks/useAttachments';
 import { format } from 'date-fns';
 import { type CalendarEvent, type EventColor, EVENT_COLOR_HEX } from '@/shared/types/event.types';
 import { type Folder as FolderType, FOLDER_COLORS } from '@/shared/types/note.types';
@@ -48,7 +50,9 @@ export function EventCard({
   event, isSelected, isMultiSelected, isSelectionMode,
   folders, onSelect, onToggleMultiSelect, onDelete, onMoveToFolder,
 }: EventCardProps) {
-  const [folderMenuOpen, setFolderMenuOpen] = useState(false);
+  const [folderMenuOpen,      setFolderMenuOpen]      = useState(false);
+  const [attachmentModalOpen, setAttachmentModalOpen] = useState(false);
+  const [attachCount,         setAttachCount]         = useState(() => getAttachmentCount(event.id));
 
   const currentFolder = event.folderId ? folders.find(f => f.id === event.folderId) : null;
   const currentFolderColor = currentFolder
@@ -153,6 +157,20 @@ export function EventCard({
             )}
           </div>
 
+          {/* Attachment button */}
+          <button
+            onClick={e => { e.stopPropagation(); setAttachmentModalOpen(true); }}
+            aria-label="Attachments"
+            className="relative rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-700 shrink-0"
+          >
+            <Paperclip className="h-3 w-3 text-slate-500" />
+            {attachCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-indigo-500 text-[8px] text-white flex items-center justify-center leading-none">
+                {attachCount}
+              </span>
+            )}
+          </button>
+
           {/* Move to folder button */}
           <div className="relative shrink-0">
             <button
@@ -199,6 +217,18 @@ export function EventCard({
           </div>
         </div>
       </div>
+
+      {/* Attachment modal */}
+      <AnimatePresence>
+        {attachmentModalOpen && (
+          <AttachmentModal
+            entityId={event.id}
+            entityType="event"
+            entityTitle={event.title || 'Untitled Event'}
+            onClose={() => { setAttachmentModalOpen(false); setAttachCount(getAttachmentCount(event.id)); }}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

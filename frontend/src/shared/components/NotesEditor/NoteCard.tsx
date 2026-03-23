@@ -10,10 +10,12 @@
 
 import { useState } from 'react';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
-import { Pin, X, Folder, GripVertical } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Pin, X, Folder, GripVertical, Paperclip } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
 import { type Note, type Folder as FolderType, FOLDER_COLORS } from '@/shared/types/note.types';
+import { AttachmentModal } from '@/shared/components/Attachments/AttachmentModal';
+import { getAttachmentCount } from '@/shared/hooks/useAttachments';
 
 interface NoteCardProps {
   note: Note;
@@ -57,7 +59,9 @@ export function NoteCard({
   folders, onSelect, onTogglePin, onDelete, onMoveToFolder, onToggleMultiSelect,
 }: NoteCardProps) {
   const preview = getBlockPreview(note.content);
-  const [folderMenuOpen, setFolderMenuOpen] = useState(false);
+  const [folderMenuOpen,      setFolderMenuOpen]      = useState(false);
+  const [attachmentModalOpen, setAttachmentModalOpen] = useState(false);
+  const [attachCount,         setAttachCount]         = useState(() => getAttachmentCount(note.id));
 
   const currentFolder = note.folderId ? folders.find(f => f.id === note.folderId) : null;
   const currentFolderColor = currentFolder
@@ -206,6 +210,20 @@ export function NoteCard({
               )}
             </div>
 
+            {/* Attachment button */}
+            <button
+              onClick={e => { e.stopPropagation(); setAttachmentModalOpen(true); }}
+              aria-label="Attachments"
+              className="relative rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-700"
+            >
+              <Paperclip className="h-3 w-3 text-slate-500" />
+              {attachCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-indigo-500 text-[8px] text-white flex items-center justify-center leading-none">
+                  {attachCount}
+                </span>
+              )}
+            </button>
+
             {/* Pin button */}
             <button
               onClick={e => { e.stopPropagation(); onTogglePin(); }}
@@ -223,6 +241,18 @@ export function NoteCard({
           </div>
         </div>
       </div>
+
+      {/* Attachment modal */}
+      <AnimatePresence>
+        {attachmentModalOpen && (
+          <AttachmentModal
+            entityId={note.id}
+            entityType="note"
+            entityTitle={note.title || 'Untitled Note'}
+            onClose={() => { setAttachmentModalOpen(false); setAttachCount(getAttachmentCount(note.id)); }}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
