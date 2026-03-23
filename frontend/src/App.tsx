@@ -13,6 +13,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from '@/shared/components/Layout/AppLayout';
 import { SettingsProvider } from '@/shared/context/SettingsContext';
 import { NotesProvider } from '@/shared/context/NotesContext';
+import { FoldersProvider } from '@/shared/context/FoldersContext';
 import { DashboardPage } from '@/pages/Dashboard/DashboardPage';
 import { CalendarPage } from '@/pages/Calendar/CalendarPage';
 import { DailyTimesPage } from '@/pages/DailyTimes/DailyTimesPage';
@@ -24,6 +25,7 @@ export default function App() {
   return (
     <SettingsProvider>
       <NotesProvider>
+        <FoldersProvider>
         <BrowserRouter>
           <Routes>
             <Route element={<AppLayout />}>
@@ -38,6 +40,7 @@ export default function App() {
             </Route>
           </Routes>
         </BrowserRouter>
+        </FoldersProvider>
       </NotesProvider>
     </SettingsProvider>
   );

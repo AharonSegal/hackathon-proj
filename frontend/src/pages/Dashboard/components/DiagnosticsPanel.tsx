@@ -27,6 +27,7 @@ interface DebugResult {
     ping?: unknown;
     eventsCount?: unknown;
     logsCount?: unknown;
+    notesCount?: unknown;
     error?: string;
   };
   latencyMs: number;
@@ -326,6 +327,7 @@ export function DiagnosticsPanel() {
                 <p className="text-xs font-mono text-slate-400">ping: {JSON.stringify(diagData.db.ping)}</p>
                 <p className="text-xs font-mono text-slate-400">events in DB: {String(diagData.db.eventsCount)}</p>
                 <p className="text-xs font-mono text-slate-400">message_logs in DB: {String(diagData.db.logsCount)}</p>
+                <p className="text-xs font-mono text-slate-400">notes in DB: {String(diagData.db.notesCount)}</p>
               </>
             ) : (
               <p className="text-xs font-mono text-rose-400 break-all">{diagData.db.error}</p>

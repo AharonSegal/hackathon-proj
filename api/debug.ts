@@ -45,11 +45,13 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     const ping = await db.execute('SELECT 1 AS ok');
     const events = await db.execute('SELECT COUNT(*) AS n FROM events');
     const logs   = await db.execute('SELECT COUNT(*) AS n FROM message_logs');
+    const notes  = await db.execute('SELECT COUNT(*) AS n FROM notes');
     result.db = {
       status:      'connected',
       ping:        ping.rows[0],
       eventsCount: (events.rows[0] as Record<string, unknown>).n,
       logsCount:   (logs.rows[0] as Record<string, unknown>).n,
+      notesCount:  (notes.rows[0] as Record<string, unknown>).n,
     };
   } catch (err) {
     result.db = {

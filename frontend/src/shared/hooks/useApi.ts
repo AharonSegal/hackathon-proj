@@ -18,7 +18,7 @@
 
 import axios from 'axios';
 import { CalendarEvent, MessageLog } from '@/shared/types/event.types';
-import { type Note } from '@/shared/types/note.types';
+import { type Note, type Folder } from '@/shared/types/note.types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -31,6 +31,7 @@ const CACHE_KEYS = {
   events: 'cache_v1_events',
   logs: 'cache_v1_message_logs',
   notes: 'cache_v1_notes',
+  folders: 'cache_v1_folders',
 } as const;
 
 function readCache<T>(key: string): T[] {
@@ -149,8 +150,9 @@ export const notesApi = {
     return data;
   },
 
-  update: async (id: string, patch: Partial<Pick<Note, 'title' | 'content' | 'pinned' | 'tags'>>): Promise<Note> => {
-    const data = await api.put<Note>(`/notes/${id}`, patch).then(r => r.data);
+  update: async (id: string, patch: Partial<Pick<Note, 'title' | 'content' | 'pinned' | 'tags' | 'folderId'>>): Promise<Note> => {
+    const body = { ...patch, ...(patch.folderId !== undefined ? { folderId: patch.folderId } : {}) };
+    const data = await api.put<Note>(`/notes/${id}`, body).then(r => r.data);
     upsertCache(CACHE_KEYS.notes, data);
     return data;
   },
@@ -158,6 +160,34 @@ export const notesApi = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/notes/${id}`);
     removeFromCache(CACHE_KEYS.notes, id);
+  },
+};
+
+// ─── Folders ──────────────────────────────────────────────────────────────────
+
+export const foldersApi = {
+  getAll: async (): Promise<Folder[]> => {
+    try {
+      const data = await api.get<Folder[]>('/folders').then(r => r.data);
+      writeCache(CACHE_KEYS.folders, data);
+      return data;
+    } catch {
+      return readCache<Folder>(CACHE_KEYS.folders);
+    }
+  },
+  create: async (folder: { id?: string; name: string; color: string }): Promise<Folder> => {
+    const data = await api.post<Folder>('/folders', folder).then(r => r.data);
+    upsertCache(CACHE_KEYS.folders, data);
+    return data;
+  },
+  update: async (id: string, patch: { name?: string; color?: string }): Promise<Folder> => {
+    const data = await api.put<Folder>(`/folders/${id}`, patch).then(r => r.data);
+    upsertCache(CACHE_KEYS.folders, data);
+    return data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/folders/${id}`);
+    removeFromCache(CACHE_KEYS.folders, id);
   },
 };
 

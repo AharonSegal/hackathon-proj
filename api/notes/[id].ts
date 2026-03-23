@@ -29,17 +29,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const cur = existing.rows[0] as Record<string, unknown>;
       const b   = req.body ?? {};
 
-      const title   = 'title'   in b ? String(b.title)   : String(cur.title);
-      const content = 'content' in b ? String(b.content) : String(cur.content);
-      const pinned  = 'pinned'  in b ? (b.pinned ? 1 : 0) : Number(cur.pinned);
-      const tags    = 'tags'    in b
+      const title    = 'title'    in b ? String(b.title)   : String(cur.title);
+      const content  = 'content'  in b ? String(b.content) : String(cur.content);
+      const pinned   = 'pinned'   in b ? (b.pinned ? 1 : 0) : Number(cur.pinned);
+      const tags     = 'tags'     in b
         ? JSON.stringify(Array.isArray(b.tags) ? b.tags : [])
         : String(cur.tags ?? '[]');
+      const folderId = 'folderId' in b ? (b.folderId === null ? null : String(b.folderId)) : (cur.folder_id ?? null);
       const now = new Date().toISOString();
 
       await db.execute({
-        sql: `UPDATE notes SET title = ?, content = ?, pinned = ?, tags = ?, updated_at = ? WHERE id = ?`,
-        args: [title, content, pinned, tags, now, id],
+        sql: `UPDATE notes SET title = ?, content = ?, pinned = ?, tags = ?, folder_id = ?, updated_at = ? WHERE id = ?`,
+        args: [title, content, pinned, tags, folderId, now, id],
       });
 
       const updated = await db.execute({ sql: 'SELECT * FROM notes WHERE id = ?', args: [id] });

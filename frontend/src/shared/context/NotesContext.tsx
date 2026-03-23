@@ -34,13 +34,14 @@ interface NotesContextValue {
   notes: Note[];
   selectedNote: Note | null;
   setSelectedNote: (note: Note | null) => void;
-  createNote: () => void;
+  createNote: (folderId?: string | null) => void;
   updateNote: (id: string, content: string) => void;
   deleteNote: (id: string) => void;
   togglePin: (id: string) => void;
   renameNote: (id: string, title: string) => void;
   updateTags: (id: string, tags: string[]) => void;
   restoreNote: (note: Note) => void;
+  moveToFolder: (id: string, folderId: string | null) => void;
 }
 
 const NotesContext = createContext<NotesContextValue | null>(null);
@@ -69,13 +70,14 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
-  const createNote = () => {
+  const createNote = (folderId: string | null = null) => {
     const note: Note = {
       id:        crypto.randomUUID(),
       title:     'Untitled Note',
       content:   '[]',
       pinned:    false,
       tags:      [],
+      folderId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -137,6 +139,14 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       .catch(() => { commit(snapshot); toast.error('Failed to update tags'); });
   };
 
+  const moveToFolder = (id: string, folderId: string | null) => {
+    const snapshot = notesRef.current;
+    commit(snapshot.map(n =>
+      n.id === id ? { ...n, folderId, updatedAt: new Date().toISOString() } : n,
+    ));
+    notesApi.update(id, { folderId }).catch(() => { commit(snapshot); toast.error('Failed to move note'); });
+  };
+
   const restoreNote = (note: Note) => {
     const snapshot = notesRef.current;
     const exists = snapshot.some(n => n.id === note.id);
@@ -154,7 +164,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     <NotesContext.Provider value={{
       notes, selectedNote, setSelectedNote,
       createNote, updateNote, deleteNote,
-      togglePin, renameNote, updateTags, restoreNote,
+      togglePin, renameNote, updateTags, restoreNote, moveToFolder,
     }}>
       {children}
     </NotesContext.Provider>

@@ -88,6 +88,20 @@ export async function ensureInit(): Promise<Client> {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS folders (
+      id         TEXT PRIMARY KEY,
+      name       TEXT NOT NULL DEFAULT 'New Folder',
+      color      TEXT NOT NULL DEFAULT 'slate',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  try {
+    await db.execute('ALTER TABLE notes ADD COLUMN folder_id TEXT');
+  } catch { /* column already exists */ }
+
   _initialized = true;
   return db;
 }
@@ -150,6 +164,17 @@ export function rowToNote(row: Row) {
     content:   (row.content as string) ?? '[]',
     pinned:    Boolean(row.pinned),
     tags,
+    folderId:  (row.folder_id as string | null) ?? null,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export function rowToFolder(row: Row) {
+  return {
+    id:        row.id as string,
+    name:      row.name as string,
+    color:     (row.color as string) ?? 'slate',
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

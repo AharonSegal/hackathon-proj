@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { ArrowLeft, NotebookPen } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNotes } from '@/shared/context/NotesContext';
+import { useFolders } from '@/shared/context/FoldersContext';
 import { NotesList } from '@/shared/components/NotesEditor/NotesList';
 import { NotesEditor } from '@/shared/components/NotesEditor/NotesEditor';
 import { useIsMobile } from '@/shared/hooks/use-mobile';
@@ -25,11 +26,15 @@ export function NotesPage() {
   const {
     notes, selectedNote, setSelectedNote,
     createNote, updateNote, deleteNote,
-    togglePin, renameNote, updateTags, restoreNote,
+    togglePin, renameNote, updateTags, restoreNote, moveToFolder,
   } = useNotes();
+
+  const { folders, createFolder, renameFolder, updateFolderColor, deleteFolder } = useFolders();
 
   const isMobile = useIsMobile();
   const [showEditor, setShowEditor] = useState(false);
+  // null = All Notes view; string = specific folder id
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const handleSelectNote = (note: Note) => {
     setSelectedNote(note);
@@ -37,9 +42,18 @@ export function NotesPage() {
   };
 
   const handleCreateNote = () => {
-    createNote();
+    createNote(selectedFolderId);
     if (isMobile) setShowEditor(true);
     toast.success('New note created');
+  };
+
+  const handleCreateFolder = async () => {
+    try {
+      const folder = await createFolder();
+      setSelectedFolderId(folder.id);
+    } catch {
+      toast.error('Failed to create folder');
+    }
   };
 
   useNoteKeyboardShortcut(handleCreateNote);
@@ -55,6 +69,12 @@ export function NotesPage() {
         onClick: () => restoreNote(snapshot),
       },
     });
+  };
+
+  const handleDeleteFolder = (id: string) => {
+    deleteFolder(id);
+    // If we were viewing this folder, go back to All Notes
+    if (selectedFolderId === id) setSelectedFolderId(null);
   };
 
   // ── Mobile: single column ────────────────────────────────────────────────────
@@ -86,11 +106,19 @@ export function NotesPage() {
       <div className="h-full">
         <NotesList
           notes={notes}
+          folders={folders}
           selectedNote={selectedNote}
+          selectedFolderId={selectedFolderId}
           onSelectNote={handleSelectNote}
           onCreateNote={handleCreateNote}
           onTogglePin={togglePin}
           onDeleteNote={handleDelete}
+          onMoveToFolder={moveToFolder}
+          onCreateFolder={handleCreateFolder}
+          onRenameFolder={renameFolder}
+          onUpdateFolderColor={updateFolderColor}
+          onDeleteFolder={handleDeleteFolder}
+          onSelectFolder={setSelectedFolderId}
         />
       </div>
     );
@@ -104,11 +132,19 @@ export function NotesPage() {
       <div className="w-[280px] shrink-0 border-r border-slate-700 bg-slate-900 flex flex-col">
         <NotesList
           notes={notes}
+          folders={folders}
           selectedNote={selectedNote}
+          selectedFolderId={selectedFolderId}
           onSelectNote={handleSelectNote}
           onCreateNote={handleCreateNote}
           onTogglePin={togglePin}
           onDeleteNote={handleDelete}
+          onMoveToFolder={moveToFolder}
+          onCreateFolder={handleCreateFolder}
+          onRenameFolder={renameFolder}
+          onUpdateFolderColor={updateFolderColor}
+          onDeleteFolder={handleDeleteFolder}
+          onSelectFolder={setSelectedFolderId}
         />
       </div>
 
