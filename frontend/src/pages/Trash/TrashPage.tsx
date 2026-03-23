@@ -172,7 +172,7 @@ export function TrashPage() {
                   key={note.trashId}
                   trashId={note.trashId}
                   title={note.title}
-                  subtitle={note.deletedAt}
+                  subtitle={`Deleted ${formatDate(note.deletedAt)}`}
                   isSelected={selectedIds.has(note.trashId)}
                   onToggleSelect={() => toggleSelect(note.trashId)}
                   onRestore={() => handleRestore(note.trashId)}
@@ -254,7 +254,7 @@ function TrashItemRow({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <p className="text-sm text-slate-100 truncate">{title || 'Untitled'}</p>
-        <p className="text-xs text-slate-500 mt-0.5 truncate">{formatDate(subtitle.includes('·') ? subtitle.split('·')[1]?.trim() ?? subtitle : subtitle)}</p>
+        <p className="text-xs text-slate-500 mt-0.5 truncate">{subtitle}</p>
       </div>
 
       {/* Actions */}
