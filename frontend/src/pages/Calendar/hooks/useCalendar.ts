@@ -29,6 +29,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { HDate, HebrewCalendar, months, flags } from '@hebcal/core';
 import { useSettings } from '@/shared/context/SettingsContext';
 import { CalendarEvent } from '@/shared/types/event.types';
+import { type Todo } from '@/shared/hooks/useApi';
 
 /** One cell in the calendar grid */
 export interface DayInfo {
@@ -38,6 +39,7 @@ export interface DayInfo {
   isCurrentMonth: boolean;  // false for padding days from adjacent months
   isShabbat: boolean;
   events: CalendarEvent[];  // user events on this day
+  todos: Todo[];            // active todos with due_date on this day
   hebrewEvents: ReturnType<typeof HebrewCalendar.calendar>; // holidays/parasha
   hebrewDateStr: string;    // e.g. "ט״ז אייר"
   hebrewDateNumeral: string; // e.g. "טז"
@@ -78,7 +80,7 @@ export function hebrewMonthName(hDate: HDate): string {
   return HEBREW_MONTH_NAMES[hDate.getMonth()] ?? '';
 }
 
-export function useCalendar(events: CalendarEvent[]) {
+export function useCalendar(events: CalendarEvent[], todos: Todo[] = []) {
   const { settings } = useSettings();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -122,12 +124,14 @@ export function useCalendar(events: CalendarEvent[]) {
     setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
   }, []);
 
-  const { days, title, hebrewTitle } = useMemo(() => {
+  // ── Memo 1: grid bounds + Hebrew calendar data ────────────────────────────
+  // Only recomputes when the month/settings change, NOT when user events change.
+  const { startOfGrid, endOfGrid, hebEventsByDate, title, hebrewTitle, viewHdRef } = useMemo(() => {
     const weekStart = settings.weekStart;
     let startOfGrid: Date;
     let endOfGrid:   Date;
 
-    // ── Step 1: Determine the first and last day of the visible month ──
+    // Step 1: Determine the first and last day of the visible month
     if (settings.calendarMode === 'hebrew') {
       const hd = new HDate(viewDate);
       const firstHDay = new HDate(1, hd.getMonth(), hd.getFullYear());
@@ -136,7 +140,6 @@ export function useCalendar(events: CalendarEvent[]) {
       const firstGreg = firstHDay.greg();
       const lastGreg  = lastHDay.greg();
 
-      // Pad to full weeks based on weekStart (0=Sunday, 1=Monday)
       const firstDow = (firstGreg.getDay() - weekStart + 7) % 7;
       startOfGrid = new Date(firstGreg);
       startOfGrid.setDate(startOfGrid.getDate() - firstDow);
@@ -146,7 +149,6 @@ export function useCalendar(events: CalendarEvent[]) {
       endOfGrid.setDate(endOfGrid.getDate() + (6 - lastDow));
 
     } else {
-      // Gregorian: first/last day of the calendar month
       const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
       const lastDay  = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
 
@@ -159,76 +161,87 @@ export function useCalendar(events: CalendarEvent[]) {
       endOfGrid.setDate(endOfGrid.getDate() + (6 - lastDow));
     }
 
-    // ── Step 2: Fetch Hebrew holidays for the entire grid range ──
-    // candlelighting/havdalah are disabled because they require a location object.
-    // Those times are shown on the DailyTimes page which has a configured location.
+    // Step 2: Hebrew holiday data for the grid range
+    // candlelighting/havdalah are disabled (require location — shown on DailyTimes page).
     const hebEvents = HebrewCalendar.calendar({
       start:            startOfGrid,
       end:              endOfGrid,
-      il:               !settings.holidays.diaspora, // Israel vs diaspora calendar
-      sedrot:           settings.holidays.parashat,  // weekly Torah portion
-      candlelighting:   false,                       // requires location — disabled
-      havdalah:         false,                       // requires location — disabled
+      il:               !settings.holidays.diaspora,
+      sedrot:           settings.holidays.parashat,
+      candlelighting:   false,
+      havdalah:         false,
       shabbatMevarchim: settings.holidays.roshChodesh,
       omer:             settings.holidays.omerCount,
       yomKippurKatan:   false,
       mask:             buildEventMask(settings.holidays),
     } as Parameters<typeof HebrewCalendar.calendar>[0]);
 
-    // Index Hebrew events by date string for O(1) lookup during cell build
     const hebEventsByDate: Record<string, typeof hebEvents> = {};
     for (const ev of hebEvents) {
       const key = ev.getDate().greg().toISOString().slice(0, 10);
       (hebEventsByDate[key] ??= []).push(ev);
     }
 
+    // Step 3: Title strings
+    const viewHd    = new HDate(viewDate);
+    const gregTitle = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const hebTitle  = `${hebrewMonthName(viewHd)} ${viewHd.getFullYear()}`;
+
+    return { startOfGrid, endOfGrid, hebEventsByDate, title: gregTitle, hebrewTitle: hebTitle, viewHdRef: viewHd };
+  }, [viewDate, settings]); // ← does NOT depend on events/todos
+
+  // ── Memo 2: user events + todos indexed, then grid cells assembled ─────────
+  // Recomputes instantly on any event/todo change (just O(n) array indexing,
+  // no expensive Hebrew calendar computation).
+  const days = useMemo(() => {
     // Index user events by date string for O(1) lookup
     const userEventsByDate: Record<string, CalendarEvent[]> = {};
     for (const ev of events) {
       (userEventsByDate[ev.date] ??= []).push(ev);
     }
 
-    // ── Step 3: Build one DayInfo per cell ──
+    // Index active todos by due_date for O(1) lookup
+    const todosByDate: Record<string, Todo[]> = {};
+    for (const todo of todos) {
+      if (todo.dueDate && !todo.completed) {
+        (todosByDate[todo.dueDate] ??= []).push(todo);
+      }
+    }
+
+    // Build one DayInfo per cell
     const days: DayInfo[] = [];
     const cursor = new Date(startOfGrid);
 
     while (cursor <= endOfGrid) {
-      const dateKey  = cursor.toISOString().slice(0, 10);
-      const hd       = new HDate(cursor);
+      const dateKey   = cursor.toISOString().slice(0, 10);
+      const hd        = new HDate(cursor);
       const dayOfWeek = cursor.getDay();
 
-      // isCurrentMonth determines whether to show the cell at full opacity
       let isCurrentMonth: boolean;
       if (settings.calendarMode === 'hebrew') {
-        const viewHd = new HDate(viewDate);
-        isCurrentMonth = hd.getMonth() === viewHd.getMonth() && hd.getFullYear() === viewHd.getFullYear();
+        isCurrentMonth = hd.getMonth() === viewHdRef.getMonth() && hd.getFullYear() === viewHdRef.getFullYear();
       } else {
         isCurrentMonth = cursor.getMonth() === viewDate.getMonth();
       }
 
       days.push({
-        date:            new Date(cursor),
-        hDate:           hd,
-        isToday:         cursor.getTime() === today.getTime(),
+        date:              new Date(cursor),
+        hDate:             hd,
+        isToday:           cursor.getTime() === today.getTime(),
         isCurrentMonth,
-        isShabbat:       dayOfWeek === 6,
-        events:          userEventsByDate[dateKey]  ?? [],
-        hebrewEvents:    hebEventsByDate[dateKey]   ?? [],
-        hebrewDateStr:   `${gematriyaDay(hd.getDate())} ${hebrewMonthName(hd)}`,
+        isShabbat:         dayOfWeek === 6,
+        events:            userEventsByDate[dateKey] ?? [],
+        todos:             todosByDate[dateKey]       ?? [],
+        hebrewEvents:      hebEventsByDate[dateKey]  ?? [],
+        hebrewDateStr:     `${gematriyaDay(hd.getDate())} ${hebrewMonthName(hd)}`,
         hebrewDateNumeral: gematriyaDay(hd.getDate()),
       });
 
-      cursor.setDate(cursor.getDate() + 1); // advance one day
+      cursor.setDate(cursor.getDate() + 1);
     }
 
-    // ── Step 4: Build the month title strings ──
-    const viewHd   = new HDate(viewDate);
-    const gregTitle = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const hebTitle  = `${hebrewMonthName(viewHd)} ${viewHd.getFullYear()}`;
-
-    return { days, title: gregTitle, hebrewTitle: hebTitle };
-
-  }, [viewDate, settings, events]);
+    return days;
+  }, [startOfGrid, endOfGrid, hebEventsByDate, viewHdRef, viewDate, settings.calendarMode, events, todos]);
 
   return { days, title, hebrewTitle, viewDate, goToPrev, goToNext, goToToday };
 }

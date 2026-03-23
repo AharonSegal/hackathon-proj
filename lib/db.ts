@@ -55,6 +55,11 @@ export async function ensureInit(): Promise<Client> {
       all_day            INTEGER DEFAULT 1,
       scheduled_email    TEXT,
       scheduled_whatsapp TEXT,
+      tags               TEXT NOT NULL DEFAULT '[]',
+      folder_id          TEXT,
+      recurrence         TEXT NOT NULL DEFAULT 'none',
+      recurrence_end     TEXT,
+      deleted_at         TEXT,
       created_at         TEXT DEFAULT (datetime('now')),
       updated_at         TEXT DEFAULT (datetime('now'))
     )
@@ -83,6 +88,8 @@ export async function ensureInit(): Promise<Client> {
       content    TEXT NOT NULL DEFAULT '[]',
       pinned     INTEGER NOT NULL DEFAULT 0,
       tags       TEXT NOT NULL DEFAULT '[]',
+      folder_id  TEXT,
+      deleted_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     )
@@ -98,24 +105,20 @@ export async function ensureInit(): Promise<Client> {
     )
   `);
 
-  try {
-    await db.execute('ALTER TABLE notes ADD COLUMN folder_id TEXT');
-  } catch { /* column already exists */ }
-
-  // Add new columns to events (migrations – safe to run multiple times)
-  const eventMigrations = [
-    "ALTER TABLE events ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'",
-    'ALTER TABLE events ADD COLUMN folder_id TEXT',
-    "ALTER TABLE events ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'none'",
+  // Backward-compat migrations for DBs created before these columns existed
+  // (safe to re-run — try/catch ignores "column already exists")
+  const backcompatMigrations = [
+    'ALTER TABLE notes  ADD COLUMN folder_id  TEXT',
+    'ALTER TABLE notes  ADD COLUMN deleted_at TEXT',
+    "ALTER TABLE events ADD COLUMN tags          TEXT NOT NULL DEFAULT '[]'",
+    'ALTER TABLE events ADD COLUMN folder_id     TEXT',
+    "ALTER TABLE events ADD COLUMN recurrence    TEXT NOT NULL DEFAULT 'none'",
     'ALTER TABLE events ADD COLUMN recurrence_end TEXT',
+    'ALTER TABLE events ADD COLUMN deleted_at    TEXT',
   ];
-  for (const sql of eventMigrations) {
-    try { await db.execute(sql); } catch { /* column already exists */ }
+  for (const sql of backcompatMigrations) {
+    try { await db.execute(sql); } catch { /* column already exists — ignore */ }
   }
-
-  // Soft-delete support
-  try { await db.execute('ALTER TABLE notes ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
-  try { await db.execute('ALTER TABLE events ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS trash (
@@ -146,26 +149,6 @@ export async function ensureInit(): Promise<Client> {
       updated_at      TEXT DEFAULT (datetime('now'))
     )
   `);
-
-  // Protective migrations — add columns that may be missing on older DBs
-  const todoMigrations = [
-    'ALTER TABLE todos ADD COLUMN completed_at TEXT',
-    'ALTER TABLE todos ADD COLUMN created_at TEXT',
-    'ALTER TABLE todos ADD COLUMN updated_at TEXT',
-    'ALTER TABLE todos ADD COLUMN description TEXT',
-    'ALTER TABLE todos ADD COLUMN due_date TEXT',
-    'ALTER TABLE todos ADD COLUMN due_time TEXT',
-    'ALTER TABLE todos ADD COLUMN deadline TEXT',
-    "ALTER TABLE todos ADD COLUMN priority INTEGER NOT NULL DEFAULT 4",
-    'ALTER TABLE todos ADD COLUMN location TEXT',
-    'ALTER TABLE todos ADD COLUMN reminder_config TEXT',
-    "ALTER TABLE todos ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'none'",
-    'ALTER TABLE todos ADD COLUMN recurrence_end TEXT',
-    "ALTER TABLE todos ADD COLUMN project TEXT NOT NULL DEFAULT 'Inbox'",
-  ];
-  for (const sql of todoMigrations) {
-    try { await db.execute(sql); } catch { /* already exists */ }
-  }
 
   // ── Seed example data (INSERT OR IGNORE — idempotent on every cold start) ───
   const _d = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();

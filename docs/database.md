@@ -36,18 +36,20 @@ _initialized?
     │  yes ──► return client immediately (skip DDL)
     │  no
     ▼
-CREATE TABLE IF NOT EXISTS events           (safe to re-run)
+CREATE TABLE IF NOT EXISTS events           (full schema, safe to re-run)
 CREATE TABLE IF NOT EXISTS message_logs     (safe to re-run)
-CREATE TABLE IF NOT EXISTS notes            (safe to re-run)
+CREATE TABLE IF NOT EXISTS notes            (full schema, safe to re-run)
 CREATE TABLE IF NOT EXISTS folders          (safe to re-run)
-CREATE TABLE IF NOT EXISTS trash            (safe to re-run)
-CREATE TABLE IF NOT EXISTS todos            (safe to re-run)
     │
     ▼
-Protective ALTER TABLE migrations           (try/catch — ignored if column exists)
-    │  events:  tags, folder_id, recurrence, recurrence_end, deleted_at
+Backward-compat ALTER TABLE migrations      (try/catch — ignored if column exists)
     │  notes:   folder_id, deleted_at
-    │  todos:   all columns (added incrementally over time)
+    │  events:  tags, folder_id, recurrence, recurrence_end, deleted_at
+    │  (for DBs created before these columns were added to the CREATE TABLE)
+    ▼
+CREATE TABLE IF NOT EXISTS trash            (safe to re-run)
+CREATE TABLE IF NOT EXISTS todos            (full schema, safe to re-run)
+    │
     ▼
 Seed INSERT OR IGNORE rows                  (idempotent demo data)
     │  3 sample todos
@@ -63,7 +65,8 @@ return client
 Key design choices:
 - **Singleton** — `_client` is module-level, so one TCP connection is reused across requests within the same serverless instance.
 - **`IF NOT EXISTS`** — DDL runs on every fresh cold start but is safe to repeat.
-- **Protective migrations** — new columns are added via `ALTER TABLE … ADD COLUMN` in a try/catch so the same code works on both fresh and existing databases.
+- **Full CREATE TABLE** — all columns are declared up-front; no column is left to a migration alone.
+- **Backward-compat migrations** — older DBs that existed before columns were added get them via `ALTER TABLE … ADD COLUMN` in a try/catch.
 
 ---
 

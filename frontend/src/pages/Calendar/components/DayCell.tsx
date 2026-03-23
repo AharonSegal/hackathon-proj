@@ -8,9 +8,10 @@
  * - Secondary date (the other system, smaller, top-right)
  * - Up to 1 Hebrew holiday / parasha label (amber for holidays, muted for others)
  * - Up to 2 user event pills (colored, clickable to edit)
- * - "+N more" label if there are more than 2 events
+ * - Up to 1 todo item (checkbox style, priority-colored border)
+ * - "+N more" / "+N tasks" labels for overflow
  * - Color dots (bottom-right): one per event, up to 3
- * - "+" hint on hover for empty days
+ * - "+" hint on hover for days with nothing
  * - Shabbat tint (violet) on Saturday columns
  *
  * Clicking the cell → opens "new event" modal for that date.
@@ -22,6 +23,13 @@ import { useSettings } from '@/shared/context/SettingsContext';
 import { CalendarEvent } from '@/shared/types/event.types';
 import { clsx } from 'clsx';
 import { EVENT_DOT_COLORS, EVENT_PILL_COLORS } from '@/shared/colors';
+
+const PRIORITY_COLORS: Record<number, string> = {
+  1: 'text-rose-400 border-rose-500/40',
+  2: 'text-orange-400 border-orange-500/40',
+  3: 'text-sky-400 border-sky-500/40',
+  4: 'text-slate-400 border-slate-600/40',
+};
 
 interface DayCellProps {
   day: DayInfo;
@@ -60,6 +68,7 @@ export function DayCell({ day, onClick, onEventClick, isSelected }: DayCellProps
   const secondaryDate = isHebrew ? String(day.date.getDate()) : day.hebrewDateNumeral;
 
   const hasEvents = day.events.length > 0;
+  const hasTodos  = day.todos.length > 0;
 
   return (
     <div
@@ -135,6 +144,24 @@ export function DayCell({ day, onClick, onEventClick, isSelected }: DayCellProps
         {day.events.length > 2 && (
           <div className="text-[9px] text-slate-500 px-1">+{day.events.length - 2} more</div>
         )}
+
+        {/* ── Todo items (max 1 shown inline, rest as count) ── */}
+        {day.todos.slice(0, 1).map(todo => (
+          <div
+            key={todo.id}
+            className={clsx(
+              'w-full text-[10px] px-1.5 py-[2px] rounded truncate flex items-center gap-1',
+              'border bg-slate-900/50',
+              PRIORITY_COLORS[todo.priority] ?? PRIORITY_COLORS[4],
+            )}
+          >
+            <span className="shrink-0 text-[8px]">☐</span>
+            <span className="truncate">{todo.title}</span>
+          </div>
+        ))}
+        {day.todos.length > 1 && (
+          <div className="text-[9px] text-slate-500 px-1">+{day.todos.length - 1} task{day.todos.length > 2 ? 's' : ''}</div>
+        )}
       </div>
 
       {/* ── Color dots (bottom-right): one per event, max 3 ── */}
@@ -149,8 +176,8 @@ export function DayCell({ day, onClick, onEventClick, isSelected }: DayCellProps
         </div>
       )}
 
-      {/* ── "+" hint: only shown on hover for empty days ── */}
-      {!hasEvents && (
+      {/* ── "+" hint: only shown on hover for days with nothing ── */}
+      {!hasEvents && !hasTodos && (
         <div className="absolute bottom-1.5 right-2 text-[11px] text-slate-700 group-hover:text-slate-500 transition-colors select-none">
           +
         </div>

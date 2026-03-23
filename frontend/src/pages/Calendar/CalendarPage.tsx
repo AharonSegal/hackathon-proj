@@ -18,7 +18,7 @@
  * 6. On delete → remove from local events state
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';
@@ -28,25 +28,22 @@ import { CalendarHeader } from './components/CalendarHeader';
 import { EventModal } from './components/EventModal';
 import { useCalendar, DayInfo } from './hooks/useCalendar';
 import { CalendarEvent } from '@/shared/types/event.types';
-import { eventApi } from '@/shared/hooks/useApi';
+import { useEvents } from '@/shared/context/EventsContext';
+import { useTodos } from '@/shared/context/TodosContext';
 import { useT } from '@/shared/i18n/useT';
 
 export function CalendarPage() {
   const t = useT();
-  const [events,     setEvents]     = useState<CalendarEvent[]>([]);
+  // Use the shared EventsContext so Calendar and Events pages stay in sync
+  const { events, createEvent, updateEvent, deleteEvent } = useEvents();
+  const { todos } = useTodos();
+
   const [selectedDay, setSelectedDay] = useState<DayInfo | null>(null);
   const [editEvent,   setEditEvent]   = useState<CalendarEvent | null>(null);
   const [modalOpen,   setModalOpen]   = useState(false);
 
-  // Compute the grid — useCalendar rebuilds whenever events or settings change
-  const { days, title, hebrewTitle, goToPrev, goToNext, goToToday } = useCalendar(events);
-
-  // Load all events once on mount
-  useEffect(() => {
-    eventApi.getAll()
-      .then(setEvents)
-      .catch(() => toast.error('Failed to load events'));
-  }, []);
+  // Compute the grid — useCalendar rebuilds whenever events, todos, or settings change
+  const { days, title, hebrewTitle, goToPrev, goToNext, goToToday } = useCalendar(events, todos);
 
   /** Clicking a day always opens the "new event" modal for that date */
   const handleDayClick = useCallback((day: DayInfo) => {
@@ -68,22 +65,24 @@ export function CalendarPage() {
     setModalOpen(true);
   };
 
-  /**
-   * Called after a save — adds the event if new, or replaces it if editing.
-   * This avoids a full re-fetch from the server.
-   */
-  const handleSaved = (ev: CalendarEvent) => {
-    setEvents(prev => {
-      const idx = prev.findIndex(e => e.id === ev.id);
-      return idx >= 0
-        ? prev.map(e => e.id === ev.id ? ev : e) // replace existing
-        : [...prev, ev];                          // append new
-    });
+  /** Called after a save — delegates to EventsContext (handles API + optimistic update) */
+  const handleSaved = (
+    payload: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>,
+    editEventId: string | null,
+  ) => {
+    if (editEventId) {
+      updateEvent(editEventId, payload);
+      toast.success('Event updated');
+    } else {
+      createEvent(payload);
+      toast.success('Event created');
+    }
   };
 
-  /** Called after a delete — removes the event from local state */
+  /** Called after a delete — delegates to EventsContext */
   const handleDeleted = (id: string) => {
-    setEvents(prev => prev.filter(e => e.id !== id));
+    deleteEvent(id);
+    toast.success('Event deleted');
   };
 
   // The selected date string is passed to CalendarGrid so it can highlight the cell

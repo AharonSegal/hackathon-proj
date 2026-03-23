@@ -21,23 +21,24 @@ TypeScript serverless functions deployed to Vercel, backed by Turso (cloud SQLit
 
 ```
 api/                             Vercel serverless API routes
-├── health.ts                    GET /api/health (+ DB ping)
-├── ping.ts                      GET /api/ping (zero-dep smoke test)
-├── debug.ts                     GET /api/debug (env vars + DB status + counts)
-├── settings.ts                  POST /api/settings (stub)
+├── settings.ts                  POST /api/settings (stub — settings live in localStorage)
 ├── events/
 │   ├── index.ts                 GET + POST /api/events
 │   └── [id].ts                  PUT + DELETE /api/events/:id
-├── messages/
-│   ├── logs.ts                  GET /api/messages/logs
-│   ├── email/
-│   │   ├── index.ts             POST /api/messages/email
-│   │   └── test.ts              POST /api/messages/email/test
-│   └── whatsapp/
-│       ├── index.ts             POST /api/messages/whatsapp
-│       └── test.ts              POST /api/messages/whatsapp/test
-└── cron/
-    └── send-messages.ts         Vercel Cron job (runs daily at 8am)
+├── notes/
+│   ├── index.ts                 GET + POST /api/notes
+│   └── [id].ts                  PUT + DELETE /api/notes/:id
+├── todos/
+│   ├── index.ts                 GET + POST /api/todos
+│   └── [id].ts                  PUT + DELETE /api/todos/:id
+├── folders/
+│   ├── index.ts                 GET + POST /api/folders
+│   └── [id].ts                  PUT + DELETE /api/folders/:id
+├── trash/
+│   ├── index.ts                 GET + DELETE /api/trash
+│   └── [id].ts                  PUT + DELETE /api/trash/:id
+└── messages/
+    └── [...path].ts             catch-all — handles all /api/messages/* routes
 
 lib/
 ├── db.ts                        Turso client singleton + row mappers
@@ -51,85 +52,67 @@ lib/
 
 All routes are served on the same Vercel domain as the React frontend.
 
-### Health / diagnostics
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/health` | Returns `{"status":"ok","db":"ok","latencyMs":N}`. Pings the DB — `db` will be an error string if the connection fails. Used by the frontend poller every 30s. |
-| GET | `/api/ping` | Returns `{"pong":true}`. Zero dependencies — useful for confirming the function runtime is alive without touching the DB. |
-| GET | `/api/debug` | Returns full diagnostic JSON: all env var values (masked), DB connection status, event/log counts, latency, Node version, Vercel region. Use this first when debugging production issues. |
-
 ### Events
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/events` | List all events. Optional `?year=&month=` to filter by month (`LIKE 'YYYY-MM%'`). |
-| POST | `/api/events` | Create a new event. Returns the created event (camelCase). |
-| PUT | `/api/events/:id` | Partial update — only fields present in the body are changed. |
-| DELETE | `/api/events/:id` | Delete an event. Returns 204. |
+| GET | `/api/events` | List active events. Optional `?year=&month=` to filter by month. |
+| POST | `/api/events` | Create a new event. Required: `title`, `date`. Returns the created event. |
+| PUT | `/api/events/:id` | Partial update — only fields in the body are changed. |
+| DELETE | `/api/events/:id` | Soft-delete (sets `deleted_at`, inserts to `trash`). Returns 204. |
 
-### WhatsApp messages
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/messages/whatsapp` | Send immediately (no `scheduleAt`) or queue for later. Creates a `message_logs` row. |
-| POST | `/api/messages/whatsapp/test` | Send a test WhatsApp message. Used by the Settings test button. |
-
-### Email messages
+### Notes
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/messages/email` | Send immediately or queue for later. Accepts multiple recipients. Creates a `message_logs` row. |
-| POST | `/api/messages/email/test` | Send a test email. Used by the Settings test button. |
+| GET | `/api/notes` | List active notes (pinned first, then by updated_at). |
+| POST | `/api/notes` | Create a new note. Optional `id` for restore-from-trash. |
+| PUT | `/api/notes/:id` | Partial update (title, content, pinned, tags, folderId). |
+| DELETE | `/api/notes/:id` | Soft-delete (sets `deleted_at`, inserts to `trash`). Returns 204. |
 
-### Message log
+### Todos
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/messages/logs` | Returns last 200 `message_logs` rows, ordered by `scheduled_at DESC`. |
+| GET | `/api/todos` | List all todos (created_at DESC). |
+| POST | `/api/todos` | Create a new todo. Required: `title`. Optional `id` for restore. |
+| PUT | `/api/todos/:id` | Partial update via field map (title, completed, dueDate, priority, …). |
+| DELETE | `/api/todos/:id` | Hard delete (permanent). Returns 204. |
+
+### Folders
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/folders` | List all folders (created_at ASC). |
+| POST | `/api/folders` | Create a folder. Required: `name`, `color`. |
+| PUT | `/api/folders/:id` | Update name/color. |
+| DELETE | `/api/folders/:id` | Delete folder and null out `folder_id` on all its notes. |
+
+### Trash
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/trash` | List soft-deleted notes and events joined from the source tables. |
+| PUT | `/api/trash/:id` | Restore: clears `deleted_at` on source row, deletes trash entry. |
+| DELETE | `/api/trash/:id` | Permanent delete: removes source row and trash entry. |
+| DELETE | `/api/trash` | Empty trash: permanently deletes all soft-deleted notes and events. |
+
+### Messages (catch-all `api/messages/[...path].ts`)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/messages/logs` | Last 200 `message_logs` rows ordered by `scheduled_at DESC`. |
+| POST | `/api/messages/whatsapp` | Send immediately (no `scheduleAt`) or queue for later. Logs to `message_logs`. |
+| POST | `/api/messages/whatsapp?test=true` | Test WhatsApp send — no DB write. |
+| POST | `/api/messages/email` | Send or queue email. `to` must be an array. Logs to `message_logs`. |
+| POST | `/api/messages/email?test=true` | Test email send — no DB write. |
+| GET/POST | `/api/messages/cron` | Vercel Cron trigger: sends all pending messages where `scheduled_at <= now()`. |
 
 ### Settings
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/settings` | Stub — accepts settings JSON, does nothing (settings live in frontend localStorage). |
-
----
-
-## Data models
-
-### events table
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | TEXT (UUID) | Primary key |
-| `title` | TEXT | Required |
-| `description` | TEXT | Optional |
-| `date` | TEXT | `YYYY-MM-DD` |
-| `start_time` | TEXT | `HH:mm`, null for all-day |
-| `end_time` | TEXT | `HH:mm`, null for all-day |
-| `color` | TEXT | One of: `indigo`, `emerald`, `amber`, `rose`, `sky`, `violet` |
-| `all_day` | INTEGER | `1` = true, `0` = false |
-| `scheduled_email` | TEXT | JSON-serialized email payload, or null |
-| `scheduled_whatsapp` | TEXT | JSON-serialized WhatsApp payload, or null |
-| `created_at` | TEXT | ISO datetime |
-| `updated_at` | TEXT | ISO datetime |
-
-### message_logs table
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | TEXT (UUID) | Primary key |
-| `type` | TEXT | `"whatsapp"` or `"email"` |
-| `status` | TEXT | `"pending"`, `"sent"`, or `"failed"` |
-| `recipient` | TEXT | Phone number or comma-separated emails |
-| `subject` | TEXT | Email subject (null for WhatsApp) |
-| `message` | TEXT | Message body |
-| `scheduled_at` | TEXT | ISO datetime — when to send |
-| `sent_at` | TEXT | ISO datetime — set on successful delivery |
-| `error` | TEXT | Error message on failure |
-| `event_id` | TEXT | Optional reference to the source event |
-| `created_at` | TEXT | ISO datetime |
+| POST | `/api/settings` | Stub — accepts JSON, does nothing. Settings live in frontend localStorage. |
 
 ---
 
@@ -138,27 +121,31 @@ All routes are served on the same Vercel domain as the React frontend.
 `ensureInit()` is a lazy singleton pattern safe for serverless cold starts:
 
 1. First call: creates the Turso `Client` from `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`.
-2. Runs `CREATE TABLE IF NOT EXISTS` for both tables (idempotent).
-3. Sets `_initialized = true` — subsequent calls return the cached client immediately.
+2. Runs `CREATE TABLE IF NOT EXISTS` for all 6 tables (idempotent).
+3. Runs backward-compat `ALTER TABLE` migrations in try/catch (safe to re-run).
+4. Seeds 3 demo todos + 1 trashed note + 1 trashed event with `INSERT OR IGNORE`.
+5. Sets `_initialized = true` — subsequent calls return the cached client immediately.
 
-`rowToEvent()` and `rowToLog()` convert snake_case database columns to camelCase JSON for API responses.
+Row mappers (`rowToEvent`, `rowToNote`, `rowToTodo`, `rowToFolder`, `rowToLog`, `rowToTrashNote`, `rowToTrashEvent`) convert snake_case DB columns to camelCase for API responses.
+
+See [database.md](database.md) for the full schema.
 
 ---
 
-## Cron job — `api/cron/send-messages.ts`
+## Cron job — `api/messages/[...path].ts` (route: `cron`)
 
-Triggered by Vercel Cron on the schedule `0 8 * * *` (8am UTC daily).
+Triggered by Vercel Cron on the schedule `0 8 * * *` (8am UTC daily), configured in `vercel.json`.
 
-> **Note**: Vercel Hobby plan only supports **daily** cron jobs. Hourly (`0 * * * *`) is a Pro plan feature and will silently block all new deployments if used on Hobby.
+> **Note**: Vercel Hobby plan only supports **daily** cron jobs. Hourly is a Pro plan feature.
 
-**Security**: Vercel sets `Authorization: Bearer <CRON_SECRET>` on every cron call. The handler rejects any request without this header.
+**Security**: If `CRON_SECRET` is set, the handler requires `Authorization: Bearer <CRON_SECRET>`. Vercel sets this automatically on cron calls.
 
 **Logic per invocation**:
 1. Query `message_logs WHERE status = 'pending' AND scheduled_at <= now`.
 2. For each row, send via WhatsApp or email based on `type`.
 3. On success: update `status = 'sent'`, `sent_at = now`.
 4. On failure: update `status = 'failed'`, `error = <message>`.
-5. Continue processing remaining rows regardless of individual failures.
+5. Returns `{ processed, results[] }`.
 
 ---
 
@@ -172,7 +159,7 @@ Authorization: Bearer {WHATSAPP_ACCESS_TOKEN}
 Content-Type: application/json
 ```
 
-Sends a `text` type message. Phone numbers must be in E.164 format (e.g. `+972501234567`). Non-2xx responses throw an `Error` with the HTTP status code.
+Phone numbers must be E.164 format (e.g. `+972501234567`). Non-2xx responses throw an `Error`.
 
 **To get credentials:**
 1. Create a Meta Developer account → add a WhatsApp Business app.
@@ -183,14 +170,14 @@ Sends a `text` type message. Phone numbers must be in E.164 format (e.g. `+97250
 
 ## Email service — `lib/email.ts`
 
-Uses `nodemailer` with a transporter configured from env vars:
+Uses `nodemailer` configured from env vars:
 
-- Port 465: `secure: true` (TLS from the start)
+- Port 465: `secure: true` (TLS)
 - Port 587 (default): `secure: false` + STARTTLS upgrade
 
 **Gmail setup:**
-1. Enable 2-Factor Authentication on your Google account.
-2. Google Account → Security → App Passwords → generate one for "Mail".
+1. Enable 2-Factor Authentication.
+2. Google Account → Security → App Passwords → generate for "Mail".
 3. Use that 16-character password as `SMTP_PASSWORD`.
 
 ---
@@ -218,4 +205,4 @@ See `.env.example` at the repo root for a copy-paste template.
 
 ## TypeScript config — `tsconfig.server.json`
 
-API routes and `lib/` are compiled with `module: "CommonJS"` and `moduleResolution: "node"` because Vercel's Node.js runtime expects CommonJS modules (not ESM). This is separate from the frontend's `tsconfig.json` which uses `"module": "ESNext"`.
+API routes and `lib/` are compiled with `module: "CommonJS"` and `moduleResolution: "node"` because Vercel's Node.js runtime expects CommonJS (not ESM). This is separate from the frontend's `tsconfig.json` which uses `"module": "ESNext"`.

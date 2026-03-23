@@ -43,23 +43,24 @@ User's browser
 ```
 hackathon-proj/
 ├── api/                        Vercel serverless API routes (repo root)
-│   ├── health.ts               GET /api/health (includes DB ping)
-│   ├── ping.ts                 GET /api/ping (zero-dependency smoke test)
-│   ├── debug.ts                GET /api/debug (env vars + DB status)
 │   ├── settings.ts             POST /api/settings (stub)
 │   ├── events/
 │   │   ├── index.ts            GET + POST /api/events
 │   │   └── [id].ts             PUT + DELETE /api/events/:id
-│   ├── messages/
-│   │   ├── logs.ts             GET /api/messages/logs
-│   │   ├── email/
-│   │   │   ├── index.ts        POST /api/messages/email
-│   │   │   └── test.ts         POST /api/messages/email/test
-│   │   └── whatsapp/
-│   │       ├── index.ts        POST /api/messages/whatsapp
-│   │       └── test.ts         POST /api/messages/whatsapp/test
-│   └── cron/
-│       └── send-messages.ts    Vercel Cron: send pending messages
+│   ├── notes/
+│   │   ├── index.ts            GET + POST /api/notes
+│   │   └── [id].ts             PUT + DELETE /api/notes/:id
+│   ├── todos/
+│   │   ├── index.ts            GET + POST /api/todos
+│   │   └── [id].ts             PUT + DELETE /api/todos/:id
+│   ├── folders/
+│   │   ├── index.ts            GET + POST /api/folders
+│   │   └── [id].ts             PUT + DELETE /api/folders/:id
+│   ├── trash/
+│   │   ├── index.ts            GET + DELETE /api/trash
+│   │   └── [id].ts             PUT + DELETE /api/trash/:id
+│   └── messages/
+│       └── [...path].ts        catch-all: logs, whatsapp, email, cron
 ├── lib/                        Shared server-side helpers (repo root)
 │   ├── db.ts                   Turso client singleton + row mappers
 │   ├── email.ts                nodemailer SMTP sender
@@ -67,16 +68,19 @@ hackathon-proj/
 ├── frontend/                   React SPA
 │   ├── src/
 │   │   ├── pages/
-│   │   │   ├── Calendar/       Hebrew/Gregorian calendar grid + event modal
-│   │   │   ├── Dashboard/      Stats, today's events, upcoming events, diagnostics
+│   │   │   ├── Calendar/       Hebrew/Gregorian calendar grid + event modal (shows events + todos)
+│   │   │   ├── Dashboard/      Stats, today's events, upcoming todos, diagnostics
 │   │   │   ├── DailyTimes/     Halachic zmanim for any location
+│   │   │   ├── Events/         Alternate events list view
 │   │   │   ├── Messages/       WhatsApp + email composer and log
-│   │   │   ├── Notes/          Notion-like block editor with localStorage persistence
+│   │   │   ├── Notes/          BlockNote rich-text editor, DB-backed
+│   │   │   ├── Todos/          Task editor with scheduling, priority, reminders
+│   │   │   ├── Trash/          Soft-delete recovery for notes and events
 │   │   │   └── Settings/       Language, calendar, zmanim, SMTP, WhatsApp credentials
 │   │   └── shared/
 │   │       ├── components/     Button, Modal, Input, Badge, Sidebar, Layout, MobileNav
 │   │       ├── hooks/          useApi (with cache), useBackendStatus, useIsMobile
-│   │       ├── context/        SettingsContext + NotesContext (localStorage-backed)
+│   │       ├── context/        SettingsContext, NotesContext, EventsContext, TodosContext, FoldersContext
 │   │       ├── i18n/           translations.ts (en/he), useT() hook
 │   │       ├── types/          event.types.ts, settings.types.ts, note.types.ts
 │   │       └── colors/         Shared color palette constants
@@ -88,10 +92,10 @@ hackathon-proj/
 │   ├── general.md              ← you are here
 │   ├── frontend.md             Frontend deep-dive
 │   ├── backend.md              API routes + server-side deep-dive
+│   ├── database.md             Schema, migrations, ER diagram
 │   ├── running-locally.md      Local dev guide
 │   ├── deploy.md               Vercel + Turso production setup
-│   ├── turso-setup.md          Step-by-step Turso database setup
-│   └── CHANGELOG.md            Change history
+│   └── turso-setup.md          Step-by-step Turso database setup
 └── .env.example                All required environment variables
 ```
 
@@ -110,9 +114,11 @@ hackathon-proj/
 | WhatsApp composer | Formatting toolbar (bold, italic, strikethrough, monospace), emoji picker, live phone-frame preview, Hebrew quick-templates, immediate or scheduled send |
 | Email composer | Multi-recipient tag input, immediate or scheduled send |
 | Daily Times | 11 configurable halachic times (Alot HaShachar → Tzet Shabbat) for any lat/lng/timezone |
-| Notes | Notion-like block editor (BlockNote) per-note with title, tags, pin, and undo-delete. Desktop: split panel (list + editor). Mobile: single-column with back button. All data in localStorage. |
+| Notes | BlockNote rich-text editor with title, tags, pin, folder grouping, and soft-delete. Desktop: split panel. Mobile: single column. DB-backed with localStorage cache. |
+| Todos | Task editor with due date/time, hard deadline, priority (P1–P4), location, recurrence, reminders, and project grouping. Due dates appear on the calendar grid. |
+| Trash | Soft-delete recovery — deleted notes and events go to Trash. Restore or delete permanently. |
 | Settings | Language (English/Hebrew RTL), calendar mode, week start, 10 holiday toggles, 11 zmanim toggles, location, SMTP config, WhatsApp credentials |
-| Offline resilience | localStorage cache for events + message logs; "Backend offline" pill; frontend never crashes |
+| Offline resilience | localStorage cache for events, notes, todos, folders, message logs; "Backend offline" pill; frontend never crashes |
 | Cron scheduling | Vercel Cron fires once daily at 8am (`0 8 * * *`), picks up all pending messages whose `scheduled_at` has passed |
 | i18n / RTL | Full English + Hebrew translations via `useT()`. Hebrew mode switches the whole UI to RTL (sidebar flips sides, text direction reverses). |
 | Mobile-responsive | Fixed bottom navigation bar on mobile (< 768 px); sidebar hidden; all pages adapt to small screens. |

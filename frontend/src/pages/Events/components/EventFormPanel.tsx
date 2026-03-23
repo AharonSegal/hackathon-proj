@@ -5,15 +5,133 @@
  * Shown on the right side of EventsPage.
  */
 
-import { useState, useEffect, KeyboardEvent } from 'react';
-import { X, Trash2, Paperclip } from 'lucide-react';
+import { useState, useEffect, useMemo, KeyboardEvent } from 'react';
+import { X, Trash2, Paperclip, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { GradientButton } from '@/shared/components/ui/GradientButton';
 import { AnimatePresence } from 'framer-motion';
 import { type CalendarEvent, type EventColor, EVENT_COLOR_HEX, RECURRENCE_OPTIONS } from '@/shared/types/event.types';
 import { type Folder } from '@/shared/types/note.types';
 import { AttachmentModal } from '@/shared/components/Attachments/AttachmentModal';
+import { HDate, months } from '@hebcal/core';
+import {
+  format, addMonths, subMonths, startOfMonth, endOfMonth,
+  startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, isToday,
+} from 'date-fns';
+import { useEvents } from '@/shared/context/EventsContext';
+
+// ─── Hebrew helpers ───────────────────────────────────────────────────────────
+
+const HEBREW_MONTHS_LIST = [
+  { value: months.TISHREI,  label: 'תשרי'   },
+  { value: months.CHESHVAN, label: 'חשון'   },
+  { value: months.KISLEV,   label: 'כסלו'   },
+  { value: months.TEVET,    label: 'טבת'    },
+  { value: months.SHVAT,    label: 'שבט'    },
+  { value: months.ADAR_I,   label: 'אדר א׳' },
+  { value: months.ADAR_II,  label: 'אדר ב׳' },
+  { value: months.NISAN,    label: 'ניסן'   },
+  { value: months.IYYAR,    label: 'אייר'   },
+  { value: months.SIVAN,    label: 'סיון'   },
+  { value: months.TAMUZ,    label: 'תמוז'   },
+  { value: months.AV,       label: 'אב'     },
+  { value: months.ELUL,     label: 'אלול'   },
+];
+
+const EVENT_HEX_MAP: Record<string, string> = {
+  indigo: '#6366f1', emerald: '#10b981', amber: '#f59e0b',
+  rose: '#f43f5e',   sky: '#0ea5e9',     violet: '#8b5cf6',
+};
+
+function gregToHebrew(dateStr: string): { day: number; month: number; year: number } {
+  try {
+    const hd = new HDate(new Date(dateStr + 'T00:00:00'));
+    return { day: hd.getDate(), month: hd.getMonth(), year: hd.getFullYear() };
+  } catch { return { day: 1, month: months.TISHREI, year: 5785 }; }
+}
+
+function hebrewToGreg(day: number, month: number, year: number): string | null {
+  try {
+    const g = new HDate(day, month, year).greg();
+    return format(new Date(g.getFullYear(), g.getMonth(), g.getDate()), 'yyyy-MM-dd');
+  } catch { return null; }
+}
+
+// ─── MiniCalendar ─────────────────────────────────────────────────────────────
+
+function MiniCalendar({ selected, onSelect }: { selected: string; onSelect: (d: string) => void }) {
+  const { events } = useEvents();
+  const selDate = selected ? new Date(selected + 'T00:00:00') : new Date();
+  const [viewMonth, setViewMonth] = useState(() => startOfMonth(selDate));
+
+  useEffect(() => {
+    if (selected) setViewMonth(startOfMonth(new Date(selected + 'T00:00:00')));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected.slice(0, 7)]);
+
+  const gridDays = useMemo(() => eachDayOfInterval({
+    start: startOfWeek(startOfMonth(viewMonth), { weekStartsOn: 0 }),
+    end:   endOfWeek(endOfMonth(viewMonth),     { weekStartsOn: 0 }),
+  }), [viewMonth]);
+
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const ev of events) (map[ev.date] ??= []).push(ev.color);
+    return map;
+  }, [events]);
+
+  return (
+    <div className="mt-2 p-3 bg-slate-900/60 rounded-lg border border-slate-700">
+      <div className="flex items-center justify-between mb-2">
+        <button type="button" onClick={() => setViewMonth(m => subMonths(m, 1))}
+          className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+          <ChevronLeft size={13} />
+        </button>
+        <span className="text-xs font-semibold text-slate-300">{format(viewMonth, 'MMMM yyyy')}</span>
+        <button type="button" onClick={() => setViewMonth(m => addMonths(m, 1))}
+          className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+          <ChevronRight size={13} />
+        </button>
+      </div>
+      <div className="grid grid-cols-7 mb-1">
+        {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+          <div key={d} className="text-center text-[10px] text-slate-500 font-medium">{d}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-y-0.5">
+        {gridDays.map((d, i) => {
+          const inMonth = isSameMonth(d, viewMonth);
+          const dateStr = format(d, 'yyyy-MM-dd');
+          const isSel   = selected === dateStr;
+          const isT     = isToday(d);
+          const dots    = (eventsByDate[dateStr] ?? []).slice(0, 3);
+          return (
+            <button key={i} type="button" onClick={() => onSelect(dateStr)}
+              className={clsx(
+                'flex flex-col items-center py-0.5 rounded text-xs transition-colors',
+                !inMonth && 'opacity-30',
+                isSel  && 'bg-indigo-600 text-white',
+                !isSel && isT  && 'bg-indigo-900/50 text-indigo-300',
+                !isSel && !isT && 'text-slate-300 hover:bg-slate-700',
+              )}>
+              <span>{d.getDate()}</span>
+              {dots.length > 0 && inMonth && (
+                <div className="flex gap-0.5 mt-0.5">
+                  {dots.map((c, ci) => (
+                    <div key={ci} style={{ width: 4, height: 4, borderRadius: '50%', background: EVENT_HEX_MAP[c] ?? '#6366f1' }} />
+                  ))}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 import { getAttachmentCount } from '@/shared/hooks/useAttachments';
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface EventFormPanelProps {
   event: CalendarEvent | null; // null = create mode
@@ -45,6 +163,35 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
   const [description, setDescription] = useState(event?.description ?? '');
   const [attachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const [attachCount, setAttachCount] = useState(() => event ? getAttachmentCount(event.id) : 0);
+
+  // Hebrew date state (synced from `date`)
+  const [hDay,         setHDay]         = useState(() => gregToHebrew(event?.date ?? new Date().toISOString().slice(0, 10)).day);
+  const [hMonth,       setHMonth]       = useState(() => gregToHebrew(event?.date ?? new Date().toISOString().slice(0, 10)).month);
+  const [hYear,        setHYear]        = useState(() => gregToHebrew(event?.date ?? new Date().toISOString().slice(0, 10)).year);
+  const [showCalPicker, setShowCalPicker] = useState(false);
+
+  // Sync selectedDate → Hebrew fields when date changes externally
+  useEffect(() => {
+    const h = gregToHebrew(date);
+    setHDay(h.day); setHMonth(h.month); setHYear(h.year);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
+
+  const handleHebrewDay = (v: number) => {
+    setHDay(v);
+    const g = hebrewToGreg(v, hMonth, hYear);
+    if (g) setDate(g);
+  };
+  const handleHebrewMonth = (v: number) => {
+    setHMonth(v);
+    const g = hebrewToGreg(hDay, v, hYear);
+    if (g) setDate(g);
+  };
+  const handleHebrewYear = (v: number) => {
+    setHYear(v);
+    const g = hebrewToGreg(hDay, hMonth, v);
+    if (g) setDate(g);
+  };
 
   // Refresh attachment count when event changes
   useEffect(() => { setAttachCount(event ? getAttachmentCount(event.id) : 0); }, [event?.id]);
@@ -130,13 +277,66 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
 
         {/* Date */}
         <div>
-          <label className={labelClass}>Date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-            className={inputClass}
-          />
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className={labelClass}>Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCalPicker(v => !v)}
+              title="Open calendar picker"
+              className={clsx(
+                'h-8 px-2 rounded-md border transition-colors flex items-center',
+                showCalPicker
+                  ? 'bg-indigo-600 border-indigo-500 text-white'
+                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500',
+              )}
+            >
+              <CalendarDays size={15} />
+            </button>
+          </div>
+
+          {/* Hebrew date */}
+          <div className="mt-2">
+            <label className={labelClass}>Hebrew Date</label>
+            <div className="flex gap-2" dir="rtl">
+              <input
+                type="number" min={1} max={30} value={hDay}
+                onChange={e => { const v = parseInt(e.target.value); if (v >= 1 && v <= 30) handleHebrewDay(v); }}
+                className="w-14 h-8 px-1 rounded-md bg-slate-900 border border-slate-700 text-slate-100 text-sm outline-none focus:border-indigo-500 text-center"
+                title="Hebrew day"
+              />
+              <select
+                value={hMonth}
+                onChange={e => handleHebrewMonth(parseInt(e.target.value))}
+                className={clsx(inputClass, 'flex-1 cursor-pointer px-2')}
+              >
+                {HEBREW_MONTHS_LIST.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+              <input
+                type="number" min={5700} max={6000} value={hYear}
+                onChange={e => { const v = parseInt(e.target.value); if (v >= 5700 && v <= 6000) handleHebrewYear(v); }}
+                className="w-20 h-8 px-1 rounded-md bg-slate-900 border border-slate-700 text-slate-100 text-sm outline-none focus:border-indigo-500 text-center"
+                title="Hebrew year"
+              />
+            </div>
+          </div>
+
+          {/* Inline calendar picker */}
+          {showCalPicker && (
+            <MiniCalendar
+              selected={date}
+              onSelect={d => { setDate(d); setShowCalPicker(false); }}
+            />
+          )}
         </div>
 
         {/* All Day toggle */}
