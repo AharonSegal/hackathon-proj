@@ -1,77 +1,55 @@
 /**
  * Dashboard/components/DiagnosticsPanel.tsx
  * -------------------------------------------
- * Developer diagnostics panel shown on the Dashboard.
+ * Developer diagnostics panel.
  *
- * Sections:
- * 1. Live status dot + two action buttons:
- *    - "Run Diagnostics" — fetches /api/debug (env vars, DB status, counts)
- *    - "Test CRUD"       — runs a full CREATE → READ → UPDATE → DELETE cycle
- *                          against /api/events and prints a step-by-step log
- * 2. Error banner (if /api/debug unreachable)
- * 3. Debug results — DB status, env vars, server metadata
- * 4. CRUD test log — per-step status, timing, and detail
+ * "Run Diagnostics" — queries each entity list endpoint and shows live DB counts.
+ * "Test All CRUD"   — runs a full CREATE→READ→UPDATE→DELETE cycle for every
+ *                     entity: Events, Notes, Todos. Deletes go through the Trash
+ *                     (soft-delete) and the panel verifies the ID appears in trash
+ *                     before performing permanent deletion.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, AlertCircle, CheckCircle2, XCircle, FlaskConical, Trash2 } from 'lucide-react';
-import { useBackendStatus, retryConnection } from '@/shared/hooks/useBackendStatus';
+import { useCallback, useState } from 'react';
+import { RefreshCw, XCircle, CheckCircle2, FlaskConical, Trash2, Database } from 'lucide-react';
+import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
 import axios from 'axios';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface DebugResult {
-  env: Record<string, string | null>;
-  db: {
-    status: string;
-    ping?: unknown;
-    eventsCount?: unknown;
-    logsCount?: unknown;
-    notesCount?: unknown;
-    error?: string;
-  };
-  latencyMs: number;
-  timestamp: string;
-  node: string;
-  region: string;
-}
-
 type StepStatus = 'ok' | 'fail' | 'skip';
 
 interface CrudStep {
+  group: string;
   step: string;
   status: StepStatus;
   detail: string;
   ms?: number;
 }
 
-// ── Small helpers ─────────────────────────────────────────────────────────────
-
-function Row({ label, value }: { label: string; value: string | null | undefined }) {
-  const missing = !value || value === '— NOT SET —';
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-2 py-1.5 border-b border-slate-800 last:border-0">
-      <span className="text-slate-500 sm:w-52 sm:shrink-0 text-xs font-mono">{label}</span>
-      <span className={`text-xs font-mono break-all ${missing ? 'text-rose-400' : 'text-slate-200'}`}>
-        {value ?? '— NOT SET —'}
-      </span>
-    </div>
-  );
+interface DiagCounts {
+  events: number;
+  notes: number;
+  todos: number;
+  trashNotes: number;
+  trashEvents: number;
+  latencyMs: number;
 }
 
-function StatusIcon({ ok }: { ok: boolean }) {
-  return ok
-    ? <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-    : <XCircle      size={14} className="text-rose-400    shrink-0" />;
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Format an Axios (or any) error into a short readable string */
 function fmtErr(e: unknown): string {
   if (axios.isAxiosError(e)) {
     if (e.response) return `HTTP ${e.response.status}: ${JSON.stringify(e.response.data)}`;
     return e.message;
   }
   return String(e);
+}
+
+function StatusIcon({ ok }: { ok: boolean }) {
+  return ok
+    ? <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+    : <XCircle      size={13} className="text-rose-400    shrink-0" />;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -81,7 +59,7 @@ export function DiagnosticsPanel() {
 
   // ── diagnostics state ──
   const [diagLoading, setDiagLoading] = useState(false);
-  const [diagData,    setDiagData]    = useState<DebugResult | null>(null);
+  const [diagData,    setDiagData]    = useState<DiagCounts | null>(null);
   const [diagErr,     setDiagErr]     = useState<string | null>(null);
 
   // ── CRUD test state ──
@@ -93,10 +71,23 @@ export function DiagnosticsPanel() {
   const runDiag = useCallback(async () => {
     setDiagLoading(true);
     setDiagErr(null);
-    retryConnection();
+    setDiagData(null);
+    const t0 = Date.now();
     try {
-      const res = await axios.get<DebugResult>('/api/debug', { timeout: 10000 });
-      setDiagData(res.data);
+      const [eventsRes, notesRes, todosRes, trashRes] = await Promise.all([
+        axios.get<{ id: string }[]>('/api/events', { timeout: 8000 }),
+        axios.get<{ id: string }[]>('/api/notes',  { timeout: 8000 }),
+        axios.get<{ id: string }[]>('/api/todos',  { timeout: 8000 }),
+        axios.get<{ notes: unknown[]; events: unknown[] }>('/api/trash', { timeout: 8000 }),
+      ]);
+      setDiagData({
+        events:      eventsRes.data.length,
+        notes:       notesRes.data.length,
+        todos:       todosRes.data.length,
+        trashNotes:  trashRes.data.notes.length,
+        trashEvents: trashRes.data.events.length,
+        latencyMs:   Date.now() - t0,
+      });
     } catch (e) {
       setDiagErr(fmtErr(e));
     } finally {
@@ -104,143 +95,268 @@ export function DiagnosticsPanel() {
     }
   }, []);
 
-  useEffect(() => { runDiag(); }, [runDiag]);
-
-  // ── Run CRUD test ─────────────────────────────────────────────────────────
+  // ── Run full CRUD test ────────────────────────────────────────────────────
 
   const runCrud = useCallback(async () => {
     setCrudRunning(true);
-
-    // Build log incrementally so each step appears as it completes
     const log: CrudStep[] = [];
-    const push = (step: string, status: StepStatus, detail: string, ms?: number) => {
-      log.push({ step, status, detail, ms });
+
+    const push = (group: string, step: string, status: StepStatus, detail: string, ms?: number) => {
+      log.push({ group, step, status, detail, ms });
       setCrudLogs([...log]);
     };
 
-    const testTitle   = `[CRUD-TEST] Temp event @ ${new Date().toISOString()}`;
-    const updTitle    = testTitle + ' — UPDATED ✓';
-    const testDate    = new Date().toISOString().slice(0, 10);
-    let   createdId: string | null = null;
+    // ════════════════════════════════════════════════════════════════════════
+    // GROUP 1 — EVENTS
+    // ════════════════════════════════════════════════════════════════════════
 
-    // ── Step 1: CREATE ───────────────────────────────────────────────────────
+    const G1 = 'Events';
+    const evTitle  = `[TEST] Event @ ${new Date().toISOString()}`;
+    const evTitle2 = evTitle + ' — UPDATED ✓';
+    const evDate   = new Date().toISOString().slice(0, 10);
+    let evId: string | null = null;
+    let evTrashId: string | null = null;
+
+    // 1. CREATE
     try {
       const t0  = Date.now();
-      const res = await axios.post('/api/events', {
-        title:  testTitle,
-        date:   testDate,
-        color:  'rose',
-        allDay: true,
-      }, { timeout: 10000 });
-      const ms = Date.now() - t0;
-      createdId = res.data?.id ?? null;
+      const res = await axios.post('/api/events', { title: evTitle, date: evDate, color: 'rose', allDay: true }, { timeout: 10000 });
+      evId = res.data?.id ?? null;
+      push(G1, 'CREATE', res.status === 201 && evId ? 'ok' : 'fail',
+        `POST /api/events → ${res.status}  id=${evId}`, Date.now() - t0);
+    } catch (e) { push(G1, 'CREATE', 'fail', fmtErr(e)); }
 
-      if (res.status === 201 && createdId) {
-        push('CREATE', 'ok',
-          `POST /api/events → 201  id=${createdId}  title="${res.data.title}"`,
-          ms,
-        );
-      } else {
-        push('CREATE', 'fail',
-          `Unexpected status ${res.status} or missing id in response`,
-          ms,
-        );
-      }
-    } catch (e) {
-      push('CREATE', 'fail', fmtErr(e));
-      setCrudRunning(false);
-      return; // can't continue without an ID
-    }
+    // 2. READ
+    if (evId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ id: string }[]>('/api/events', { timeout: 10000 });
+      const found = res.data.find(ev => ev.id === evId);
+      push(G1, 'READ', found ? 'ok' : 'fail',
+        found ? `GET /api/events → found (${res.data.length} total)` : `NOT found in ${res.data.length} events`,
+        Date.now() - t0);
+    } catch (e) { push(G1, 'READ', 'fail', fmtErr(e)); }
 
-    // ── Step 2: READ — list all events and find the created one ──────────────
+    // 3. UPDATE
+    if (evId) try {
+      const t0  = Date.now();
+      const res = await axios.put(`/api/events/${evId}`, { title: evTitle2, color: 'emerald' }, { timeout: 10000 });
+      const ok  = res.data?.title === evTitle2 && res.data?.color === 'emerald';
+      push(G1, 'UPDATE', ok ? 'ok' : 'fail',
+        `PUT /api/events/${evId} → title ${res.data?.title === evTitle2 ? '✓' : '✗'}  color ${res.data?.color === 'emerald' ? '✓' : '✗'}`,
+        Date.now() - t0);
+    } catch (e) { push(G1, 'UPDATE', 'fail', fmtErr(e)); }
+
+    // 4. SOFT DELETE
+    if (evId) try {
+      const t0  = Date.now();
+      const res = await axios.delete(`/api/events/${evId}`, { timeout: 10000 });
+      push(G1, 'SOFT DELETE', res.status === 204 ? 'ok' : 'fail',
+        `DELETE /api/events/${evId} → ${res.status}`, Date.now() - t0);
+    } catch (e) { push(G1, 'SOFT DELETE', 'fail', fmtErr(e)); }
+
+    // 5. VERIFY IN TRASH
+    if (evId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ notes: unknown[]; events: { trashId: string; entityId: string }[] }>('/api/trash', { timeout: 10000 });
+      const entry = res.data.events.find(e => e.entityId === evId);
+      evTrashId = entry?.trashId ?? null;
+      push(G1, 'IN TRASH', entry ? 'ok' : 'fail',
+        entry ? `GET /api/trash → found in trash.events  trashId=${evTrashId}` : `NOT found in trash (${res.data.events.length} event entries)`,
+        Date.now() - t0);
+    } catch (e) { push(G1, 'IN TRASH', 'fail', fmtErr(e)); }
+
+    // 6. RESTORE
+    if (evTrashId) try {
+      const t0  = Date.now();
+      const res = await axios.put(`/api/trash/${evTrashId}`, {}, { timeout: 10000 });
+      push(G1, 'RESTORE', res.status === 204 ? 'ok' : 'fail',
+        `PUT /api/trash/${evTrashId} → ${res.status}`, Date.now() - t0);
+    } catch (e) { push(G1, 'RESTORE', 'fail', fmtErr(e)); }
+
+    // 7. VERIFY RESTORED
+    if (evId && evTrashId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ id: string }[]>('/api/events', { timeout: 10000 });
+      const found = res.data.find(e => e.id === evId);
+      push(G1, 'VERIFY RESTORE', found ? 'ok' : 'fail',
+        found ? `Back in events list after restore` : `NOT found after restore`, Date.now() - t0);
+    } catch (e) { push(G1, 'VERIFY RESTORE', 'fail', fmtErr(e)); }
+
+    // 8. SOFT DELETE AGAIN (to perm delete via trash)
+    evTrashId = null;
+    if (evId) try {
+      await axios.delete(`/api/events/${evId}`, { timeout: 10000 });
+      const trashRes = await axios.get<{ events: { trashId: string; entityId: string }[] }>('/api/trash', { timeout: 10000 });
+      const entry = trashRes.data.events.find(e => e.entityId === evId);
+      evTrashId = entry?.trashId ?? null;
+      push(G1, 'DELETE AGAIN', evTrashId ? 'ok' : 'fail',
+        evTrashId ? `Re-deleted; trashId=${evTrashId}` : `Deleted but not found in trash`);
+    } catch (e) { push(G1, 'DELETE AGAIN', 'fail', fmtErr(e)); }
+
+    // 9. PERMANENT DELETE via trash
+    if (evTrashId) try {
+      const t0  = Date.now();
+      const res = await axios.delete(`/api/trash/${evTrashId}`, { timeout: 10000 });
+      push(G1, 'PERM DELETE', res.status === 204 ? 'ok' : 'fail',
+        `DELETE /api/trash/${evTrashId} → ${res.status}`, Date.now() - t0);
+    } catch (e) { push(G1, 'PERM DELETE', 'fail', fmtErr(e)); }
+
+    // 10. VERIFY GONE (from events and trash)
+    if (evId) try {
+      const t0 = Date.now();
+      const [evRes, trashRes2] = await Promise.all([
+        axios.get<{ id: string }[]>('/api/events', { timeout: 10000 }),
+        axios.get<{ events: { entityId: string }[] }>('/api/trash', { timeout: 10000 }),
+      ]);
+      const inEvents = evRes.data.some(e => e.id === evId);
+      const inTrash  = trashRes2.data.events.some(e => e.entityId === evId);
+      push(G1, 'VERIFY GONE', !inEvents && !inTrash ? 'ok' : 'fail',
+        `events list ${inEvents ? '❌ still present' : '✓ gone'}  trash ${inTrash ? '❌ still present' : '✓ gone'}`,
+        Date.now() - t0);
+    } catch (e) { push(G1, 'VERIFY GONE', 'fail', fmtErr(e)); }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GROUP 2 — NOTES
+    // ════════════════════════════════════════════════════════════════════════
+
+    const G2 = 'Notes';
+    const nTitle  = `[TEST] Note @ ${new Date().toISOString()}`;
+    const nTitle2 = nTitle + ' — UPDATED ✓';
+    let nId: string | null = null;
+    let nTrashId: string | null = null;
+
+    // 11. CREATE
     try {
       const t0  = Date.now();
-      const res = await axios.get<{ id: string; title: string }[]>('/api/events', { timeout: 10000 });
-      const ms  = Date.now() - t0;
-      const found = res.data.find(ev => ev.id === createdId);
+      const res = await axios.post('/api/notes', { title: nTitle, content: '[]', tags: [], pinned: false }, { timeout: 10000 });
+      nId = res.data?.id ?? null;
+      push(G2, 'CREATE', res.status === 201 && nId ? 'ok' : 'fail',
+        `POST /api/notes → ${res.status}  id=${nId}`, Date.now() - t0);
+    } catch (e) { push(G2, 'CREATE', 'fail', fmtErr(e)); }
 
-      push('READ', found ? 'ok' : 'fail',
-        found
-          ? `GET /api/events → found event among ${res.data.length} total`
-          : `GET /api/events → event NOT found in ${res.data.length} results`,
-        ms,
-      );
-    } catch (e) {
-      push('READ', 'fail', fmtErr(e));
-    }
+    // 12. READ
+    if (nId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ id: string }[]>('/api/notes', { timeout: 10000 });
+      const found = res.data.find(n => n.id === nId);
+      push(G2, 'READ', found ? 'ok' : 'fail',
+        found ? `GET /api/notes → found (${res.data.length} total)` : `NOT found in ${res.data.length} notes`,
+        Date.now() - t0);
+    } catch (e) { push(G2, 'READ', 'fail', fmtErr(e)); }
 
-    // ── Step 3: UPDATE ───────────────────────────────────────────────────────
+    // 13. UPDATE
+    if (nId) try {
+      const t0  = Date.now();
+      const res = await axios.put(`/api/notes/${nId}`, { title: nTitle2 }, { timeout: 10000 });
+      const ok  = res.data?.title === nTitle2;
+      push(G2, 'UPDATE', ok ? 'ok' : 'fail',
+        `PUT /api/notes/${nId} → title ${ok ? '✓' : `✗ got "${res.data?.title}"`}`,
+        Date.now() - t0);
+    } catch (e) { push(G2, 'UPDATE', 'fail', fmtErr(e)); }
+
+    // 14. SOFT DELETE
+    if (nId) try {
+      const t0  = Date.now();
+      const res = await axios.delete(`/api/notes/${nId}`, { timeout: 10000 });
+      push(G2, 'SOFT DELETE', res.status === 204 ? 'ok' : 'fail',
+        `DELETE /api/notes/${nId} → ${res.status}`, Date.now() - t0);
+    } catch (e) { push(G2, 'SOFT DELETE', 'fail', fmtErr(e)); }
+
+    // 15. VERIFY IN TRASH
+    if (nId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ notes: { trashId: string; entityId: string }[]; events: unknown[] }>('/api/trash', { timeout: 10000 });
+      const entry = res.data.notes.find(n => n.entityId === nId);
+      nTrashId = entry?.trashId ?? null;
+      push(G2, 'IN TRASH', entry ? 'ok' : 'fail',
+        entry ? `GET /api/trash → found in trash.notes  trashId=${nTrashId}` : `NOT found in trash (${res.data.notes.length} note entries)`,
+        Date.now() - t0);
+    } catch (e) { push(G2, 'IN TRASH', 'fail', fmtErr(e)); }
+
+    // 16. PERMANENT DELETE
+    if (nTrashId) try {
+      const t0  = Date.now();
+      const res = await axios.delete(`/api/trash/${nTrashId}`, { timeout: 10000 });
+      push(G2, 'PERM DELETE', res.status === 204 ? 'ok' : 'fail',
+        `DELETE /api/trash/${nTrashId} → ${res.status}`, Date.now() - t0);
+    } catch (e) { push(G2, 'PERM DELETE', 'fail', fmtErr(e)); }
+
+    // 17. VERIFY GONE
+    if (nId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ id: string }[]>('/api/notes', { timeout: 10000 });
+      const inList = res.data.some(n => n.id === nId);
+      push(G2, 'VERIFY GONE', !inList ? 'ok' : 'fail',
+        inList ? `❌ Note still appears in /api/notes` : `✓ Gone from notes list`,
+        Date.now() - t0);
+    } catch (e) { push(G2, 'VERIFY GONE', 'fail', fmtErr(e)); }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GROUP 3 — TODOS
+    // ════════════════════════════════════════════════════════════════════════
+
+    const G3 = 'Todos';
+    const tdTitle  = `[TEST] Todo @ ${new Date().toISOString()}`;
+    const tdTitle2 = tdTitle + ' — UPDATED ✓';
+    let tdId: string | null = null;
+
+    // 18. CREATE
     try {
       const t0  = Date.now();
-      const res = await axios.put(`/api/events/${createdId}`, {
-        title: updTitle,
-        color: 'emerald',
-      }, { timeout: 10000 });
-      const ms      = Date.now() - t0;
-      const titleOk = res.data?.title === updTitle;
-      const colorOk = res.data?.color === 'emerald';
+      const res = await axios.post('/api/todos', { title: tdTitle }, { timeout: 10000 });
+      tdId = res.data?.id ?? null;
+      push(G3, 'CREATE', res.status === 201 && tdId ? 'ok' : 'fail',
+        `POST /api/todos → ${res.status}  id=${tdId}`, Date.now() - t0);
+    } catch (e) { push(G3, 'CREATE', 'fail', fmtErr(e)); }
 
-      push('UPDATE', titleOk && colorOk ? 'ok' : 'fail',
-        `PUT /api/events/${createdId} → title ${titleOk ? '✓' : '✗'}  color ${colorOk ? '✓' : '✗'}`,
-        ms,
-      );
-    } catch (e) {
-      push('UPDATE', 'fail', fmtErr(e));
-    }
-
-    // ── Step 4: VERIFY UPDATE — re-read and confirm the change persisted ─────
-    try {
+    // 19. READ
+    if (tdId) try {
       const t0  = Date.now();
-      const res = await axios.get<{ id: string; title: string; color: string }[]>(
-        '/api/events', { timeout: 10000 },
-      );
-      const ms    = Date.now() - t0;
-      const found = res.data.find(ev => ev.id === createdId);
-      const ok    = found?.title === updTitle && found?.color === 'emerald';
+      const res = await axios.get<{ id: string }[]>('/api/todos', { timeout: 10000 });
+      const found = res.data.find(t => t.id === tdId);
+      push(G3, 'READ', found ? 'ok' : 'fail',
+        found ? `GET /api/todos → found (${res.data.length} total)` : `NOT found in ${res.data.length} todos`,
+        Date.now() - t0);
+    } catch (e) { push(G3, 'READ', 'fail', fmtErr(e)); }
 
-      push('VERIFY UPDATE', ok ? 'ok' : 'fail',
-        ok
-          ? `Re-read from DB → title and color match`
-          : found
-            ? `Re-read mismatch — title="${found.title}" color="${found.color}"`
-            : `Event not found in list after update`,
-        ms,
-      );
-    } catch (e) {
-      push('VERIFY UPDATE', 'fail', fmtErr(e));
-    }
-
-    // ── Step 5: DELETE ───────────────────────────────────────────────────────
-    try {
+    // 20. UPDATE title
+    if (tdId) try {
       const t0  = Date.now();
-      const res = await axios.delete(`/api/events/${createdId}`, { timeout: 10000 });
-      const ms  = Date.now() - t0;
+      const res = await axios.put(`/api/todos/${tdId}`, { title: tdTitle2 }, { timeout: 10000 });
+      const ok  = res.data?.title === tdTitle2;
+      push(G3, 'UPDATE TITLE', ok ? 'ok' : 'fail',
+        `PUT /api/todos/${tdId} → title ${ok ? '✓' : `✗ got "${res.data?.title}"`}`,
+        Date.now() - t0);
+    } catch (e) { push(G3, 'UPDATE TITLE', 'fail', fmtErr(e)); }
 
-      push('DELETE', res.status === 204 ? 'ok' : 'fail',
-        `DELETE /api/events/${createdId} → ${res.status}`,
-        ms,
-      );
-    } catch (e) {
-      push('DELETE', 'fail', fmtErr(e));
-    }
-
-    // ── Step 6: VERIFY GONE — PUT should now 404 ─────────────────────────────
-    try {
+    // 21. COMPLETE
+    if (tdId) try {
       const t0  = Date.now();
-      await axios.put(`/api/events/${createdId}`, { title: 'should-not-exist' }, { timeout: 10000 });
-      const ms = Date.now() - t0;
-      // If we reach here, the event still exists — that's a failure
-      push('VERIFY DELETE', 'fail',
-        `Expected 404 but got 200 — event still exists in the DB`,
-        ms,
-      );
-    } catch (e) {
-      if (axios.isAxiosError(e) && e.response?.status === 404) {
-        push('VERIFY DELETE', 'ok', `PUT on deleted id → 404 (confirmed gone from DB)`);
-      } else {
-        push('VERIFY DELETE', 'fail', fmtErr(e));
-      }
-    }
+      const now = new Date().toISOString();
+      const res = await axios.put(`/api/todos/${tdId}`, { completed: true, completedAt: now }, { timeout: 10000 });
+      const ok  = res.data?.completed === true;
+      push(G3, 'COMPLETE', ok ? 'ok' : 'fail',
+        `PUT /api/todos/${tdId} completed → ${ok ? '✓ completed=true' : `✗ completed=${res.data?.completed}`}`,
+        Date.now() - t0);
+    } catch (e) { push(G3, 'COMPLETE', 'fail', fmtErr(e)); }
+
+    // 22. DELETE
+    if (tdId) try {
+      const t0  = Date.now();
+      const res = await axios.delete(`/api/todos/${tdId}`, { timeout: 10000 });
+      push(G3, 'DELETE', res.status === 204 ? 'ok' : 'fail',
+        `DELETE /api/todos/${tdId} → ${res.status}`, Date.now() - t0);
+    } catch (e) { push(G3, 'DELETE', 'fail', fmtErr(e)); }
+
+    // 23. VERIFY GONE
+    if (tdId) try {
+      const t0  = Date.now();
+      const res = await axios.get<{ id: string }[]>('/api/todos', { timeout: 10000 });
+      const inList = res.data.some(t => t.id === tdId);
+      push(G3, 'VERIFY GONE', !inList ? 'ok' : 'fail',
+        inList ? `❌ Todo still in list` : `✓ Gone from todos list`,
+        Date.now() - t0);
+    } catch (e) { push(G3, 'VERIFY GONE', 'fail', fmtErr(e)); }
 
     setCrudRunning(false);
   }, []);
@@ -257,15 +373,19 @@ export function DiagnosticsPanel() {
                     : status === 'offline' ? 'text-rose-400'
                                           : 'text-amber-400';
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Summary ───────────────────────────────────────────────────────────────
 
-  const allOk   = crudLogs.length > 0 && crudLogs.every(s => s.status === 'ok');
-  const anyFail = crudLogs.some(s => s.status === 'fail');
+  const totalSteps  = crudLogs.length;
+  const failedSteps = crudLogs.filter(s => s.status === 'fail').length;
+  const allOk       = totalSteps > 0 && failedSteps === 0;
+
+  // Group labels for visual separators
+  const groups = ['Events', 'Notes', 'Todos'] as const;
 
   return (
     <div className="card space-y-4">
 
-      {/* ── Header: status + action buttons ── */}
+      {/* ── Header: status + buttons ── */}
       <div className="flex flex-wrap items-center gap-3 justify-between">
         <div className="flex items-center gap-3">
           <div className={`w-3 h-3 rounded-full shrink-0 ${dot}`} />
@@ -276,141 +396,129 @@ export function DiagnosticsPanel() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Run Diagnostics */}
           <button
             onClick={runDiag}
             disabled={diagLoading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 disabled:opacity-40 transition-colors"
           >
-            <RefreshCw size={12} className={diagLoading ? 'animate-spin' : ''} />
-            {diagLoading ? 'Running…' : 'Run Diagnostics'}
+            <Database size={12} className={diagLoading ? 'animate-pulse' : ''} />
+            {diagLoading ? 'Loading…' : 'DB Counts'}
           </button>
 
-          {/* Test CRUD */}
           <button
             onClick={runCrud}
             disabled={crudRunning}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-900/60 hover:bg-indigo-800/60 border border-indigo-700/50 text-xs text-indigo-300 disabled:opacity-40 transition-colors"
           >
             <FlaskConical size={12} className={crudRunning ? 'animate-pulse' : ''} />
-            {crudRunning ? 'Testing…' : 'Test CRUD'}
+            {crudRunning ? 'Testing…' : 'Test All CRUD'}
           </button>
         </div>
       </div>
 
-      {/* ── /api/debug error banner ── */}
+      {/* ── DB Counts ── */}
       {diagErr && (
-        <div className="rounded-lg bg-rose-950/40 border border-rose-800/50 px-3 py-2">
-          <div className="flex items-center gap-2 mb-1">
-            <AlertCircle size={13} className="text-rose-400" />
-            <span className="text-xs font-semibold text-rose-400">Could not reach /api/debug</span>
-          </div>
-          <p className="text-xs font-mono text-rose-300 break-all">{diagErr}</p>
+        <div className="rounded-lg bg-rose-950/40 border border-rose-800/50 px-3 py-2 text-xs font-mono text-rose-300 break-all">
+          {diagErr}
         </div>
       )}
-
-      {/* ── /api/debug results ── */}
       {diagData && (
-        <div className="space-y-4">
-          <div className="rounded-lg bg-slate-900/60 px-3 py-2 space-y-1">
-            <div className="flex items-center gap-2 mb-2">
-              <StatusIcon ok={diagData.db.status === 'connected'} />
-              <span className="text-xs font-semibold text-slate-300">
-                Database — {diagData.db.status === 'connected' ? 'connected' : 'ERROR'}
-              </span>
-              <span className="ml-auto text-xs text-slate-500">
-                {diagData.latencyMs}ms · {diagData.region} · {diagData.node}
-              </span>
+        <div className="rounded-lg bg-slate-900/60 px-3 py-2 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono">
+          {[
+            ['Events',       diagData.events],
+            ['Notes',        diagData.notes],
+            ['Todos',        diagData.todos],
+            ['Trash Notes',  diagData.trashNotes],
+            ['Trash Events', diagData.trashEvents],
+            ['Latency',      `${diagData.latencyMs}ms`],
+          ].map(([label, val]) => (
+            <div key={String(label)} className="flex flex-col">
+              <span className="text-slate-500">{label}</span>
+              <span className="text-slate-200 font-semibold">{val}</span>
             </div>
-            {diagData.db.status === 'connected' ? (
-              <>
-                <p className="text-xs font-mono text-slate-400">ping: {JSON.stringify(diagData.db.ping)}</p>
-                <p className="text-xs font-mono text-slate-400">events in DB: {String(diagData.db.eventsCount)}</p>
-                <p className="text-xs font-mono text-slate-400">message_logs in DB: {String(diagData.db.logsCount)}</p>
-                <p className="text-xs font-mono text-slate-400">notes in DB: {String(diagData.db.notesCount)}</p>
-              </>
-            ) : (
-              <p className="text-xs font-mono text-rose-400 break-all">{diagData.db.error}</p>
-            )}
-          </div>
-
-          <div className="rounded-lg bg-slate-900/60 px-3 py-2">
-            <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Environment Variables</p>
-            {Object.entries(diagData.env).map(([key, val]) => (
-              <Row key={key} label={key} value={val} />
-            ))}
-          </div>
-
-          <p className="text-xs text-slate-600 font-mono">checked at {diagData.timestamp}</p>
+          ))}
         </div>
       )}
 
       {/* ── CRUD test log ── */}
       {crudLogs.length > 0 && (
-        <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 px-3 py-3 space-y-2">
+        <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 px-3 py-3 space-y-1">
 
-          {/* Log header */}
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-              CRUD Test Log
+              Full CRUD Test Log
             </p>
             {!crudRunning && (
               <button
                 onClick={() => setCrudLogs([])}
                 className="flex items-center gap-1 text-xs text-slate-600 hover:text-slate-400 transition-colors"
               >
-                <Trash2 size={11} />
-                Clear
+                <Trash2 size={11} /> Clear
               </button>
             )}
           </div>
 
-          {/* Step rows */}
-          {crudLogs.map((s, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs font-mono">
-              {/* Status icon */}
-              <span className={
-                s.status === 'ok'   ? 'text-emerald-400' :
-                s.status === 'fail' ? 'text-rose-400'    :
-                                      'text-slate-500'
-              }>
-                {s.status === 'ok' ? '✅' : s.status === 'fail' ? '❌' : '⏭'}
-              </span>
+          {groups.map(group => {
+            const groupSteps = crudLogs.filter(s => s.group === group);
+            if (groupSteps.length === 0) return null;
+            const groupFails = groupSteps.filter(s => s.status === 'fail').length;
+            return (
+              <div key={group} className="mb-3">
+                {/* Group header */}
+                <div className="flex items-center gap-2 mb-1.5">
+                  <StatusIcon ok={groupFails === 0 && !crudRunning} />
+                  <span className={`text-[11px] font-semibold uppercase tracking-widest ${
+                    groupFails > 0 ? 'text-rose-400' : 'text-slate-400'
+                  }`}>
+                    {group}
+                    {groupFails > 0 && <span className="ml-1 text-rose-400">({groupFails} failed)</span>}
+                  </span>
+                </div>
 
-              <div className="flex-1 min-w-0">
-                {/* Step name + timing */}
-                <span className={
-                  s.status === 'ok'   ? 'text-emerald-300 font-semibold' :
-                  s.status === 'fail' ? 'text-rose-300 font-semibold'    :
-                                        'text-slate-400 font-semibold'
-                }>
-                  {s.step}
-                </span>
-                {s.ms !== undefined && (
-                  <span className="text-slate-600 ml-2">{s.ms}ms</span>
-                )}
-                {/* Detail */}
-                <p className="text-slate-500 break-all leading-snug mt-0.5">{s.detail}</p>
+                {/* Steps */}
+                <div className="space-y-1 pl-2">
+                  {groupSteps.map((s, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs font-mono">
+                      <span className={
+                        s.status === 'ok'   ? 'text-emerald-400' :
+                        s.status === 'fail' ? 'text-rose-400'    : 'text-slate-500'
+                      }>
+                        {s.status === 'ok' ? '✅' : s.status === 'fail' ? '❌' : '⏭'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className={
+                          s.status === 'ok'   ? 'text-emerald-300 font-semibold' :
+                          s.status === 'fail' ? 'text-rose-300 font-semibold'    :
+                                               'text-slate-400 font-semibold'
+                        }>
+                          {s.step}
+                        </span>
+                        {s.ms !== undefined && (
+                          <span className="text-slate-600 ml-2">{s.ms}ms</span>
+                        )}
+                        <p className="text-slate-500 break-all leading-snug mt-0.5">{s.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
-          {/* Running spinner row */}
           {crudRunning && (
             <div className="flex items-center gap-2 text-xs text-slate-500 font-mono pt-1">
               <RefreshCw size={11} className="animate-spin text-indigo-400" />
-              <span className="text-indigo-400">running next step…</span>
+              <span className="text-indigo-400">running…</span>
             </div>
           )}
 
-          {/* Final verdict */}
-          {!crudRunning && crudLogs.length > 0 && (
+          {!crudRunning && totalSteps > 0 && (
             <div className={`mt-2 pt-2 border-t border-slate-800 text-xs font-semibold font-mono ${
-              allOk ? 'text-emerald-400' : anyFail ? 'text-rose-400' : 'text-slate-400'
+              allOk ? 'text-emerald-400' : 'text-rose-400'
             }`}>
               {allOk
-                ? `✅ All ${crudLogs.length} steps passed — DB read/write/delete working`
-                : `❌ ${crudLogs.filter(s => s.status === 'fail').length} of ${crudLogs.length} steps failed`}
+                ? `✅ All ${totalSteps} steps passed — Events + Notes + Todos fully operational`
+                : `❌ ${failedSteps} of ${totalSteps} steps failed`}
             </div>
           )}
         </div>

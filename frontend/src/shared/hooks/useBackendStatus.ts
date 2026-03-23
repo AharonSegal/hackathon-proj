@@ -37,17 +37,11 @@ function notify(d: BackendDetail) {
 
 const check = async () => {
   notify({ ...globalDetail, status: 'checking' });
+  const t0 = Date.now();
   try {
-    const res = await axios.get<{ db?: { status?: string }; latencyMs?: number }>(
-      '/api/debug',
-      { timeout: 8000 },
-    );
-    const dbStatus = res.data.db?.status;
-    notify({
-      status: dbStatus === 'connected' ? 'online' : 'offline',
-      db: dbStatus === 'connected' ? 'ok' : (dbStatus ?? 'unknown'),
-      latencyMs: res.data.latencyMs,
-    });
+    // Ping via a lightweight GET that exercises the DB (no /api/debug needed)
+    await axios.get('/api/events?year=1970&month=01', { timeout: 8000 });
+    notify({ status: 'online', db: 'ok', latencyMs: Date.now() - t0 });
   } catch (err) {
     const msg = axios.isAxiosError(err)
       ? err.response

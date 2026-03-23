@@ -137,6 +137,16 @@ export async function ensureInit(): Promise<Client> {
     )
   `);
 
+  // Protective migrations — add columns that may be missing on older DBs
+  const todoMigrations = [
+    'ALTER TABLE todos ADD COLUMN completed_at TEXT',
+    'ALTER TABLE todos ADD COLUMN created_at TEXT',
+    'ALTER TABLE todos ADD COLUMN updated_at TEXT',
+  ];
+  for (const sql of todoMigrations) {
+    try { await db.execute(sql); } catch { /* already exists */ }
+  }
+
   // ── Seed example data (INSERT OR IGNORE — idempotent on every cold start) ───
   const _d = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
   const _now = new Date().toISOString();
