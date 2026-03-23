@@ -116,6 +116,10 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
         endTime: allDay ? undefined : endTime || undefined,
         color,
         allDay,
+        tags: editEvent?.tags ?? [],
+        folderId: editEvent?.folderId ?? null,
+        recurrence: editEvent?.recurrence ?? 'none',
+        recurrenceEnd: editEvent?.recurrenceEnd,
         scheduledEmail: addEmail && emailTo && emailSubject
           ? { to: emailTo.split(',').map(s => s.trim()), subject: emailSubject, body: emailBody, scheduledAt: new Date(emailAt).toISOString(), sent: false, id: '' }
           : undefined,
