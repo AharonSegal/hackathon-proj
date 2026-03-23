@@ -6,10 +6,13 @@
  */
 
 import { useState, useEffect, KeyboardEvent } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Paperclip } from 'lucide-react';
 import { clsx } from 'clsx';
+import { AnimatePresence } from 'framer-motion';
 import { type CalendarEvent, type EventColor, EVENT_COLOR_HEX, RECURRENCE_OPTIONS } from '@/shared/types/event.types';
 import { type Folder } from '@/shared/types/note.types';
+import { AttachmentModal } from '@/shared/components/Attachments/AttachmentModal';
+import { getAttachmentCount } from '@/shared/hooks/useAttachments';
 
 interface EventFormPanelProps {
   event: CalendarEvent | null; // null = create mode
@@ -39,6 +42,11 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
   const [recurrence, setRecurrence] = useState<CalendarEvent['recurrence']>(event?.recurrence ?? 'none');
   const [recurrenceEnd, setRecurrenceEnd] = useState(event?.recurrenceEnd ?? '');
   const [description, setDescription] = useState(event?.description ?? '');
+  const [attachmentModalOpen, setAttachmentModalOpen] = useState(false);
+  const [attachCount, setAttachCount] = useState(() => event ? getAttachmentCount(event.id) : 0);
+
+  // Refresh attachment count when event changes
+  useEffect(() => { setAttachCount(event ? getAttachmentCount(event.id) : 0); }, [event?.id]);
 
   // Sync form when event changes
   useEffect(() => {
@@ -281,7 +289,7 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
 
       {/* Footer buttons */}
       <div className="border-t border-slate-700 px-6 py-4 flex items-center justify-between gap-2">
-        <div>
+        <div className="flex items-center gap-1">
           {isEdit && onDelete && (
             <button
               onClick={onDelete}
@@ -289,6 +297,18 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete
+            </button>
+          )}
+          {isEdit && event && (
+            <button
+              onClick={() => setAttachmentModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              {attachCount > 0
+                ? <span className="text-indigo-400">{attachCount} attachment{attachCount !== 1 ? 's' : ''}</span>
+                : 'Attach'
+              }
             </button>
           )}
         </div>
@@ -308,6 +328,18 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
           </button>
         </div>
       </div>
+
+      {/* Attachment modal */}
+      <AnimatePresence>
+        {attachmentModalOpen && event && (
+          <AttachmentModal
+            entityId={event.id}
+            entityType="event"
+            entityTitle={event.title || 'Untitled Event'}
+            onClose={() => { setAttachmentModalOpen(false); setAttachCount(getAttachmentCount(event.id)); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
