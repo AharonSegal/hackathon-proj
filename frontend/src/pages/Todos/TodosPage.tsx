@@ -12,7 +12,7 @@
 
 import { useState, useRef } from 'react';
 import ReactConfetti from 'react-confetti';
-import { Rocket, Plus, CheckSquare, Check, Trash2 } from 'lucide-react';
+import { Rocket, Plus, CheckSquare, Check, Trash2, X } from 'lucide-react';
 import { useTodos } from '@/shared/context/TodosContext';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';
 import { GradientButton } from '@/shared/components/ui/GradientButton';
@@ -181,13 +181,23 @@ export function TodosPage() {
           {/* Completed section */}
           {completedTodos.length > 0 && (
             <div className="pt-4">
-              <button
-                onClick={() => setShowCompleted(o => !o)}
-                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 mb-3 transition-colors"
-              >
-                <Check className="h-3.5 w-3.5" />
-                {showCompleted ? 'Hide' : 'Show'} completed ({completedTodos.length})
-              </button>
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  onClick={() => setShowCompleted(o => !o)}
+                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {showCompleted ? 'Hide' : 'Show'} completed ({completedTodos.length})
+                </button>
+                <button
+                  onClick={() => completedTodos.forEach(t => deleteTodo(t.id))}
+                  className="flex items-center gap-1 text-xs text-slate-600 hover:text-rose-400 transition-colors"
+                  title="Clear all completed"
+                >
+                  <X className="h-3 w-3" />
+                  Clear all
+                </button>
+              </div>
 
               {showCompleted && completedTodos.map(todo => (
                 <div
