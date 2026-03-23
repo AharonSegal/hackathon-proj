@@ -210,11 +210,11 @@ export function NoteCard({
               )}
             </div>
 
-            {/* Attachment button */}
+            {/* Attachment button — always visible */}
             <button
               onClick={e => { e.stopPropagation(); setAttachmentModalOpen(true); }}
               aria-label="Attachments"
-              className="relative rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-700"
+              className="relative rounded p-0.5 transition-colors hover:bg-slate-700"
             >
               <Paperclip className="h-3 w-3 text-slate-500" />
               {attachCount > 0 && (
