@@ -10,11 +10,21 @@
  *   GET  /api/health   — full health check with DB latency
  *   GET  /api/debug    — diagnostic: env vars (masked) + DB status
  *   POST /api/settings — settings stub (settings live in frontend localStorage)
+ *
+ * Vercel dev fallbacks (zero-segment and two-segment paths that don't reach
+ * their subdirectory catch-all handler in local dev):
+ *   GET  /api/trash           — list all trashed notes + events
+ *   DELETE /api/trash         — empty trash (permanent delete of all)
+ *   GET    /api/worklog/entries/:id — fetch one worklog entry
+ *   PUT    /api/worklog/entries/:id — update one worklog entry
+ *   DELETE /api/worklog/entries/:id — delete one worklog entry
+ *
  *   *    /api/*        — 404 for anything else
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
+import { ensureInit, rowToTrashNote, rowToTrashEvent, rowToWorklogEntry } from '../lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parts = Array.isArray(req.query.path) ? req.query.path : [req.query.path ?? ''];
@@ -88,6 +98,104 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
     // Settings are persisted in localStorage on the frontend.
     return res.status(200).json({ ok: true });
+  }
+
+  // ── /api/trash (collection) ───────────────────────────────────────────────
+  // Handles GET + DELETE on the base /api/trash URL. In Vercel's file-based
+  // routing the zero-segment base URL is not matched by the subdirectory
+  // catch-all (api/trash/[...path].ts), so it falls through to here.
+  if (route === 'trash') {
+    try {
+      const db = await ensureInit();
+
+      if (req.method === 'GET') {
+        const notesResult = await db.execute(`
+          SELECT t.id as trash_id, n.id, n.title, n.folder_id, t.deleted_at
+          FROM trash t
+          JOIN notes n ON n.id = t.entity_id
+          WHERE t.entity_type = 'note'
+          ORDER BY t.deleted_at DESC
+        `);
+        const eventsResult = await db.execute(`
+          SELECT t.id as trash_id, e.id, e.title, e.date, e.folder_id, t.deleted_at
+          FROM trash t
+          JOIN events e ON e.id = t.entity_id
+          WHERE t.entity_type = 'event'
+          ORDER BY t.deleted_at DESC
+        `);
+        return res.status(200).json({
+          notes:  notesResult.rows.map(r => rowToTrashNote(r as Record<string, unknown>)),
+          events: eventsResult.rows.map(r => rowToTrashEvent(r as Record<string, unknown>)),
+        });
+      }
+
+      if (req.method === 'DELETE') {
+        await db.execute(`DELETE FROM notes  WHERE id IN (SELECT entity_id FROM trash WHERE entity_type = 'note')`);
+        await db.execute(`DELETE FROM events WHERE id IN (SELECT entity_id FROM trash WHERE entity_type = 'event')`);
+        await db.execute('DELETE FROM trash');
+        return res.status(204).end();
+      }
+
+      return res.status(405).json({ error: 'Method not allowed' });
+    } catch (err) {
+      console.error('[/api/trash fallback]', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // ── /api/worklog/entries/:id — vercel dev two-segment fallback ────────────
+  // In vercel dev, two-segment paths under api/worklog/[...path].ts may not
+  // be routed correctly and fall through to this top-level catch-all.
+  const wlMatch = route.match(/^worklog\/entries\/([^/]+)$/);
+  if (wlMatch) {
+    const wlId = wlMatch[1];
+    try {
+      const db = await ensureInit();
+
+      if (req.method === 'GET') {
+        const result = await db.execute({ sql: 'SELECT * FROM worklog_entries WHERE id = ?', args: [wlId] });
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        return res.status(200).json(rowToWorklogEntry(result.rows[0] as Record<string, unknown>));
+      }
+
+      if (req.method === 'PUT') {
+        const b = req.body ?? {};
+        if (!b.title) return res.status(400).json({ error: 'title is required' });
+        await db.execute({
+          sql: `UPDATE worklog_entries SET
+                date = ?, day_number = ?, project = ?, categories = ?, title = ?,
+                description = ?, technologies = ?, team_type = ?, team_size = ?,
+                coding_languages = ?
+                WHERE id = ?`,
+          args: [
+            b.date,
+            b.dayNumber ?? 1,
+            b.project ?? '',
+            JSON.stringify(b.categories ?? []),
+            String(b.title),
+            b.description ?? null,
+            JSON.stringify(b.technologies ?? []),
+            b.teamType ?? 'solo',
+            b.teamSize ?? null,
+            JSON.stringify(b.codingLanguages ?? []),
+            wlId,
+          ],
+        });
+        const row = await db.execute({ sql: 'SELECT * FROM worklog_entries WHERE id = ?', args: [wlId] });
+        if (row.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        return res.status(200).json(rowToWorklogEntry(row.rows[0] as Record<string, unknown>));
+      }
+
+      if (req.method === 'DELETE') {
+        await db.execute({ sql: 'DELETE FROM worklog_entries WHERE id = ?', args: [wlId] });
+        return res.status(204).end();
+      }
+
+      return res.status(405).json({ error: 'Method not allowed' });
+    } catch (err) {
+      console.error('[/api/worklog/entries/:id fallback]', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
   }
 
   // ── Fallthrough — 404 ─────────────────────────────────────────────────────

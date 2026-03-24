@@ -193,7 +193,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           sql: 'INSERT INTO worklog_schema (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data',
           args: ['default', JSON.stringify(req.body ?? {})],
         });
-        return res.status(200).json({ ok: true });
+        return res.status(200).json(req.body ?? {});
       }
 
       return res.status(405).json({ error: 'Method not allowed' });
@@ -221,7 +221,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           sql: 'INSERT INTO worklog_preferences (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data',
           args: ['default', JSON.stringify(req.body ?? null)],
         });
-        return res.status(200).json({ ok: true });
+        return res.status(200).json(req.body ?? null);
       }
 
       return res.status(405).json({ error: 'Method not allowed' });
