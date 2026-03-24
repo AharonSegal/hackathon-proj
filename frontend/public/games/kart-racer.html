@@ -125,184 +125,180 @@ function clearInputFrameState(){ for(const k in keyRelease) delete keyRelease[k]
 //  MAP DEFINITIONS
 // ============================================================
 const MAPS = [
-  // ---- MAP 1: Classic Circuit ----
+  // ── MAP 1: CLASSIC CIRCUIT ── easy, wide road, gentle sweeping turns ──
   {
-    name:'Classic Circuit', difficulty:2, features:['🌉'],
-    bgColor:'#4a7a2e', roadColor:'#6b6b6b', grassColor:'#5d8a3c',
-    roadWidth:155, voidEdges:false, icePhysics:false,
+    name:'Classic Circuit', difficulty:1, features:['🏁','🌿'],
+    bgColor:'#3d7a28', roadColor:'#686868', kerbColor:'rgba(180,0,0,0.55)',
+    grassColor:'#4a8a32', roadWidth:160, voidEdges:false, icePhysics:false,
     waypoints:[
-      {x:1250,y:1720,layer:0},
-      {x:1100,y:1620,layer:0},
-      {x:950, y:1520,layer:0},
-      {x:820, y:1420,layer:0},
-      {x:740, y:1280,layer:0},
-      {x:700, y:1120,layer:0},
-      {x:740, y:960, layer:0},
-      {x:840, y:820, layer:0},
-      {x:980, y:720, layer:0},
-      {x:1140,y:670, layer:0},
-      {x:1320,y:660, layer:0},
-      {x:1500,y:700, layer:0},
-      {x:1640,y:790, layer:0},
-      {x:1720,y:940, layer:0},
-      {x:1720,y:1100,layer:0},
-      {x:1660,y:1260,layer:0},
-      {x:1530,y:1360,layer:0},
-      {x:1390,y:1380,layer:1},
-      {x:1260,y:1355,layer:1},
-      {x:1130,y:1310,layer:1},
-      {x:1020,y:1320,layer:0},
-      {x:900, y:1380,layer:0},
-      {x:810, y:1480,layer:0},
-      {x:820, y:1600,layer:0},
-      {x:940, y:1680,layer:0},
-      {x:1090,y:1720,layer:0},
-      {x:1250,y:1720,layer:0}
+      {x:1400,y:2200},{x:1550,y:2180},{x:1700,y:2130},{x:1850,y:2050},
+      {x:1980,y:1940},{x:2080,y:1800},{x:2130,y:1640},{x:2130,y:1470},
+      {x:2080,y:1310},{x:1990,y:1170},{x:1860,y:1060},{x:1700,y:990},
+      {x:1540,y:960},{x:1400,y:970},{x:1260,y:1010},{x:1150,y:1080},
+      {x:1060,y:1180},{x:990, y:1310},{x:960, y:1450},{x:990, y:1590},
+      {x:1050,y:1710},{x:1130,y:1810},{x:1060,y:1920},{x:960, y:2000},
+      {x:830, y:2060},{x:680, y:2090},{x:530, y:2080},{x:400, y:2030},
+      {x:290, y:1940},{x:230, y:1820},{x:220, y:1680},{x:270, y:1550},
+      {x:370, y:1440},{x:490, y:1370},{x:620, y:1330},{x:740, y:1310},
+      {x:840, y:1260},{x:880, y:1160},{x:860, y:1050},{x:790, y:960},
+      {x:690, y:890},{x:570, y:850},{x:440, y:850},{x:320, y:890},
+      {x:220, y:960},{x:150, y:1070},{x:130, y:1200},{x:160, y:1330},
+      {x:240, y:1430},{x:350, y:1330},{x:460, y:1260},{x:590, y:1230},
+      {x:710, y:1250},{x:810, y:1330},{x:840, y:1450},{x:800, y:1570},
+      {x:720, y:1660},{x:650, y:1760},{x:640, y:1880},{x:700, y:1990},
+      {x:800, y:2070},{x:940, y:2110},{x:1090,y:2120},{x:1230,y:2100},
+      {x:1340,y:2180},{x:1400,y:2200},
     ],
-    itemBoxes:[{x:1200,y:1500},{x:720,y:1020},{x:1430,y:720},{x:1140,y:1330}],
-    ramps:[{x:1490,y:1365,angle:Math.PI*1.2},{x:1030,y:1318,angle:0.1}]
+    itemBoxes:[{x:1400,y:1900},{x:2100,y:1470},{x:1400,y:975},{x:220,y:1750},{x:450,y:870},{x:750,y:1300}],
+    ramps:[{x:1100,y:1760,angle:0.4},{x:480,y:1375,angle:2.5}]
   },
-  // ---- MAP 2: Ancient Ruins ----
+
+  // ── MAP 2: ANCIENT RUINS ── medium, sandy, zigzags through ruins ──
   {
-    name:'Ancient Ruins', difficulty:3, features:['🌉','🏜️'],
-    bgColor:'#c4a265', roadColor:'#8b7355', grassColor:'#b8975e',
-    roadWidth:160, voidEdges:true, icePhysics:false,
+    name:'Ancient Ruins', difficulty:2, features:['🏛️','🏜️'],
+    bgColor:'#c2a060', roadColor:'#907050', kerbColor:'rgba(140,80,0,0.6)',
+    grassColor:'#b89050', roadWidth:155, voidEdges:false, icePhysics:false,
     waypoints:[
-      {x:1200,y:1820,layer:0},
-      {x:1060,y:1700,layer:0},
-      {x:920, y:1620,layer:0},
-      {x:790, y:1530,layer:0},
-      {x:700, y:1400,layer:0},
-      {x:660, y:1250,layer:0},
-      {x:700, y:1090,layer:0},
-      {x:800, y:970, layer:0},
-      {x:950, y:870, layer:0},
-      {x:1110,y:810, layer:0},
-      {x:1300,y:800, layer:0},
-      {x:1500,y:820, layer:0},
-      {x:1660,y:900, layer:0},
-      {x:1760,y:1050,layer:0},
-      {x:1780,y:1210,layer:1},
-      {x:1720,y:1350,layer:1},
-      {x:1610,y:1440,layer:1},
-      {x:1460,y:1460,layer:0},
-      {x:1310,y:1440,layer:0},
-      {x:1200,y:1400,layer:0},
-      {x:1090,y:1430,layer:0},
-      {x:990, y:1510,layer:0},
-      {x:950, y:1620,layer:0},
-      {x:1020,y:1720,layer:0},
-      {x:1120,y:1790,layer:0},
-      {x:1200,y:1820,layer:0}
+      {x:1300,y:2300},{x:1480,y:2270},{x:1650,y:2210},{x:1800,y:2110},
+      {x:1920,y:1980},{x:2010,y:1830},{x:2060,y:1670},{x:2070,y:1510},
+      {x:2040,y:1350},{x:1970,y:1200},{x:1870,y:1070},{x:1740,y:970},
+      {x:1600,y:910},{x:1470,y:880},{x:1360,y:840},{x:1290,y:760},
+      {x:1270,y:660},{x:1320,y:570},{x:1420,y:510},{x:1550,y:480},
+      {x:1680,y:500},{x:1790,y:560},{x:1860,y:660},{x:1870,y:780},
+      {x:1820,y:890},{x:1710,y:970},{x:1560,y:1010},{x:1420,y:1000},
+      {x:1310,y:1040},{x:1220,y:1130},{x:1180,y:1250},{x:1200,y:1380},
+      {x:1270,y:1500},{x:1370,y:1590},{x:1430,y:1710},{x:1400,y:1840},
+      {x:1310,y:1940},{x:1170,y:2000},{x:1010,y:2010},{x:860, y:1970},
+      {x:740, y:1890},{x:660, y:1770},{x:640, y:1640},{x:680, y:1510},
+      {x:770, y:1400},{x:890, y:1310},{x:970, y:1200},{x:980, y:1080},
+      {x:910, y:970},{x:800, y:890},{x:670, y:840},{x:530, y:830},
+      {x:400, y:870},{x:290, y:950},{x:210, y:1070},{x:180, y:1210},
+      {x:200, y:1360},{x:270, y:1490},{x:380, y:1590},{x:510, y:1650},
+      {x:620, y:1760},{x:630, y:1890},{x:700, y:2000},{x:850, y:2100},
+      {x:1020,y:2180},{x:1180,y:2230},{x:1300,y:2300},
     ],
-    itemBoxes:[{x:890,y:1200},{x:1310,y:805},{x:1750,y:1130},{x:1110,y:1440}],
-    ramps:[{x:1745,y:1130,angle:Math.PI/2}]
+    itemBoxes:[{x:1300,y:2000},{x:2050,y:1590},{x:1420,y:880},{x:1820,y:720},{x:560,y:840},{x:230,y:1280}],
+    ramps:[{x:1440,y:1595,angle:0.6},{x:750,y:1405,angle:2.0}]
   },
-  // ---- MAP 3: Ice Mountain ----
+
+  // ── MAP 3: ICE MOUNTAIN ── hard, many switchbacks, slippery ──
   {
-    name:'Ice Mountain', difficulty:4, features:['🌉','🧊'],
-    bgColor:'#d6eaf8', roadColor:'#a9cce3', grassColor:'#c5dff0',
-    roadWidth:150, voidEdges:false, icePhysics:true,
+    name:'Ice Mountain', difficulty:3, features:['🧊','🏔️'],
+    bgColor:'#cce8f4', roadColor:'#90b8d0', kerbColor:'rgba(0,100,200,0.4)',
+    grassColor:'#b8dff0', roadWidth:148, voidEdges:false, icePhysics:true,
     waypoints:[
-      {x:1200,y:1760,layer:0},
-      {x:1060,y:1660,layer:0},
-      {x:910, y:1580,layer:0},
-      {x:790, y:1470,layer:0},
-      {x:720, y:1340,layer:0},
-      {x:700, y:1190,layer:0},
-      {x:750, y:1050,layer:0},
-      {x:850, y:920, layer:0},
-      {x:990, y:820, layer:0},
-      {x:1160,y:760, layer:0},
-      {x:1340,y:755, layer:0},
-      {x:1490,y:790, layer:1},
-      {x:1620,y:870, layer:1},
-      {x:1700,y:990, layer:1},
-      {x:1710,y:1130,layer:0},
-      {x:1680,y:1280,layer:0},
-      {x:1610,y:1410,layer:0},
-      {x:1490,y:1500,layer:0},
-      {x:1360,y:1555,layer:0},
-      {x:1250,y:1590,layer:0},
-      {x:1130,y:1640,layer:0},
-      {x:1030,y:1700,layer:0},
-      {x:1200,y:1760,layer:0}
+      {x:1300,y:2400},{x:1460,y:2370},{x:1610,y:2300},{x:1750,y:2200},
+      {x:1870,y:2070},{x:1960,y:1920},{x:2010,y:1760},{x:2010,y:1590},
+      {x:1970,y:1430},{x:1890,y:1290},{x:1780,y:1170},{x:1640,y:1080},
+      {x:1490,y:1030},{x:1350,y:1010},{x:1220,y:1020},{x:1120,y:1070},
+      {x:1050,y:1160},{x:1040,y:1280},{x:1090,y:1400},{x:1180,y:1500},
+      {x:1300,y:1570},{x:1410,y:1600},{x:1490,y:1660},{x:1510,y:1770},
+      {x:1470,y:1880},{x:1370,y:1970},{x:1240,y:2020},{x:1110,y:2010},
+      {x:1000,y:1960},{x:910, y:1870},{x:870, y:1760},{x:890, y:1640},
+      {x:960, y:1530},{x:1050,y:1430},{x:1100,y:1320},{x:1080,y:1200},
+      {x:990, y:1110},{x:860, y:1060},{x:720, y:1050},{x:590, y:1080},
+      {x:470, y:1150},{x:380, y:1260},{x:330, y:1390},{x:330, y:1530},
+      {x:380, y:1660},{x:470, y:1770},{x:570, y:1860},{x:640, y:1980},
+      {x:620, y:2100},{x:570, y:2210},{x:690, y:2310},{x:840, y:2370},
+      {x:1000,y:2390},{x:1150,y:2400},{x:1300,y:2400},
     ],
-    itemBoxes:[{x:890,y:1100},{x:1250,y:758},{x:1700,y:1060},{x:1420,y:1510}],
-    ramps:[]
+    itemBoxes:[{x:1300,y:2100},{x:2000,y:1600},{x:1350,y:1020},{x:860,y:1060},{x:350,y:1450},{x:630,y:2040}],
+    ramps:[{x:1490,y:1035,angle:0.3},{x:340,y:1390,angle:1.8}]
   },
-  // ---- MAP 4: Lava World ----
+
+  // ── MAP 4: LAVA WORLD ── hard, narrow, multiple tight hairpins, void edges ──
   {
-    name:'Lava World', difficulty:5, features:['🌉','🌋'],
-    bgColor:'#2c0a00', roadColor:'#5a2d0c', grassColor:'#3d1208',
-    roadWidth:140, voidEdges:true, icePhysics:false,
+    name:'Lava World', difficulty:4, features:['🌋','🔥'],
+    bgColor:'#1a0200', roadColor:'#6a2c08', kerbColor:'rgba(255,80,0,0.7)',
+    grassColor:'#2a0600', roadWidth:135, voidEdges:true, icePhysics:false,
     waypoints:[
-      {x:1200,y:1810,layer:0},
-      {x:1070,y:1700,layer:0},
-      {x:940, y:1620,layer:0},
-      {x:810, y:1560,layer:0},
-      {x:710, y:1450,layer:0},
-      {x:670, y:1300,layer:0},
-      {x:710, y:1140,layer:0},
-      {x:820, y:1010,layer:0},
-      {x:960, y:910, layer:0},
-      {x:1130,y:850, layer:0},
-      {x:1320,y:840, layer:1},
-      {x:1500,y:820, layer:1},
-      {x:1660,y:860, layer:1},
-      {x:1780,y:960, layer:1},
-      {x:1820,y:1110,layer:0},
-      {x:1800,y:1260,layer:0},
-      {x:1720,y:1390,layer:0},
-      {x:1600,y:1480,layer:0},
-      {x:1460,y:1530,layer:1},
-      {x:1330,y:1545,layer:1},
-      {x:1210,y:1530,layer:0},
-      {x:1100,y:1570,layer:0},
-      {x:1050,y:1670,layer:0},
-      {x:1110,y:1770,layer:0},
-      {x:1200,y:1810,layer:0}
+      {x:1250,y:2300},{x:1430,y:2270},{x:1620,y:2210},{x:1800,y:2110},
+      {x:1950,y:1970},{x:2060,y:1800},{x:2120,y:1610},{x:2120,y:1410},
+      {x:2060,y:1220},{x:1950,y:1060},{x:1800,y:940}, {x:1620,y:870},
+      {x:1440,y:850}, {x:1290,y:890}, {x:1180,y:980}, {x:1120,y:1120},
+      {x:1120,y:1270},{x:1190,y:1410},{x:1320,y:1510},{x:1430,y:1610},
+      {x:1430,y:1750},{x:1340,y:1860},{x:1190,y:1910},{x:1030,y:1880},
+      {x:910, y:1790},{x:870, y:1650},{x:930, y:1520},{x:1060,y:1440},
+      {x:1180,y:1340},{x:1220,y:1200},{x:1160,y:1070},{x:1030,y:980},
+      {x:880, y:940}, {x:720, y:950}, {x:580, y:1010},{x:470, y:1120},
+      {x:400, y:1270},{x:390, y:1430},{x:450, y:1580},{x:570, y:1690},
+      {x:720, y:1760},{x:860, y:1780},{x:900, y:1910},{x:840, y:2040},
+      {x:700, y:2120},{x:550, y:2150},{x:400, y:2110},{x:280, y:2020},
+      {x:200, y:1890},{x:190, y:1730},{x:260, y:1590},{x:390, y:1490},
+      {x:490, y:1370},{x:520, y:1220},{x:460, y:1080},{x:340, y:990},
+      {x:200, y:1010},{x:120, y:1140},{x:130, y:1310},{x:240, y:1450},
+      {x:390, y:1520},{x:530, y:1460},{x:600, y:1310},{x:540, y:1160},
+      {x:390, y:1080},{x:240, y:1110},{x:190, y:1290},{x:310, y:1480},
+      {x:510, y:1560},{x:680, y:1480},{x:730, y:1310},{x:640, y:1140},
+      {x:470, y:1060},{x:310, y:1130},{x:290, y:1360},{x:460, y:1560},
+      {x:700, y:1620},{x:870, y:1520},{x:910, y:1320},{x:790, y:1150},
+      {x:610, y:1070},{x:450, y:1150},{x:450, y:1400},{x:650, y:1590},
+      {x:900, y:1610},{x:1040,y:1460},{x:1030,y:1270},{x:880, y:1120},
+      {x:690, y:1100},{x:570, y:1260},{x:630, y:1490},{x:850, y:1590},
+      {x:1050,y:1540},{x:1150,y:1360},{x:1080,y:1170},{x:890, y:1080},
+      {x:720, y:1130},{x:710, y:1360},{x:900, y:1530},{x:1130,y:1510},
+      {x:1260,y:1320},{x:1170,y:1110},{x:960, y:1030},{x:790, y:1130},
+      {x:820, y:1390},{x:1070,y:1520},{x:1300,y:1460},{x:1390,y:1240},
+      {x:1250,y:1050},{x:1040,y:1000},{x:860, y:1100},{x:920, y:1360},
+      {x:1190,y:1500},{x:1430,y:1390},{x:1480,y:1150},{x:1310,y:980},
+      {x:1090,y:990}, {x:960, y:1180},{x:1080,y:1440},{x:1380,y:1560},
+      {x:1620,y:1430},{x:1660,y:1160},{x:1470,y:980}, {x:1230,y:1010},
+      {x:1140,y:1250},{x:1370,y:1520},{x:1680,y:1510},{x:1820,y:1250},
+      {x:1680,y:1000},{x:1430,y:990}, {x:1320,y:1240},{x:1570,y:1510},
+      {x:1840,y:1490},{x:1960,y:1220},{x:1790,y:1000},{x:1560,y:1020},
+      {x:1490,y:1280},{x:1720,y:1490},{x:1960,y:1420},{x:2010,y:1150},
+      {x:1820,y:1000},{x:1640,y:1070},{x:1680,y:1360},{x:1950,y:1470},
+      {x:2020,y:1280},{x:1890,y:1090},{x:1740,y:1140},{x:1800,y:1430},
+      {x:2010,y:1510},{x:2000,y:1280},{x:1870,y:1140},{x:1760,y:1280},
+      {x:1840,y:1530},{x:1980,y:1570},{x:1970,y:1720},{x:1900,y:1870},
+      {x:1800,y:1990},{x:1700,y:2090},{x:1580,y:2170},{x:1440,y:2220},
+      {x:1330,y:2260},{x:1250,y:2300},
     ],
-    itemBoxes:[{x:890,y:1210},{x:1310,y:845},{x:1800,y:1130},{x:1370,y:1538}],
-    ramps:[
-      {x:1220,y:848,angle:0.1},
-      {x:1120,y:855,angle:Math.PI+0.1},
-      {x:1800,y:1185,angle:Math.PI/2}
-    ]
+    itemBoxes:[{x:1250,y:2000},{x:2100,y:1600},{x:1440,y:860},{x:480,y:1120},{x:200,y:1890},{x:1660,y:1400}],
+    ramps:[{x:1125,y:1195,angle:0.5},{x:840,y:945,angle:3.1},{x:400,y:1275,angle:1.7}]
   },
-  // ---- MAP 5: Rainbow Road ----
+
+  // ── MAP 5: RAINBOW ROAD ── extreme, very narrow, void, wild spirals ──
   {
-    name:'Rainbow Road', difficulty:5, features:['🌉','🌈','🌌'],
-    bgColor:'#000010', roadColor:'rainbow', grassColor:'#000020',
-    roadWidth:105, voidEdges:true, icePhysics:false,
+    name:'Rainbow Road', difficulty:5, features:['🌈','🌌','⭐'],
+    bgColor:'#000012', roadColor:'rainbow', kerbColor:'rgba(255,255,255,0.5)',
+    grassColor:'#000020', roadWidth:108, voidEdges:true, icePhysics:false,
     waypoints:[
-      {x:1200,y:1810,layer:0},
-      {x:1070,y:1690,layer:0},
-      {x:950, y:1580,layer:0},
-      {x:850, y:1460,layer:0},
-      {x:795, y:1325,layer:0},
-      {x:795, y:1185,layer:0},
-      {x:855, y:1060,layer:0},
-      {x:960, y:955, layer:0},
-      {x:1090,y:875, layer:0},
-      {x:1240,y:825, layer:0},
-      {x:1400,y:815, layer:0},
-      {x:1560,y:845, layer:0},
-      {x:1700,y:920, layer:0},
-      {x:1800,y:1040,layer:0},
-      {x:1820,y:1190,layer:1},
-      {x:1780,y:1335,layer:1},
-      {x:1690,y:1455,layer:1},
-      {x:1560,y:1535,layer:1},
-      {x:1420,y:1570,layer:0},
-      {x:1275,y:1570,layer:0},
-      {x:1150,y:1550,layer:0},
-      {x:1050,y:1590,layer:0},
-      {x:990, y:1690,layer:0},
-      {x:1070,y:1775,layer:0},
-      {x:1200,y:1810,layer:0}
+      {x:1300,y:2300},{x:1490,y:2270},{x:1680,y:2200},{x:1850,y:2090},
+      {x:1990,y:1950},{x:2090,y:1780},{x:2140,y:1590},{x:2130,y:1390},
+      {x:2070,y:1210},{x:1960,y:1060},{x:1820,y:950}, {x:1660,y:890},
+      {x:1490,y:880}, {x:1340,y:920}, {x:1210,y:1010},{x:1130,y:1150},
+      {x:1120,y:1310},{x:1190,y:1470},{x:1330,y:1590},{x:1510,y:1660},
+      {x:1700,y:1660},{x:1860,y:1590},{x:1960,y:1470},{x:1990,y:1320},
+      {x:1960,y:1170},{x:1870,y:1050},{x:1750,y:970}, {x:1610,y:940},
+      {x:1470,y:960}, {x:1360,y:1030},{x:1300,y:1150},{x:1320,y:1290},
+      {x:1420,y:1400},{x:1570,y:1460},{x:1720,y:1440},{x:1830,y:1360},
+      {x:1880,y:1230},{x:1850,y:1090},{x:1760,y:990}, {x:1640,y:960},
+      {x:1510,y:990}, {x:1420,y:1080},{x:1400,y:1230},{x:1480,y:1380},
+      {x:1640,y:1450},{x:1800,y:1390},{x:1880,y:1240},{x:1840,y:1080},
+      {x:1720,y:990}, {x:1560,y:1010},{x:1470,y:1150},{x:1550,y:1340},
+      {x:1730,y:1400},{x:1860,y:1260},{x:1800,y:1080},{x:1630,y:1020},
+      {x:1510,y:1160},{x:1630,y:1370},{x:1830,y:1370},{x:1900,y:1180},
+      {x:1770,y:1010},{x:1580,y:1010},{x:1490,y:1210},{x:1690,y:1420},
+      {x:1920,y:1360},{x:1940,y:1110},{x:1760,y:970}, {x:1530,y:1020},
+      {x:1470,y:1290},{x:1730,y:1470},{x:1980,y:1340},{x:1940,y:1060},
+      {x:1700,y:960}, {x:1460,y:1080},{x:1510,y:1390},{x:1810,y:1490},
+      {x:2000,y:1280},{x:1900,y:1000},{x:1630,y:950}, {x:1420,y:1150},
+      {x:1540,y:1480},{x:1890,y:1520},{x:2040,y:1230},{x:1880,y:970},
+      {x:1600,y:970}, {x:1400,y:1230},{x:1600,y:1550},{x:1960,y:1530},
+      {x:2060,y:1200},{x:1860,y:970}, {x:1580,y:1030},{x:1440,y:1350},
+      {x:1690,y:1580},{x:2010,y:1530},{x:2060,y:1250},{x:1880,y:1020},
+      {x:1670,y:1080},{x:1600,y:1360},{x:1860,y:1570},{x:2040,y:1440},
+      {x:2020,y:1200},{x:1840,y:1060},{x:1690,y:1130},{x:1720,y:1430},
+      {x:1950,y:1530},{x:2010,y:1330},{x:1870,y:1110},{x:1750,y:1160},
+      {x:1820,y:1470},{x:2010,y:1520},{x:2000,y:1320},{x:1870,y:1180},
+      {x:1820,y:1360},{x:1940,y:1490},{x:1970,y:1390},{x:1910,y:1280},
+      {x:1910,y:1420},{x:1950,y:1490},{x:1950,y:1590},{x:1930,y:1720},
+      {x:1890,y:1860},{x:1870,y:2000},{x:1890,y:2130},{x:1940,y:2230},
+      {x:1940,y:2300},{x:1880,y:2330},{x:1780,y:2330},{x:1650,y:2310},
+      {x:1510,y:2300},{x:1380,y:2300},{x:1300,y:2300},
     ],
-    itemBoxes:[{x:890,y:1200},{x:1310,y:820},{x:1810,y:1190},{x:1350,y:1570}],
+    itemBoxes:[{x:1300,y:2050},{x:2130,y:1590},{x:1490,y:880},{x:1120,y:1310},{x:1860,y:1590},{x:1540,y:1460}],
     ramps:[]
   }
 ];
@@ -550,14 +546,9 @@ function drawKart(kart,cam){
   roundRect(KART_W*0.1,-KART_H/2+4,KART_W*0.3,KART_H-8,4);
   ctx.fill();
 
-  // Nose cone
-  ctx.fillStyle='#fff';
-  ctx.beginPath();
-  ctx.moveTo(KART_W/2,0);
-  ctx.lineTo(KART_W/2-11,-KART_H/2+2);
-  ctx.lineTo(KART_W/2-11, KART_H/2-2);
-  ctx.closePath();
-  ctx.fill();
+  // Front bumper stripe (dark, shows front clearly without white arrow)
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.fillRect(KART_W/2-7, -KART_H/2+2, 7, KART_H-4);
 
   // Rear spoiler
   const spoilerBack=-KART_W/2;
@@ -636,7 +627,7 @@ function drawKart(kart,cam){
 // ============================================================
 //  DRAW TRACK
 // ============================================================
-function drawTrackLayer(map,cam,targetLayer){
+function drawTrackLayer(map,cam,_layer){
   const wps=map.waypoints;
   const rw=map.roadWidth;
   const isRainbow=(map.roadColor==='rainbow');
@@ -647,95 +638,50 @@ function drawTrackLayer(map,cam,targetLayer){
   ctx.lineCap='round';
   ctx.lineJoin='round';
 
-  if(isRainbow && targetLayer===0){
-    // Rainbow road: draw each segment with its own hue (no choice but segment-by-segment)
-    for(let i=0;i<wps.length-1;i++){
-      if((wps[i].layer||0)!==0) continue;
-      const ax=toSX(wps[i]),ay=toSY(wps[i]),bx=toSX(wps[i+1]),by=toSY(wps[i+1]);
-      const hue=((i/(wps.length-1))*360+gs.rainbowAnim)%360;
-      // Kerb shadow
-      ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=rw+14;
-      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
-      // Road
+  // Build single screen-space polyline for the whole track
+  const pts=wps.map(w=>({x:toSX(w),y:toSY(w)}));
+
+  const buildPath=()=>{
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x,pts[0].y);
+    for(let k=1;k<pts.length;k++) ctx.lineTo(pts[k].x,pts[k].y);
+  };
+
+  if(isRainbow){
+    // Rainbow: per-segment colored strokes
+    for(let i=0;i<pts.length-1;i++){
+      const hue=((i/(pts.length-1))*360+gs.rainbowAnim)%360;
+      ctx.strokeStyle=`rgba(0,0,0,0.5)`; ctx.lineWidth=rw+14;
+      ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[i+1].x,pts[i+1].y); ctx.stroke();
       ctx.strokeStyle=`hsl(${hue},100%,58%)`; ctx.lineWidth=rw;
-      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[i+1].x,pts[i+1].y); ctx.stroke();
     }
-    // Dashes on top
-    ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=2.5; ctx.setLineDash([20,16]);
-    for(let i=0;i<wps.length-1;i++){
-      if((wps[i].layer||0)!==0) continue;
-      const ax=toSX(wps[i]),ay=toSY(wps[i]),bx=toSX(wps[i+1]),by=toSY(wps[i+1]);
-      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
-    }
-    ctx.setLineDash([]);
-    ctx.restore();
-    return;
+    // Dashes
+    ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=2.5; ctx.setLineDash([22,16]);
+    buildPath(); ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore(); return;
   }
 
-  // ── Collect consecutive same-layer runs ──────────────────
-  const roadColor=targetLayer===1?lightenHex(map.roadColor,30):map.roadColor;
-  const runs=[];
-  let cur=null;
-  for(let i=0;i<wps.length;i++){
-    const atLayer=(wps[i].layer||0)===targetLayer;
-    if(atLayer){
-      if(!cur) cur=[];
-      cur.push({x:toSX(wps[i]),y:toSY(wps[i])});
-    } else {
-      // Include one extra point as cap so runs meet nicely
-      if(cur && i<wps.length){
-        cur.push({x:toSX(wps[i]),y:toSY(wps[i])});
-        runs.push(cur);
-      }
-      cur=null;
-    }
-  }
-  if(cur && cur.length>1) runs.push(cur);
+  // 1. Outer kerb shadow
+  ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=rw+18;
+  buildPath(); ctx.stroke();
 
-  for(const pts of runs){
-    if(pts.length<2) continue;
+  // 2. Rumble strip (thin contrasting border)
+  ctx.strokeStyle=map.kerbColor||'rgba(160,0,0,0.6)'; ctx.lineWidth=rw+7;
+  buildPath(); ctx.stroke();
 
-    const buildPath=()=>{
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x,pts[0].y);
-      for(let k=1;k<pts.length;k++) ctx.lineTo(pts[k].x,pts[k].y);
-    };
+  // 3. Main road
+  ctx.strokeStyle=map.roadColor; ctx.lineWidth=rw;
+  buildPath(); ctx.stroke();
 
-    // 1. Outer kerb shadow
-    ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=rw+16;
-    buildPath(); ctx.stroke();
+  // 4. Subtle centreline shading (depth)
+  ctx.strokeStyle='rgba(0,0,0,0.14)'; ctx.lineWidth=Math.max(4,rw-28);
+  buildPath(); ctx.stroke();
 
-    // 2. Rumble-strip colour (red/white alternating look via semi-transparent red)
-    ctx.strokeStyle='rgba(180,20,20,0.45)'; ctx.lineWidth=rw+6;
-    buildPath(); ctx.stroke();
+  // 5. Centre dashes
+  ctx.strokeStyle='rgba(255,255,255,0.28)'; ctx.lineWidth=2.5;
+  ctx.setLineDash([26,20]); buildPath(); ctx.stroke(); ctx.setLineDash([]);
 
-    // 3. Main road surface
-    ctx.strokeStyle=roadColor; ctx.lineWidth=rw;
-    buildPath(); ctx.stroke();
-
-    // 4. Subtle inner shading (makes road look 3D)
-    ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=rw-22;
-    buildPath(); ctx.stroke();
-
-    // 5. Centre dashes
-    ctx.strokeStyle='rgba(255,255,255,0.32)'; ctx.lineWidth=2.5;
-    ctx.setLineDash([24,18]); buildPath(); ctx.stroke();
-    ctx.setLineDash([]);
-
-    // 6. Bridge layer extras
-    if(targetLayer===1){
-      // Guardrail beams
-      ctx.strokeStyle='#ddd'; ctx.lineWidth=5; ctx.lineCap='square';
-      buildPath(); // draw as thick outer lines on both sides — approximate via wide stroke with gap
-      // Actually: draw guardrails slightly wider than road then mask — simpler: just draw the rail lines
-      // We approximate by using a wide semi-transparent overlay
-      ctx.strokeStyle='rgba(220,220,220,0.7)'; ctx.lineWidth=rw+2;
-      ctx.setLineDash([2, rw-2]); // hacky rail dash: short solid, long gap
-      buildPath(); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.lineCap='round';
-    }
-  }
   ctx.restore();
 }
 
@@ -2108,37 +2054,27 @@ function renderRace(){
   // 1. Background
   drawBackground(map,cam);
 
-  // 2. Layer-0 road
+  // 2. Road
   drawTrackLayer(map,cam,0);
 
-  // 3. Bridge supports (pillar shapes)
-  drawBridgeSupports(map,cam);
-
-  // 4. Ramps
+  // 3. Ramps
   drawRamps(map,cam);
 
-  // 5. Item boxes & pickups
+  // 4. Item boxes & pickups
   drawItemBoxes(cam);
   drawShellsBananas(cam);
 
-  // 6. Layer-0 karts
-  const l0=[...gs.karts].filter(k=>k.layer===0).sort((a,b)=>a.y-b.y);
-  for(const k of l0) drawKart(k,cam);
+  // 5. All karts (sorted by y for depth)
+  const sortedKarts=[...gs.karts].sort((a,b)=>a.y-b.y);
+  for(const k of sortedKarts) drawKart(k,cam);
 
-  // 7. Layer-1 road (bridge surface on top)
-  drawTrackLayer(map,cam,1);
-
-  // 8. Layer-1 karts (on bridge, drawn on top of bridge)
-  const l1=[...gs.karts].filter(k=>k.layer===1).sort((a,b)=>a.y-b.y);
-  for(const k of l1) drawKart(k,cam);
-
-  // 9. Particles
+  // 6. Particles
   drawParticles(cam);
 
-  // 10. HUD
+  // 7. HUD
   drawHUD(gs.karts[0],map);
 
-  // 11. Countdown
+  // 8. Countdown
   if(!gs.raceStarted) drawCountdown();
 }
 
