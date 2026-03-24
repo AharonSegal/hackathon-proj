@@ -26,6 +26,18 @@ import type { Entry, Schema, Preferences, PageName } from '../utils/types';
 import defaultSchema from '../utils/defaultSchema';
 import * as storage from '../services/storageService';
 
+const SESSION_KEY = 'dailylog_cache';
+function tryReadCache(): { entries: Entry[]; schema: Schema; preferences: Preferences | null } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+function tryWriteCache(payload: { entries: Entry[]; schema: Schema; preferences: Preferences | null }) {
+  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload)); } catch {}
+}
+
 interface AppState {
   entries: Entry[];
   schema: Schema;
@@ -50,7 +62,7 @@ const initialState: AppState = {
   schema: defaultSchema,
   preferences: null,
   currentPage: 'log',
-  isLoading: true,
+  isLoading: false,
   loadError: null,
 };
 
@@ -88,19 +100,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function init() {
+      // Hydrate from sessionStorage cache immediately — zero network latency
+      const cached = tryReadCache();
+      if (cached) {
+        dispatch({ type: 'INIT', payload: cached });
+      }
+
+      // Fetch fresh data in background; update state when done
       try {
         const { entries, schema, preferences } = await storage.loadAll();
-        dispatch({
-          type: 'INIT',
-          payload: {
-            entries,
-            schema: schema ?? defaultSchema,
-            preferences,
-          },
-        });
+        const payload = { entries, schema: schema ?? defaultSchema, preferences };
+        dispatch({ type: 'INIT', payload });
+        tryWriteCache(payload);
         if (!schema) await storage.setSchema(defaultSchema);
       } catch (err) {
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to load data. Check your connection.' });
+        if (!cached) {
+          dispatch({ type: 'SET_ERROR', payload: 'Failed to load data. Check your connection.' });
+        }
       }
     }
     init();

@@ -20,7 +20,7 @@ const TABS: { id: View; label: string; icon: typeof BookOpen }[] = [
 
 function DailyLogInner() {
   const [view, setView] = useState<View>('log');
-  const { state, loadError } = useApp();
+  const { loadError } = useApp();
 
   if (loadError) {
     return (
@@ -35,20 +35,6 @@ function DailyLogInner() {
           <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
             <RefreshCw size={14} /> Retry
           </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (state.isLoading) {
-    return (
-      <div className="flex h-full flex-col">
-        <PageHeader title="Daily Log" subtitle="Work journal & analytics" />
-        <div className="flex-1 space-y-4 p-4 sm:p-6">
-          <div className="h-10 animate-pulse rounded-xl bg-slate-800" />
-          <div className="h-40 animate-pulse rounded-xl bg-slate-800" />
-          <div className="h-40 animate-pulse rounded-xl bg-slate-800" />
-          <div className="h-40 animate-pulse rounded-xl bg-slate-800" />
         </div>
       </div>
     );
