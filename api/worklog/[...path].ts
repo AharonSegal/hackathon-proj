@@ -67,6 +67,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (m && m[1]) { resource = m[1]; id = m[2]; }
   }
 
+  // vercel.json rewrite fallback: /api/worklog/entries/:id is rewritten to
+  // /api/worklog/entries?_wlId=:id to work around Vercel dev's routing bug
+  // with 2-segment subdirectory catch-all paths.
+  if (!id && typeof req.query._wlId === 'string' && req.query._wlId) {
+    id = req.query._wlId;
+  }
+
   try {
     const db = await ensureInit();
 
@@ -135,6 +142,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.method === 'PUT') {
         const b = req.body ?? {};
         if (!b.title) return res.status(400).json({ error: 'title is required' });
+        const cur = await db.execute({ sql: 'SELECT * FROM worklog_entries WHERE id = ?', args: [id] });
+        if (cur.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const c = cur.rows[0] as Record<string, unknown>;
         await db.execute({
           sql: `UPDATE worklog_entries SET
                 date = ?, day_number = ?, project = ?, categories = ?, title = ?,
@@ -142,14 +152,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 coding_languages = ?
                 WHERE id = ?`,
           args: [
-            b.date,
-            b.dayNumber ?? 1,
-            b.project ?? '',
+            b.date ?? c.date,
+            b.dayNumber ?? c.day_number ?? 1,
+            b.project ?? c.project ?? '',
             JSON.stringify(b.categories ?? []),
             String(b.title),
             b.description ?? null,
             JSON.stringify(b.technologies ?? []),
-            b.teamType ?? 'solo',
+            b.teamType ?? c.team_type ?? 'solo',
             b.teamSize ?? null,
             JSON.stringify(b.codingLanguages ?? []),
             id,
