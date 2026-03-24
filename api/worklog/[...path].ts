@@ -52,8 +52,20 @@ function entriesToCSV(entries: ReturnType<typeof rowToWorklogEntry>[]): string {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const parts = Array.isArray(req.query.path) ? req.query.path : [req.query.path ?? ''];
-  const [resource, id] = parts as [string, string | undefined];
+  // Parse route segments — req.query.path may be absent in some vercel dev versions;
+  // fall back to parsing req.url (/api/worklog/<resource>[/<id>]) directly.
+  let resource = '';
+  let id: string | undefined;
+
+  const qp = req.query.path;
+  if (Array.isArray(qp) && qp.length > 0 && qp[0]) {
+    [resource, id] = qp as [string, string | undefined];
+  } else if (typeof qp === 'string' && qp) {
+    resource = qp;
+  } else {
+    const m = (req.url ?? '').match(/\/api\/worklog\/([^/?]+)(?:\/([^/?]+))?/);
+    if (m && m[1]) { resource = m[1]; id = m[2]; }
+  }
 
   try {
     const db = await ensureInit();

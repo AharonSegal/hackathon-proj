@@ -21,7 +21,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { RefreshCw, XCircle, CheckCircle2, FlaskConical, Trash2, Database } from 'lucide-react';
+import { RefreshCw, XCircle, CheckCircle2, FlaskConical, Trash2, Database, Copy, Check } from 'lucide-react';
 import { useBackendStatus } from '@/shared/hooks/useBackendStatus';
 import axios from 'axios';
 
@@ -76,6 +76,7 @@ export function DiagnosticsPanel() {
   // ── CRUD test state ──
   const [crudRunning, setCrudRunning] = useState(false);
   const [crudLogs,    setCrudLogs]    = useState<CrudStep[]>([]);
+  const [copied,      setCopied]      = useState(false);
 
   // ── Run diagnostics ───────────────────────────────────────────────────────
 
@@ -171,10 +172,11 @@ export function DiagnosticsPanel() {
     if (evId) try {
       const t0  = Date.now();
       const res = await axios.get<{ notes: unknown[]; events: { trashId: string; entityId: string }[] }>('/api/trash', { timeout: 10000 });
-      const entry = res.data.events.find(e => e.entityId === evId);
+      const eventsArr = res.data?.events ?? [];
+      const entry = eventsArr.find(e => e.entityId === evId);
       evTrashId = entry?.trashId ?? null;
       push(G1, 'IN TRASH', entry ? 'ok' : 'fail',
-        entry ? `GET /api/trash → found in trash.events  trashId=${evTrashId}` : `NOT found in trash (${res.data.events.length} event entries)`,
+        entry ? `GET /api/trash → found in trash.events  trashId=${evTrashId}` : `NOT found in trash (${eventsArr.length} event entries)`,
         Date.now() - t0);
     } catch (e) { push(G1, 'IN TRASH', 'fail', fmtErr(e)); }
 
@@ -200,7 +202,7 @@ export function DiagnosticsPanel() {
     if (evId) try {
       await axios.delete(`/api/events/${evId}`, { timeout: 10000 });
       const trashRes = await axios.get<{ events: { trashId: string; entityId: string }[] }>('/api/trash', { timeout: 10000 });
-      const entry = trashRes.data.events.find(e => e.entityId === evId);
+      const entry = (trashRes.data?.events ?? []).find(e => e.entityId === evId);
       evTrashId = entry?.trashId ?? null;
       push(G1, 'DELETE AGAIN', evTrashId ? 'ok' : 'fail',
         evTrashId ? `Re-deleted; trashId=${evTrashId}` : `Deleted but not found in trash`);
@@ -222,7 +224,7 @@ export function DiagnosticsPanel() {
         axios.get<{ events: { entityId: string }[] }>('/api/trash', { timeout: 10000 }),
       ]);
       const inEvents = evRes.data.some(e => e.id === evId);
-      const inTrash  = trashRes2.data.events.some(e => e.entityId === evId);
+      const inTrash  = (trashRes2.data?.events ?? []).some(e => e.entityId === evId);
       push(G1, 'VERIFY GONE', !inEvents && !inTrash ? 'ok' : 'fail',
         `events list ${inEvents ? '❌ still present' : '✓ gone'}  trash ${inTrash ? '❌ still present' : '✓ gone'}`,
         Date.now() - t0);
@@ -279,10 +281,11 @@ export function DiagnosticsPanel() {
     if (nId) try {
       const t0  = Date.now();
       const res = await axios.get<{ notes: { trashId: string; entityId: string }[]; events: unknown[] }>('/api/trash', { timeout: 10000 });
-      const entry = res.data.notes.find(n => n.entityId === nId);
+      const notesArr = res.data?.notes ?? [];
+      const entry = notesArr.find(n => n.entityId === nId);
       nTrashId = entry?.trashId ?? null;
       push(G2, 'IN TRASH', entry ? 'ok' : 'fail',
-        entry ? `GET /api/trash → found in trash.notes  trashId=${nTrashId}` : `NOT found in trash (${res.data.notes.length} note entries)`,
+        entry ? `GET /api/trash → found in trash.notes  trashId=${nTrashId}` : `NOT found in trash (${notesArr.length} note entries)`,
         Date.now() - t0);
     } catch (e) { push(G2, 'IN TRASH', 'fail', fmtErr(e)); }
 
@@ -513,6 +516,38 @@ export function DiagnosticsPanel() {
     setCrudRunning(false);
   }, []);
 
+  // ── Copy log to clipboard ─────────────────────────────────────────────────
+
+  const copyLog = useCallback(() => {
+    const lines: string[] = [
+      `Full CRUD Test Log — ${new Date().toLocaleString()}`,
+      '─'.repeat(52),
+      '',
+    ];
+    const seenGroups: string[] = [];
+    crudLogs.forEach(s => { if (!seenGroups.includes(s.group)) seenGroups.push(s.group); });
+    for (const group of seenGroups) {
+      const steps = crudLogs.filter(s => s.group === group);
+      const fails = steps.filter(s => s.status === 'fail').length;
+      lines.push(`[${group}]${fails > 0 ? ` — ${fails} failed` : ''}`);
+      for (const s of steps) {
+        const icon = s.status === 'ok' ? '✓' : s.status === 'fail' ? '✗' : '−';
+        lines.push(`  ${icon} ${s.step}${s.ms !== undefined ? ` (${s.ms}ms)` : ''}`);
+        if (s.detail) lines.push(`    ${s.detail}`);
+      }
+      lines.push('');
+    }
+    const failed = crudLogs.filter(s => s.status === 'fail').length;
+    lines.push('─'.repeat(52));
+    lines.push(failed === 0
+      ? `✅ All ${crudLogs.length} steps passed`
+      : `❌ ${failed} of ${crudLogs.length} steps failed`);
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }, [crudLogs]);
+
   // ── Status dot / label ────────────────────────────────────────────────────
 
   const dot = status === 'online'  ? 'bg-emerald-500'
@@ -602,12 +637,22 @@ export function DiagnosticsPanel() {
               Full CRUD Test Log
             </p>
             {!crudRunning && (
-              <button
-                onClick={() => setCrudLogs([])}
-                className="flex items-center gap-1 text-xs text-slate-600 hover:text-slate-400 transition-colors"
-              >
-                <Trash2 size={11} /> Clear
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyLog}
+                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-200 transition-colors"
+                  title="Copy log to clipboard"
+                >
+                  {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                <button
+                  onClick={() => setCrudLogs([])}
+                  className="flex items-center gap-1 text-xs text-slate-600 hover:text-slate-400 transition-colors"
+                >
+                  <Trash2 size={11} /> Clear
+                </button>
+              </div>
             )}
           </div>
 

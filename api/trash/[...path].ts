@@ -14,8 +14,19 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ensureInit, rowToTrashNote, rowToTrashEvent } from '../../lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const parts = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path] : []);
-  const id = parts[0] as string | undefined;
+  // Parse id — req.query.path may be absent in some vercel dev versions;
+  // fall back to parsing req.url (/api/trash[/<id>]) directly.
+  let id: string | undefined;
+
+  const qp = req.query.path;
+  if (Array.isArray(qp) && qp.length > 0 && qp[0]) {
+    id = qp[0] as string;
+  } else if (typeof qp === 'string' && qp) {
+    id = qp;
+  } else {
+    const m = (req.url ?? '').match(/\/api\/trash\/([^/?]+)/);
+    if (m && m[1]) id = m[1];
+  }
 
   try {
     const db = await ensureInit();
