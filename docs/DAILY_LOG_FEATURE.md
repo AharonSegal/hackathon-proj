@@ -50,6 +50,7 @@ It was adapted from the standalone `daily-work-logger-main` app and fully migrat
 | team_size         | INTEGER | Number of team members (null if solo)                |
 | coding_languages  | TEXT    | JSON array of coding language strings                |
 | created_at        | TEXT    | ISO datetime of insertion                            |
+| deleted_at        | TEXT    | `NULL` = active; ISO 8601 = soft-deleted (in Trash)  |
 
 **Indexes:**
 - `idx_worklog_entries_date` on `(date DESC, created_at DESC)` — used by the list GET
@@ -87,7 +88,7 @@ All endpoints are Vercel serverless functions under `api/worklog/`.
 | DELETE | `/api/worklog/entries`        | Hard-delete ALL entries (used by "Clear All Data") |
 | GET    | `/api/worklog/entries/:id`    | Get single entry by ID; 404 if not found           |
 | PUT    | `/api/worklog/entries/:id`    | Full-replace update; returns updated entry         |
-| DELETE | `/api/worklog/entries/:id`    | Hard-delete single entry; returns 204              |
+| DELETE | `/api/worklog/entries/:id`    | Soft-delete: sets `deleted_at`, inserts into `trash`; returns 204 |
 | GET    | `/api/worklog/schema`         | Get schema JSON document; null if not seeded       |
 | PUT    | `/api/worklog/schema`         | Upsert schema document                             |
 | GET    | `/api/worklog/preferences`    | Get preferences; null if never saved               |
@@ -104,13 +105,19 @@ All endpoints are Vercel serverless functions under `api/worklog/`.
 ```
 DailyLogPage mounts
   └── AppProvider mounts
-        └── useEffect → storage.loadAll()
-              ├── GET /api/worklog/entries    (returns Entry[])
-              ├── GET /api/worklog/schema     (returns Schema | null)
-              └── GET /api/worklog/preferences (returns Preferences | null)
-                    └── dispatch INIT → state.entries, state.schema, state.preferences
-                          └── if no schema → PUT /api/worklog/schema (defaultSchema)
+        └── useEffect → init()
+              ├── [sync] check sessionStorage for cached data
+              │     └── if found → dispatch INIT immediately (zero latency, instant render)
+              └── [async] storage.loadAll()
+                    ├── GET /api/worklog/entries    (returns Entry[] — deleted_at IS NULL only)
+                    ├── GET /api/worklog/schema     (returns Schema | null)
+                    └── GET /api/worklog/preferences (returns Preferences | null)
+                          └── dispatch INIT → updates state with fresh data
+                                └── write fresh data to sessionStorage for next visit
+                                └── if no schema → PUT /api/worklog/schema (defaultSchema)
 ```
+
+The page renders immediately with `defaultSchema` + empty entries (or cached data from the previous visit). Network data fills in silently in the background.
 
 ### Submitting a log entry
 
@@ -140,7 +147,33 @@ User clicks Delete → confirms
   └── AppContext.deleteEntry(id)
         ├── optimistic: dispatch SET_ENTRIES (filters out deleted entry)
         └── DELETE /api/worklog/entries/:id
+              ├── UPDATE worklog_entries SET deleted_at = now() WHERE id = ?
+              └── INSERT INTO trash (id, entity_id, entity_type='worklog_entry', deleted_at)
 ```
+
+The entry is **soft-deleted** — it is hidden from the Daily Log but appears in the Trash page where it can be restored or permanently deleted.
+
+---
+
+## Trash Integration
+
+Deleted worklog entries appear in the global Trash page (`/trash`) alongside deleted notes and events.
+
+### How it works
+
+| Action | What happens |
+|---|---|
+| Delete entry (LogsPage) | `deleted_at` set on `worklog_entries` row; trash row inserted with `entity_type = 'worklog_entry'` |
+| View Trash | `GET /api/trash` JOINs `worklog_entries` and returns them in the `worklogs[]` array |
+| Restore (TrashPage) | `deleted_at` cleared on `worklog_entries`; trash row deleted — entry reappears in Daily Log |
+| Delete Forever (TrashPage) | `worklog_entries` row permanently deleted; trash row deleted |
+| Empty Trash | All soft-deleted worklog entries hard-deleted along with notes and events |
+
+### Frontend
+
+- `TrashPage.tsx` has a **Work Logs** section showing each trashed entry's title, date, project, and deletion date
+- Restore/delete actions update local state immediately for instant UI feedback
+- Bulk select and "Empty Trash" include worklog entries
 
 ---
 
@@ -209,6 +242,8 @@ The "DB Counts" button also shows the current `worklog_entries` row count alongs
 
 ## Performance Notes
 
+- **Instant page load**: `AppContext` starts with `isLoading: false` and renders the page immediately with `defaultSchema` + empty entries. Data arrives from the API in the background and fills in silently.
+- **sessionStorage cache**: After the first successful load, data is cached in `sessionStorage` under `dailylog_cache`. On subsequent visits within the same browser session the page hydrates from cache synchronously (zero network latency) and then refreshes in the background.
 - **DB indexes**: `idx_worklog_entries_date` and `idx_worklog_entries_project` ensure all common queries are O(log n) rather than full table scans.
 - **Parallel loading**: `storage.loadAll()` fires all 3 GETs simultaneously via `Promise.all`.
 - **Optimistic updates**: All mutations update local state immediately so the UI never waits for the API.
