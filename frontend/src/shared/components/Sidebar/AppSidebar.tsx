@@ -22,6 +22,7 @@ import {
   Trash2,
   CheckSquare,
   BookOpen,
+  Gamepad2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useT } from '@/shared/i18n/useT';
@@ -38,6 +39,7 @@ export function AppSidebar() {
     { to: '/notes',       label: t.nav_notes,       icon: NotebookPen },
     { to: '/messages',    label: t.nav_messages,    icon: MessageSquare },
     { to: '/daily-log',   label: t.nav_daily_log,   icon: BookOpen },
+    { to: '/games',       label: t.nav_games,        icon: Gamepad2 },
   ];
 
   const BOTTOM_ITEMS = [

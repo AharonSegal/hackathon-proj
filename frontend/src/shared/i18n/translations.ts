@@ -22,6 +22,7 @@ const en = {
   nav_trash:        'Trash',
   nav_todos:        'Todos',
   nav_daily_log:    'Daily Log',
+  nav_games:        'Games',
   app_name:         'לוח שנה',
   app_subtitle:     'Calendar App',
 
@@ -190,6 +191,7 @@ const he: typeof en = {
   nav_trash:        'פח אשפה',
   nav_todos:        'משימות',
   nav_daily_log:    'יומן עבודה',
+  nav_games:        'משחקים',
   app_name:         'לוח שנה',
   app_subtitle:     'יישום לוח שנה',
 

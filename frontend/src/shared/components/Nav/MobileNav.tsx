@@ -20,6 +20,7 @@ import {
   Trash2,
   CheckSquare,
   BookOpen,
+  Gamepad2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useT } from '@/shared/i18n/useT';
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { to: '/notes',       icon: NotebookPen,     labelKey: 'nav_notes'       },
   { to: '/messages',    icon: MessageSquare,   labelKey: 'nav_messages'    },
   { to: '/daily-log',   icon: BookOpen,        labelKey: 'nav_daily_log'   },
+  { to: '/games',       icon: Gamepad2,        labelKey: 'nav_games'       },
   { to: '/calendar',    icon: CalendarDays,    labelKey: 'nav_calendar'    },
   { to: '/daily-times', icon: Clock,           labelKey: 'nav_daily_times' },
   { to: '/trash',       icon: Trash2,          labelKey: 'nav_trash'       },
