@@ -13,7 +13,7 @@ canvas { display:block; cursor:none; }
 </head>
 <body>
 <canvas id="c" width="960" height="640"></canvas>
-<audio id="bgm" src="/cart_song.mp3" loop></audio>
+<audio id="bgm" src="/cart_song.mp3" loop preload="auto"></audio>
 <script>
 // ============================================================
 //  CONSTANTS
@@ -48,6 +48,17 @@ const MEDAL_ICONS = ['🥇','🥈','🥉','4️⃣'];
 const cvs = document.getElementById('c');
 const ctx = cvs.getContext('2d');
 const bgm = document.getElementById('bgm');
+bgm.volume = 0.55;
+
+// Try to start music on ANY user interaction (keydown or click)
+let bgmStarted = false;
+function tryStartBGM(){
+  if(bgmStarted) return;
+  bgmStarted = true;
+  bgm.play().catch(()=>{ bgmStarted=false; });
+}
+window.addEventListener('keydown', tryStartBGM, {once:false});
+cvs.addEventListener('click', tryStartBGM, {once:false});
 
 // ============================================================
 //  UTILITY
@@ -98,6 +109,8 @@ const keys={}, keyPress={}, keyRelease={};
 window.addEventListener('keydown',e=>{
   if(!keys[e.code]) keyPress[e.code]=true;
   keys[e.code]=true;
+  // M = mute toggle (don't preventDefault so it stays responsive)
+  if(e.code==='KeyM'){ bgm.muted=!bgm.muted; return; }
   e.preventDefault();
 });
 window.addEventListener('keyup',e=>{
@@ -626,92 +639,104 @@ function drawKart(kart,cam){
 function drawTrackLayer(map,cam,targetLayer){
   const wps=map.waypoints;
   const rw=map.roadWidth;
-  for(let i=0;i<wps.length-1;i++){
-    const a=wps[i], b=wps[i+1];
-    const segLayer=a.layer||0;
-    if(segLayer!==targetLayer) continue;
+  const isRainbow=(map.roadColor==='rainbow');
+  const toSX=w=>w.x-cam.x+CW/2;
+  const toSY=w=>w.y-cam.y+CH/2;
 
-    const ax=a.x-cam.x+CW/2, ay=a.y-cam.y+CH/2;
-    const bx=b.x-cam.x+CW/2, by=b.y-cam.y+CH/2;
-    // Cull off-screen
-    const ext=rw+20;
-    if(Math.max(ax,bx)<-ext||Math.min(ax,bx)>CW+ext) continue;
-    if(Math.max(ay,by)<-ext||Math.min(ay,by)>CH+ext) continue;
+  ctx.save();
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
 
-    const ang=Math.atan2(by-ay,bx-ax);
-    const nx=Math.cos(ang+Math.PI/2)*(rw/2);
-    const ny=Math.sin(ang+Math.PI/2)*(rw/2);
-
-    // Road surface
-    if(map.roadColor==='rainbow'){
-      const hue=((i/wps.length)*360+gs.rainbowAnim)%360;
-      const hue2=(((i+1)/wps.length)*360+gs.rainbowAnim)%360;
-      const gr=ctx.createLinearGradient(ax,ay,bx,by);
-      gr.addColorStop(0,`hsl(${hue},100%,60%)`);
-      gr.addColorStop(1,`hsl(${hue2},100%,60%)`);
-      ctx.fillStyle=gr;
-    } else {
-      ctx.fillStyle=(targetLayer===1) ? lightenHex(map.roadColor,28) : map.roadColor;
+  if(isRainbow && targetLayer===0){
+    // Rainbow road: draw each segment with its own hue (no choice but segment-by-segment)
+    for(let i=0;i<wps.length-1;i++){
+      if((wps[i].layer||0)!==0) continue;
+      const ax=toSX(wps[i]),ay=toSY(wps[i]),bx=toSX(wps[i+1]),by=toSY(wps[i+1]);
+      const hue=((i/(wps.length-1))*360+gs.rainbowAnim)%360;
+      // Kerb shadow
+      ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=rw+14;
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      // Road
+      ctx.strokeStyle=`hsl(${hue},100%,58%)`; ctx.lineWidth=rw;
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
     }
-    ctx.beginPath();
-    ctx.moveTo(ax+nx,ay+ny);
-    ctx.lineTo(bx+nx,by+ny);
-    ctx.lineTo(bx-nx,by-ny);
-    ctx.lineTo(ax-nx,ay-ny);
-    ctx.closePath();
-    ctx.fill();
-
-    // Road edge lines
-    ctx.strokeStyle='rgba(255,255,255,0.18)';
-    ctx.lineWidth=3;
-    ctx.beginPath();
-    ctx.moveTo(ax+nx,ay+ny);
-    ctx.lineTo(bx+nx,by+ny);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(ax-nx,ay-ny);
-    ctx.lineTo(bx-nx,by-ny);
-    ctx.stroke();
-
-    // Center dashes
-    ctx.strokeStyle='rgba(255,255,255,0.22)';
-    ctx.lineWidth=2;
-    ctx.setLineDash([22,18]);
-    ctx.beginPath();
-    ctx.moveTo(ax,ay);
-    ctx.lineTo(bx,by);
-    ctx.stroke();
+    // Dashes on top
+    ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=2.5; ctx.setLineDash([20,16]);
+    for(let i=0;i<wps.length-1;i++){
+      if((wps[i].layer||0)!==0) continue;
+      const ax=toSX(wps[i]),ay=toSY(wps[i]),bx=toSX(wps[i+1]),by=toSY(wps[i+1]);
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+    }
     ctx.setLineDash([]);
+    ctx.restore();
+    return;
+  }
 
-    // Guardrails on bridges
-    if(targetLayer===1){
-      ctx.strokeStyle='#ccc';
-      ctx.lineWidth=4.5;
-      ctx.lineCap='round';
-      ctx.beginPath();
-      ctx.moveTo(ax+nx,ay+ny); ctx.lineTo(bx+nx,by+ny);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(ax-nx,ay-ny); ctx.lineTo(bx-nx,by-ny);
-      ctx.stroke();
-      // Pillar posts
-      ctx.strokeStyle='#888';
-      ctx.lineWidth=3;
-      const steps=3;
-      for(let s=0;s<=steps;s++){
-        const ft=s/steps;
-        const px=ax+(bx-ax)*ft, py=ay+(by-ay)*ft;
-        ctx.beginPath();
-        ctx.moveTo(px+nx,py+ny);
-        ctx.lineTo(px+nx,py+ny+18);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(px-nx,py-ny);
-        ctx.lineTo(px-nx,py-ny+18);
-        ctx.stroke();
+  // ── Collect consecutive same-layer runs ──────────────────
+  const roadColor=targetLayer===1?lightenHex(map.roadColor,30):map.roadColor;
+  const runs=[];
+  let cur=null;
+  for(let i=0;i<wps.length;i++){
+    const atLayer=(wps[i].layer||0)===targetLayer;
+    if(atLayer){
+      if(!cur) cur=[];
+      cur.push({x:toSX(wps[i]),y:toSY(wps[i])});
+    } else {
+      // Include one extra point as cap so runs meet nicely
+      if(cur && i<wps.length){
+        cur.push({x:toSX(wps[i]),y:toSY(wps[i])});
+        runs.push(cur);
       }
+      cur=null;
     }
   }
+  if(cur && cur.length>1) runs.push(cur);
+
+  for(const pts of runs){
+    if(pts.length<2) continue;
+
+    const buildPath=()=>{
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x,pts[0].y);
+      for(let k=1;k<pts.length;k++) ctx.lineTo(pts[k].x,pts[k].y);
+    };
+
+    // 1. Outer kerb shadow
+    ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=rw+16;
+    buildPath(); ctx.stroke();
+
+    // 2. Rumble-strip colour (red/white alternating look via semi-transparent red)
+    ctx.strokeStyle='rgba(180,20,20,0.45)'; ctx.lineWidth=rw+6;
+    buildPath(); ctx.stroke();
+
+    // 3. Main road surface
+    ctx.strokeStyle=roadColor; ctx.lineWidth=rw;
+    buildPath(); ctx.stroke();
+
+    // 4. Subtle inner shading (makes road look 3D)
+    ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=rw-22;
+    buildPath(); ctx.stroke();
+
+    // 5. Centre dashes
+    ctx.strokeStyle='rgba(255,255,255,0.32)'; ctx.lineWidth=2.5;
+    ctx.setLineDash([24,18]); buildPath(); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 6. Bridge layer extras
+    if(targetLayer===1){
+      // Guardrail beams
+      ctx.strokeStyle='#ddd'; ctx.lineWidth=5; ctx.lineCap='square';
+      buildPath(); // draw as thick outer lines on both sides — approximate via wide stroke with gap
+      // Actually: draw guardrails slightly wider than road then mask — simpler: just draw the rail lines
+      // We approximate by using a wide semi-transparent overlay
+      ctx.strokeStyle='rgba(220,220,220,0.7)'; ctx.lineWidth=rw+2;
+      ctx.setLineDash([2, rw-2]); // hacky rail dash: short solid, long gap
+      buildPath(); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineCap='round';
+    }
+  }
+  ctx.restore();
 }
 
 function drawBridgeSupports(map,cam){
@@ -1374,6 +1399,13 @@ function updatePositions(map){
 //  HUD
 // ============================================================
 function drawHUD(player,map){
+  // MUSIC mute indicator (top-center subtle)
+  ctx.fillStyle=bgm.muted?'rgba(255,60,60,0.7)':'rgba(60,220,60,0.55)';
+  ctx.font='11px Bungee,sans-serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='top';
+  ctx.fillText(bgm.muted?'🔇 M=UNMUTE':'🎵 M=MUTE', CW/2, 12);
+
   // TOP-LEFT: Lap counter
   ctx.fillStyle='rgba(0,0,0,0.58)';
   ctx.beginPath();
@@ -1738,20 +1770,16 @@ function drawMapSelect(){
     const sel=gs.mapSelectIdx===i;
 
     ctx.save();
-    if(sel){
-      ctx.shadowColor='#f1c40f';
-      ctx.shadowBlur=22;
-      ctx.translate(cx+CARD_W/2,cy+CARD_H/2);
-      ctx.scale(1.04,1.04);
-      ctx.translate(-CARD_W/2,-CARD_H/2);
-    }
+    if(sel) ctx.translate(0,-8);
     ctx.fillStyle=sel?'#1a1a38':'#0c0c20';
+    if(sel){ ctx.shadowColor='#f1c40f'; ctx.shadowBlur=26; }
+    roundRect(cx,cy,CARD_W,CARD_H,13);
+    ctx.fill();
+    ctx.shadowBlur=0;
     ctx.strokeStyle=sel?'#f1c40f':'#2a2a4a';
     ctx.lineWidth=sel?3:1.5;
     roundRect(cx,cy,CARD_W,CARD_H,13);
-    ctx.fill();
     ctx.stroke();
-    ctx.shadowBlur=0;
 
     // Map preview thumb
     ctx.save();
@@ -1836,20 +1864,16 @@ function drawKartSelect(){
     const sel=gs.kartSelectIdx===i;
 
     ctx.save();
-    if(sel){
-      ctx.shadowColor=KART_COLORS[i];
-      ctx.shadowBlur=28;
-      ctx.translate(cx+KW/2,cy+KH/2);
-      ctx.scale(1.05,1.05);
-      ctx.translate(-KW/2,-KH/2);
-    }
+    if(sel) ctx.translate(0,-8);
     ctx.fillStyle=sel?'#1a1a38':'#0c0c20';
+    if(sel){ ctx.shadowColor=KART_COLORS[i]; ctx.shadowBlur=30; }
+    roundRect(cx,cy,KW,KH,13);
+    ctx.fill();
+    ctx.shadowBlur=0;
     ctx.strokeStyle=sel?KART_COLORS[i]:'#2a2a4a';
     ctx.lineWidth=sel?3:1.5;
     roundRect(cx,cy,KW,KH,13);
-    ctx.fill();
     ctx.stroke();
-    ctx.shadowBlur=0;
 
     // Large kart preview
     drawSimpleKart(cx+KW/2, cy+95, 0, KART_COLORS[i], 2.0);
@@ -1976,7 +2000,7 @@ function update(){
         if(p.life<=0) gs.particles.splice(i,1);
       }
       if(consumePress('Enter')||consumePress('NumpadEnter')){
-        bgm.play().catch(()=>{});
+        tryStartBGM();
         gs.screen='mapSelect';
       }
       break;
