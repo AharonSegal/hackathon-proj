@@ -20,6 +20,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parts = Array.isArray(req.query.path) ? req.query.path : [req.query.path ?? ''];
   const route = parts.join('/');
 
+  // ── GET /api/ or /api (root) — treat same as ping ─────────────────────────
+  if (route === '' && req.method === 'GET') {
+    return res.status(200).json({ pong: true });
+  }
+
   // ── GET /api/ping — instant liveness ──────────────────────────────────────
   if (route === 'ping' && req.method === 'GET') {
     return res.status(200).json({ pong: true });
