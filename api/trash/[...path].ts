@@ -11,7 +11,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ensureInit, rowToTrashNote, rowToTrashEvent } from '../../lib/db';
+import { ensureInit, rowToTrashNote, rowToTrashEvent, rowToTrashWorklogEntry } from '../../lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Parse id — req.query.path may be absent in some vercel dev versions;
@@ -48,15 +48,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           WHERE t.entity_type = 'event'
           ORDER BY t.deleted_at DESC
         `);
+        const worklogsResult = await db.execute(`
+          SELECT t.id as trash_id, w.id, w.title, w.date, w.project, t.deleted_at
+          FROM trash t
+          JOIN worklog_entries w ON w.id = t.entity_id
+          WHERE t.entity_type = 'worklog_entry'
+          ORDER BY t.deleted_at DESC
+        `);
         return res.status(200).json({
-          notes:  notesResult.rows.map(r  => rowToTrashNote(r  as Record<string, unknown>)),
-          events: eventsResult.rows.map(r => rowToTrashEvent(r as Record<string, unknown>)),
+          notes:    notesResult.rows.map(r  => rowToTrashNote(r  as Record<string, unknown>)),
+          events:   eventsResult.rows.map(r => rowToTrashEvent(r as Record<string, unknown>)),
+          worklogs: worklogsResult.rows.map(r => rowToTrashWorklogEntry(r as Record<string, unknown>)),
         });
       }
 
       if (req.method === 'DELETE') {
         await db.execute(`DELETE FROM notes  WHERE id IN (SELECT entity_id FROM trash WHERE entity_type = 'note')`);
         await db.execute(`DELETE FROM events WHERE id IN (SELECT entity_id FROM trash WHERE entity_type = 'event')`);
+        await db.execute(`DELETE FROM worklog_entries WHERE id IN (SELECT entity_id FROM trash WHERE entity_type = 'worklog_entry')`);
         await db.execute('DELETE FROM trash');
         return res.status(204).end();
       }
@@ -71,7 +80,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const item       = trashRow.rows[0] as Record<string, unknown>;
     const entityId   = item.entity_id   as string;
     const entityType = item.entity_type as string;
-    const table      = entityType === 'note' ? 'notes' : 'events';
+    const tableMap: Record<string, string> = { note: 'notes', event: 'events', worklog_entry: 'worklog_entries' };
+    const table      = tableMap[entityType];
+    if (!table) return res.status(400).json({ error: 'Unknown entity type' });
 
     if (req.method === 'PUT') {
       await db.execute({ sql: `UPDATE ${table} SET deleted_at = NULL WHERE id = ?`, args: [entityId] });

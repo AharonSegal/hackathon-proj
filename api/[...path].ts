@@ -24,7 +24,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@libsql/client';
-import { ensureInit, rowToTrashNote, rowToTrashEvent, rowToWorklogEntry } from '../lib/db';
+import { ensureInit, rowToTrashNote, rowToTrashEvent, rowToTrashWorklogEntry, rowToWorklogEntry } from '../lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parts = Array.isArray(req.query.path) ? req.query.path : [req.query.path ?? ''];
@@ -131,15 +131,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           WHERE t.entity_type = 'event'
           ORDER BY t.deleted_at DESC
         `);
+        const worklogsResult = await db.execute(`
+          SELECT t.id as trash_id, w.id, w.title, w.date, w.project, t.deleted_at
+          FROM trash t
+          JOIN worklog_entries w ON w.id = t.entity_id
+          WHERE t.entity_type = 'worklog_entry'
+          ORDER BY t.deleted_at DESC
+        `);
         return res.status(200).json({
-          notes:  notesResult.rows.map(r => rowToTrashNote(r as Record<string, unknown>)),
-          events: eventsResult.rows.map(r => rowToTrashEvent(r as Record<string, unknown>)),
+          notes:    notesResult.rows.map(r => rowToTrashNote(r as Record<string, unknown>)),
+          events:   eventsResult.rows.map(r => rowToTrashEvent(r as Record<string, unknown>)),
+          worklogs: worklogsResult.rows.map(r => rowToTrashWorklogEntry(r as Record<string, unknown>)),
         });
       }
 
       if (req.method === 'DELETE') {
         await db.execute(`DELETE FROM notes  WHERE id IN (SELECT entity_id FROM trash WHERE entity_type = 'note')`);
         await db.execute(`DELETE FROM events WHERE id IN (SELECT entity_id FROM trash WHERE entity_type = 'event')`);
+        await db.execute(`DELETE FROM worklog_entries WHERE id IN (SELECT entity_id FROM trash WHERE entity_type = 'worklog_entry')`);
         await db.execute('DELETE FROM trash');
         return res.status(204).end();
       }
@@ -198,7 +207,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (req.method === 'DELETE') {
-        await db.execute({ sql: 'DELETE FROM worklog_entries WHERE id = ?', args: [wlId] });
+        const now = new Date().toISOString();
+        await db.execute({ sql: 'UPDATE worklog_entries SET deleted_at = ? WHERE id = ?', args: [now, wlId] });
+        const { randomUUID } = await import('node:crypto');
+        await db.execute({
+          sql: 'INSERT INTO trash (id, entity_id, entity_type, deleted_at) VALUES (?, ?, ?, ?)',
+          args: [randomUUID(), wlId, 'worklog_entry', now],
+        });
         return res.status(204).end();
       }
 

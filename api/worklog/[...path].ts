@@ -81,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (resource === 'entries' && !id) {
       if (req.method === 'GET') {
         const result = await db.execute(
-          'SELECT * FROM worklog_entries ORDER BY date DESC, created_at DESC',
+          'SELECT * FROM worklog_entries WHERE deleted_at IS NULL ORDER BY date DESC, created_at DESC',
         );
         return res.status(200).json(
           result.rows.map(r => rowToWorklogEntry(r as Record<string, unknown>)),
@@ -174,7 +174,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (req.method === 'DELETE') {
-        await db.execute({ sql: 'DELETE FROM worklog_entries WHERE id = ?', args: [id] });
+        const now = new Date().toISOString();
+        await db.execute({ sql: 'UPDATE worklog_entries SET deleted_at = ? WHERE id = ?', args: [now, id] });
+        await db.execute({
+          sql: 'INSERT INTO trash (id, entity_id, entity_type, deleted_at) VALUES (?, ?, ?, ?)',
+          args: [randomUUID(), id, 'worklog_entry', now],
+        });
         return res.status(204).end();
       }
 

@@ -41,9 +41,20 @@ export interface TrashEvent {
   folderId: string | null;
 }
 
+export interface TrashWorklogEntry {
+  trashId: string;
+  entityId: string;
+  entityType: 'worklog_entry';
+  deletedAt: string;
+  title: string;
+  date: string;
+  project: string;
+}
+
 export interface TrashData {
   notes: TrashNote[];
   events: TrashEvent[];
+  worklogs: TrashWorklogEntry[];
 }
 
 export interface ReminderItem {
@@ -280,7 +291,7 @@ export const trashApi = {
     try {
       return await api.get<TrashData>('/trash').then(r => r.data);
     } catch {
-      return { notes: [], events: [] };
+      return { notes: [], events: [], worklogs: [] };
     }
   },
 

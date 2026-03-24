@@ -134,6 +134,7 @@ export async function ensureInit(): Promise<Client> {
     "ALTER TABLE events ADD COLUMN recurrence    TEXT NOT NULL DEFAULT 'none'",
     'ALTER TABLE events ADD COLUMN recurrence_end TEXT',
     'ALTER TABLE events ADD COLUMN deleted_at    TEXT',
+    'ALTER TABLE worklog_entries ADD COLUMN deleted_at TEXT',
   ];
   for (const sql of backcompatMigrations) {
     try { await db.execute(sql); } catch { /* column already exists — ignore */ }
@@ -182,7 +183,8 @@ export async function ensureInit(): Promise<Client> {
       team_type        TEXT NOT NULL DEFAULT 'solo',
       team_size        INTEGER,
       coding_languages TEXT NOT NULL DEFAULT '[]',
-      created_at       TEXT DEFAULT (datetime('now'))
+      created_at       TEXT DEFAULT (datetime('now')),
+      deleted_at       TEXT
     )
   `);
 
@@ -433,6 +435,18 @@ export function rowToTrashEvent(row: Row) {
     title:      row.title as string,
     date:       row.date as string,
     folderId:   (row.folder_id as string | null) ?? null,
+  };
+}
+
+export function rowToTrashWorklogEntry(row: Row) {
+  return {
+    trashId:    row.trash_id as string,
+    entityId:   row.id as string,
+    entityType: 'worklog_entry' as const,
+    deletedAt:  row.deleted_at as string,
+    title:      row.title as string,
+    date:       row.date as string,
+    project:    row.project as string,
   };
 }
 

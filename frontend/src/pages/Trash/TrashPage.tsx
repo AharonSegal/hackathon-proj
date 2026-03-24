@@ -6,17 +6,18 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Trash2, RotateCcw, NotebookPen, CalendarDays, X } from 'lucide-react';
+import { Trash2, RotateCcw, NotebookPen, CalendarDays, BookOpen, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { trashApi, type TrashNote, type TrashEvent } from '@/shared/hooks/useApi';
+import { trashApi, type TrashNote, type TrashEvent, type TrashWorklogEntry } from '@/shared/hooks/useApi';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';
 
 type TrashItem = (TrashNote | TrashEvent) & { _selected?: boolean };
 
 export function TrashPage() {
-  const [notes, setNotes]   = useState<TrashNote[]>([]);
-  const [events, setEvents] = useState<TrashEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [notes, setNotes]       = useState<TrashNote[]>([]);
+  const [events, setEvents]     = useState<TrashEvent[]>([]);
+  const [worklogs, setWorklogs] = useState<TrashWorklogEntry[]>([]);
+  const [loading, setLoading]   = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
@@ -25,6 +26,7 @@ export function TrashPage() {
       const data = await trashApi.getAll();
       setNotes(data.notes);
       setEvents(data.events);
+      setWorklogs(data.worklogs ?? []);
     } catch {
       toast.error('Failed to load trash');
     } finally {
@@ -46,8 +48,9 @@ export function TrashPage() {
   const handleRestore = async (trashId: string) => {
     try {
       await trashApi.restore(trashId);
-      setNotes(prev  => prev.filter(n => n.trashId !== trashId));
-      setEvents(prev => prev.filter(e => e.trashId !== trashId));
+      setNotes(prev     => prev.filter(n => n.trashId !== trashId));
+      setEvents(prev    => prev.filter(e => e.trashId !== trashId));
+      setWorklogs(prev  => prev.filter(w => w.trashId !== trashId));
       setSelectedIds(prev => { const next = new Set(prev); next.delete(trashId); return next; });
       toast.success('Restored');
     } catch {
@@ -58,8 +61,9 @@ export function TrashPage() {
   const handleDeletePermanently = async (trashId: string) => {
     try {
       await trashApi.deletePermanently(trashId);
-      setNotes(prev  => prev.filter(n => n.trashId !== trashId));
-      setEvents(prev => prev.filter(e => e.trashId !== trashId));
+      setNotes(prev     => prev.filter(n => n.trashId !== trashId));
+      setEvents(prev    => prev.filter(e => e.trashId !== trashId));
+      setWorklogs(prev  => prev.filter(w => w.trashId !== trashId));
       setSelectedIds(prev => { const next = new Set(prev); next.delete(trashId); return next; });
     } catch {
       toast.error('Failed to delete');
@@ -69,8 +73,9 @@ export function TrashPage() {
   const handleBulkRestore = async () => {
     const ids = [...selectedIds];
     await Promise.all(ids.map(id => trashApi.restore(id).catch(() => null)));
-    setNotes(prev  => prev.filter(n => !ids.includes(n.trashId)));
-    setEvents(prev => prev.filter(e => !ids.includes(e.trashId)));
+    setNotes(prev     => prev.filter(n => !ids.includes(n.trashId)));
+    setEvents(prev    => prev.filter(e => !ids.includes(e.trashId)));
+    setWorklogs(prev  => prev.filter(w => !ids.includes(w.trashId)));
     setSelectedIds(new Set());
     toast.success(`Restored ${ids.length} item${ids.length > 1 ? 's' : ''}`);
   };
@@ -78,8 +83,9 @@ export function TrashPage() {
   const handleBulkDelete = async () => {
     const ids = [...selectedIds];
     await Promise.all(ids.map(id => trashApi.deletePermanently(id).catch(() => null)));
-    setNotes(prev  => prev.filter(n => !ids.includes(n.trashId)));
-    setEvents(prev => prev.filter(e => !ids.includes(e.trashId)));
+    setNotes(prev     => prev.filter(n => !ids.includes(n.trashId)));
+    setEvents(prev    => prev.filter(e => !ids.includes(e.trashId)));
+    setWorklogs(prev  => prev.filter(w => !ids.includes(w.trashId)));
     setSelectedIds(new Set());
   };
 
@@ -89,6 +95,7 @@ export function TrashPage() {
       await trashApi.emptyAll();
       setNotes([]);
       setEvents([]);
+      setWorklogs([]);
       setSelectedIds(new Set());
       toast.success('Trash emptied');
     } catch {
@@ -96,7 +103,7 @@ export function TrashPage() {
     }
   };
 
-  const totalCount = notes.length + events.length;
+  const totalCount = notes.length + events.length + worklogs.length;
   const hasItems   = totalCount > 0;
 
   return (
@@ -203,6 +210,32 @@ export function TrashPage() {
                   onToggleSelect={() => toggleSelect(event.trashId)}
                   onRestore={() => handleRestore(event.trashId)}
                   onDelete={() => handleDeletePermanently(event.trashId)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Work Logs section */}
+        {worklogs.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="h-4 w-4 text-slate-500" />
+              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Work Logs ({worklogs.length})
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {worklogs.map(entry => (
+                <TrashItemRow
+                  key={entry.trashId}
+                  trashId={entry.trashId}
+                  title={entry.title}
+                  subtitle={`${entry.date} · ${entry.project} · deleted ${formatDate(entry.deletedAt)}`}
+                  isSelected={selectedIds.has(entry.trashId)}
+                  onToggleSelect={() => toggleSelect(entry.trashId)}
+                  onRestore={() => handleRestore(entry.trashId)}
+                  onDelete={() => handleDeletePermanently(entry.trashId)}
                 />
               ))}
             </div>
