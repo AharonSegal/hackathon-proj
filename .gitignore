@@ -22,7 +22,14 @@ backend/.env
 # Database
 *.db
 *.sqlite
-data/
+/data/
+
+# Seed guards (local-only flags that prevent re-running seed scripts)
+.seed-done
+.seed-notes-done
+
+# Generated seed output (contains localStorage paste snippets)
+scripts/seed-notes-output.js
 
 # Docker
 .dockerignore
@@ -39,3 +46,5 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+.vercel

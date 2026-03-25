@@ -1,3 +1,16 @@
+/**
+ * shared/context/SettingsContext.tsx
+ * ------------------------------------
+ * Global app settings — persisted to localStorage, shared via React Context.
+ *
+ * All settings are available to every component via useSettings().
+ * Changes take effect immediately across the entire app without a page reload.
+ *
+ * Exports:
+ * - SettingsProvider — wrap the app root with this
+ * - useSettings()    — returns { settings, updateSettings, resetSettings }
+ */
+
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AppSettings, DEFAULT_SETTINGS } from '@/shared/types/settings.types';
 

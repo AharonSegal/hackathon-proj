@@ -1,4 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * Calendar/CalendarPage.tsx
+ * --------------------------
+ * The main calendar view — shows events on a monthly grid.
+ *
+ * Responsibilities:
+ * - Owns the events state (fetched from /api/events on mount)
+ * - Passes events to useCalendar which computes the grid
+ * - Manages the EventModal open/close state
+ * - Handles create, update, and delete operations locally (no full refetch)
+ *
+ * Process Flow:
+ * 1. On mount → fetch all events from the API
+ * 2. useCalendar builds the grid cells from the events + Hebrew calendar data
+ * 3. User clicks a day cell → open EventModal in "create" mode
+ * 4. User clicks an event pill → open EventModal in "edit" mode
+ * 5. On save → update local events state (add or replace)
+ * 6. On delete → remove from local events state
+ */
+
+import { useState, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';
@@ -8,62 +28,75 @@ import { CalendarHeader } from './components/CalendarHeader';
 import { EventModal } from './components/EventModal';
 import { useCalendar, DayInfo } from './hooks/useCalendar';
 import { CalendarEvent } from '@/shared/types/event.types';
-import { eventApi } from '@/shared/hooks/useApi';
+import { useEvents } from '@/shared/context/EventsContext';
+import { useTodos } from '@/shared/context/TodosContext';
+import { useT } from '@/shared/i18n/useT';
 
 export function CalendarPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const t = useT();
+  // Use the shared EventsContext so Calendar and Events pages stay in sync
+  const { events, createEvent, updateEvent, deleteEvent } = useEvents();
+  const { todos } = useTodos();
+
   const [selectedDay, setSelectedDay] = useState<DayInfo | null>(null);
-  const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [editEvent,   setEditEvent]   = useState<CalendarEvent | null>(null);
+  const [modalOpen,   setModalOpen]   = useState(false);
 
-  const { days, title, hebrewTitle, goToPrev, goToNext, goToToday } = useCalendar(events);
+  // Compute the grid — useCalendar rebuilds whenever events, todos, or settings change
+  const { days, title, hebrewTitle, goToPrev, goToNext, goToToday } = useCalendar(events, todos);
 
-  useEffect(() => {
-    eventApi.getAll().then(setEvents).catch(() => toast.error('Failed to load events'));
-  }, []);
-
+  /** Clicking a day always opens the "new event" modal for that date */
   const handleDayClick = useCallback((day: DayInfo) => {
     setSelectedDay(day);
-    // If clicked on an existing event, edit it; else open new event modal
-    if (day.events.length === 0) {
-      setEditEvent(null);
-      setModalOpen(true);
-    }
+    setEditEvent(null);  // no pre-filled event = create mode
+    setModalOpen(true);
   }, []);
 
-  const handleEventClick = (ev: CalendarEvent, day: DayInfo) => {
+  /** Clicking an event pill opens the "edit event" modal */
+  const handleEventClick = useCallback((ev: CalendarEvent, day: DayInfo) => {
     setSelectedDay(day);
-    setEditEvent(ev);
+    setEditEvent(ev);    // pre-filled event = edit mode
     setModalOpen(true);
-  };
+  }, []);
 
+  /** "New Event" button in the header — opens modal without a selected day */
   const handleNewEvent = () => {
     setEditEvent(null);
     setModalOpen(true);
   };
 
-  const handleSaved = (ev: CalendarEvent) => {
-    setEvents(prev => {
-      const idx = prev.findIndex(e => e.id === ev.id);
-      return idx >= 0 ? prev.map(e => e.id === ev.id ? ev : e) : [...prev, ev];
-    });
+  /** Called after a save — delegates to EventsContext (handles API + optimistic update) */
+  const handleSaved = (
+    payload: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>,
+    editEventId: string | null,
+  ) => {
+    if (editEventId) {
+      updateEvent(editEventId, payload);
+      toast.success('Event updated');
+    } else {
+      createEvent(payload);
+      toast.success('Event created');
+    }
   };
 
+  /** Called after a delete — delegates to EventsContext */
   const handleDeleted = (id: string) => {
-    setEvents(prev => prev.filter(e => e.id !== id));
+    deleteEvent(id);
+    toast.success('Event deleted');
   };
 
+  // The selected date string is passed to CalendarGrid so it can highlight the cell
   const selectedDateStr = selectedDay?.date.toISOString().slice(0, 10) ?? null;
 
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title="Calendar"
-        subtitle="Hebrew / Gregorian dual calendar"
+        title={t.calendar_title}
+        subtitle={t.calendar_subtitle}
         actions={
           <Button size="sm" onClick={handleNewEvent}>
             <Plus size={14} />
-            New Event
+            {t.new_event}
           </Button>
         }
       />
@@ -81,9 +114,11 @@ export function CalendarPage() {
           days={days}
           selectedDate={selectedDateStr}
           onDayClick={handleDayClick}
+          onEventClick={handleEventClick}
         />
       </div>
 
+      {/* EventModal manages its own form state; receives the selected day + event */}
       <EventModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

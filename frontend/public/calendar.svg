@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background rounded rectangle -->
+  <rect width="32" height="32" rx="7" fill="#6366f1"/>
+  <!-- Calendar grid lines -->
+  <rect x="6" y="10" width="20" height="16" rx="2" fill="#1e293b" opacity="0.9"/>
+  <!-- Top bar -->
+  <rect x="6" y="10" width="20" height="5" rx="2" fill="#818cf8"/>
+  <!-- Fix bottom corners of top bar (so only top is rounded) -->
+  <rect x="6" y="13" width="20" height="2" fill="#818cf8"/>
+  <!-- Date pegs -->
+  <rect x="11" y="7" width="2.5" height="5" rx="1.25" fill="#c7d2fe"/>
+  <rect x="18.5" y="7" width="2.5" height="5" rx="1.25" fill="#c7d2fe"/>
+  <!-- Grid dots (3x2) -->
+  <rect x="9"  y="18" width="3" height="2.5" rx="0.5" fill="#6366f1" opacity="0.8"/>
+  <rect x="14.5" y="18" width="3" height="2.5" rx="0.5" fill="#6366f1" opacity="0.8"/>
+  <rect x="20" y="18" width="3" height="2.5" rx="0.5" fill="#6366f1" opacity="0.8"/>
+  <rect x="9"  y="22" width="3" height="2.5" rx="0.5" fill="#818cf8" opacity="0.6"/>
+  <rect x="14.5" y="22" width="3" height="2.5" rx="0.5" fill="#818cf8" opacity="0.6"/>
+  <rect x="20" y="22" width="3" height="2.5" rx="0.5" fill="#10b981" opacity="0.9"/>
+</svg>

@@ -1,3 +1,13 @@
+/**
+ * Calendar/components/CalendarHeader.tsx
+ * ----------------------------------------
+ * Navigation bar above the calendar grid.
+ *
+ * Shows the current month title in both Gregorian and Hebrew,
+ * with Prev / Today / Next buttons to move between months.
+ * The primary title is determined by the current calendar mode in Settings.
+ */
+
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { useSettings } from '@/shared/context/SettingsContext';

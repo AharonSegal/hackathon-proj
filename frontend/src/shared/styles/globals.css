@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Heebo:wght@300;400;500;600;700&display=swap');
+@import '@blocknote/core/style.css';
+@import '@blocknote/shadcn/style.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -65,4 +67,29 @@
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* ── BlockNote dark-theme integration ─────────────────────────────────────── */
+.blocknote-wrapper .bn-container {
+  background: transparent;
+  height: 100%;
+}
+
+.blocknote-wrapper .bn-editor {
+  padding: 1.5rem;
+  min-height: 300px;
+  color: #e2e8f0; /* slate-200 */
+}
+
+/* Toolbar / dropdowns match slate palette */
+.bn-toolbar,
+.bn-menu {
+  background: #1e293b !important; /* slate-800 */
+  border-color: #334155 !important; /* slate-700 */
+  color: #cbd5e1 !important; /* slate-300 */
+}
+
+.bn-toolbar button:hover,
+.bn-menu-item:hover {
+  background: #334155 !important;
 }

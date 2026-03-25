@@ -1,8 +1,120 @@
+/**
+ * shared/hooks/useApi.ts
+ * -----------------------
+ * Axios-based API client with localStorage cache fallback.
+ *
+ * Exports four objects:
+ * - eventApi   — CRUD operations for calendar events (/api/events)
+ * - messageApi — send WhatsApp/email, fetch message logs (/api/messages/*)
+ * - settingsApi — save settings and send test messages (/api/settings, /api/messages/[type]/test)
+ * - notesApi   — CRUD operations for notes (/api/notes)
+ *
+ * Caching strategy:
+ * - GET endpoints (getAll, getLogs): write response to localStorage on success,
+ *   return cached data on network failure — app stays usable while offline
+ * - Write endpoints (create, update, delete, send): always throw on failure
+ *   so the calling component can show a toast error
+ */
+
 import axios from 'axios';
 import { CalendarEvent, MessageLog } from '@/shared/types/event.types';
+import { type Note, type Folder } from '@/shared/types/note.types';
+
+// ─── Shared types ──────────────────────────────────────────────────────────────
+
+export interface TrashNote {
+  trashId: string;
+  entityId: string;
+  entityType: 'note';
+  deletedAt: string;
+  title: string;
+  folderId: string | null;
+}
+
+export interface TrashEvent {
+  trashId: string;
+  entityId: string;
+  entityType: 'event';
+  deletedAt: string;
+  title: string;
+  date: string;
+  folderId: string | null;
+}
+
+export interface TrashWorklogEntry {
+  trashId: string;
+  entityId: string;
+  entityType: 'worklog_entry';
+  deletedAt: string;
+  title: string;
+  date: string;
+  project: string;
+}
+
+export interface TrashData {
+  notes: TrashNote[];
+  events: TrashEvent[];
+  worklogs: TrashWorklogEntry[];
+}
+
+export interface ReminderItem {
+  id: string;
+  mode: 'datetime' | 'before';
+  value: string;
+}
+
+export interface Todo {
+  id: string;
+  title: string;
+  description: string | null;
+  completed: boolean;
+  completedAt: string | null;
+  dueDate: string | null;
+  dueTime: string | null;
+  deadline: string | null;
+  priority: number;
+  location: string | null;
+  reminderConfig: ReminderItem[] | null;
+  recurrence: string;
+  recurrenceEnd: string | null;
+  project: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TodoCreateInput {
+  id?: string;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+  dueTime?: string | null;
+  deadline?: string | null;
+  priority?: number;
+  location?: string | null;
+  reminderConfig?: ReminderItem[] | null;
+  recurrence?: string;
+  recurrenceEnd?: string | null;
+  project?: string;
+}
+
+export interface TodoUpdateInput {
+  title?: string;
+  description?: string | null;
+  completed?: boolean;
+  completedAt?: string | null;
+  dueDate?: string | null;
+  dueTime?: string | null;
+  deadline?: string | null;
+  priority?: number;
+  location?: string | null;
+  reminderConfig?: ReminderItem[] | null;
+  recurrence?: string;
+  recurrenceEnd?: string | null;
+  project?: string;
+}
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api',
+  baseURL: '/api',
   timeout: 8000,
 });
 
@@ -11,6 +123,8 @@ const api = axios.create({
 const CACHE_KEYS = {
   events: 'cache_v1_events',
   logs: 'cache_v1_message_logs',
+  notes: 'cache_v1_notes',
+  folders: 'cache_v1_folders',
 } as const;
 
 function readCache<T>(key: string): T[] {
@@ -110,6 +224,118 @@ export const messageApi = {
   }) => api.post('/messages/email', payload).then(r => r.data),
 };
 
+// ─── Notes ────────────────────────────────────────────────────────────────────
+
+export const notesApi = {
+  getAll: async (): Promise<Note[]> => {
+    try {
+      const data = await api.get<Note[]>('/notes').then(r => r.data);
+      writeCache(CACHE_KEYS.notes, data);
+      return data;
+    } catch {
+      return readCache<Note>(CACHE_KEYS.notes);
+    }
+  },
+
+  create: async (note: Omit<Note, 'createdAt' | 'updatedAt'>): Promise<Note> => {
+    const data = await api.post<Note>('/notes', note).then(r => r.data);
+    upsertCache(CACHE_KEYS.notes, data);
+    return data;
+  },
+
+  update: async (id: string, patch: Partial<Pick<Note, 'title' | 'content' | 'pinned' | 'tags' | 'folderId'>>): Promise<Note> => {
+    const body = { ...patch, ...(patch.folderId !== undefined ? { folderId: patch.folderId } : {}) };
+    const data = await api.put<Note>(`/notes/${id}`, body).then(r => r.data);
+    upsertCache(CACHE_KEYS.notes, data);
+    return data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/notes/${id}`);
+    removeFromCache(CACHE_KEYS.notes, id);
+  },
+};
+
+// ─── Folders ──────────────────────────────────────────────────────────────────
+
+export const foldersApi = {
+  getAll: async (): Promise<Folder[]> => {
+    try {
+      const data = await api.get<Folder[]>('/folders').then(r => r.data);
+      writeCache(CACHE_KEYS.folders, data);
+      return data;
+    } catch {
+      return readCache<Folder>(CACHE_KEYS.folders);
+    }
+  },
+  create: async (folder: { id?: string; name: string; color: string }): Promise<Folder> => {
+    const data = await api.post<Folder>('/folders', folder).then(r => r.data);
+    upsertCache(CACHE_KEYS.folders, data);
+    return data;
+  },
+  update: async (id: string, patch: { name?: string; color?: string }): Promise<Folder> => {
+    const data = await api.put<Folder>(`/folders/${id}`, patch).then(r => r.data);
+    upsertCache(CACHE_KEYS.folders, data);
+    return data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/folders/${id}`);
+    removeFromCache(CACHE_KEYS.folders, id);
+  },
+};
+
+// ─── Trash ────────────────────────────────────────────────────────────────────
+
+export const trashApi = {
+  getAll: async (): Promise<TrashData> => {
+    try {
+      return await api.get<TrashData>('/trash').then(r => r.data);
+    } catch {
+      return { notes: [], events: [], worklogs: [] };
+    }
+  },
+
+  restore: async (trashId: string): Promise<void> => {
+    await api.put(`/trash/${trashId}`);
+  },
+
+  deletePermanently: async (trashId: string): Promise<void> => {
+    await api.delete(`/trash/${trashId}`);
+  },
+
+  emptyAll: async (): Promise<void> => {
+    await api.delete('/trash');
+  },
+};
+
+// ─── Todos ────────────────────────────────────────────────────────────────────
+
+const TODOS_CACHE_KEY = 'cache_v1_todos';
+
+export const todosApi = {
+  getAll: async (): Promise<Todo[]> => {
+    try {
+      const data = await api.get<Todo[]>('/todos').then(r => r.data);
+      try { localStorage.setItem(TODOS_CACHE_KEY, JSON.stringify(data)); } catch { /* full */ }
+      return data;
+    } catch {
+      try { return JSON.parse(localStorage.getItem(TODOS_CACHE_KEY) ?? '[]'); } catch { return []; }
+    }
+  },
+
+  create: async (input: TodoCreateInput): Promise<Todo> => {
+    return await api.post<Todo>('/todos', input).then(r => r.data);
+  },
+
+  update: async (id: string, patch: TodoUpdateInput): Promise<Todo> => {
+    return await api.put<Todo>(`/todos/${id}`, patch).then(r => r.data);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/todos/${id}`);
+  },
+};
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 export const settingsApi = {
@@ -117,8 +343,8 @@ export const settingsApi = {
     api.post('/settings', settings).then(r => r.data).catch(() => ({ ok: true })),
 
   testWhatsApp: (to: string) =>
-    api.post('/messages/whatsapp/test', { to }).then(r => r.data),
+    api.post('/messages/whatsapp?test=true', { to }).then(r => r.data),
 
   testEmail: (to: string) =>
-    api.post('/messages/email/test', { to }).then(r => r.data),
+    api.post('/messages/email?test=true', { to }).then(r => r.data),
 };

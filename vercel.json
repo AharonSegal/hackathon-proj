@@ -1,0 +1,15 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/worklog/entries/:id",
+      "destination": "/api/worklog/entries?_wlId=:id"
+    },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/messages/cron",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

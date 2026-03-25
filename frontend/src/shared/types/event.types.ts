@@ -1,4 +1,33 @@
+/**
+ * shared/types/event.types.ts
+ * ----------------------------
+ * TypeScript interfaces for the core data models.
+ *
+ * - CalendarEvent     — a calendar event with optional scheduled messages
+ * - ScheduledEmail    — email payload attached to an event
+ * - ScheduledWhatsApp — WhatsApp payload attached to an event
+ * - MessageLog        — a row in the message_logs DB table (tracks send status)
+ * - EventColor        — the allowed color values for events
+ */
+
 export type EventColor = 'indigo' | 'emerald' | 'amber' | 'rose' | 'sky' | 'violet';
+
+export const EVENT_COLOR_HEX: Record<EventColor, string> = {
+  indigo:  '#6366f1',
+  emerald: '#10b981',
+  amber:   '#f59e0b',
+  rose:    '#f43f5e',
+  sky:     '#0ea5e9',
+  violet:  '#8b5cf6',
+};
+
+export const RECURRENCE_OPTIONS = [
+  { value: 'none',    label: 'Does not repeat' },
+  { value: 'daily',   label: 'Daily' },
+  { value: 'weekly',  label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'yearly',  label: 'Yearly' },
+] as const;
 
 export interface CalendarEvent {
   id: string;
@@ -9,6 +38,11 @@ export interface CalendarEvent {
   endTime?: string;   // HH:mm
   color: EventColor;
   allDay: boolean;
+  // New fields
+  tags: string[];
+  folderId: string | null;
+  recurrence: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrenceEnd?: string; // YYYY-MM-DD
   // Scheduled actions
   scheduledEmail?: ScheduledEmail;
   scheduledWhatsApp?: ScheduledWhatsApp;
