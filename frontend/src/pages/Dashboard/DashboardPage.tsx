@@ -30,11 +30,14 @@ import { gematriyaDay, hebrewMonthName } from '@/pages/Calendar/hooks/useCalenda
 import { EVENT_DOT_COLORS } from '@/shared/colors';
 import { StatCard } from './components/StatCard';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
+import { WeatherWidget } from './components/WeatherWidget';
+import { useSettings } from '@/shared/context/SettingsContext';
 import { useT } from '@/shared/i18n/useT';
 
 export function DashboardPage() {
   const t = useT();
   const navigate = useNavigate();
+  const { settings } = useSettings();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [logs,   setLogs]   = useState<MessageLog[]>([]);
 
@@ -66,10 +69,19 @@ export function DashboardPage() {
         title={t.dashboard_title}
         subtitle={`${today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} · ${gematriyaDay(hToday.getDate())} ${hebrewMonthName(hToday)} ${hToday.getFullYear()}`}
         actions={
-          <Button size="sm" onClick={() => navigate('/calendar')}>
-            <Plus size={14} />
-            {t.dashboard_new_event}
-          </Button>
+          <>
+            {settings.weather.show && (
+              <WeatherWidget
+                lat={settings.zmanim.location.lat}
+                lng={settings.zmanim.location.lng}
+                unit={settings.weather.unit}
+              />
+            )}
+            <Button size="sm" onClick={() => navigate('/calendar')}>
+              <Plus size={14} />
+              {t.dashboard_new_event}
+            </Button>
+          </>
         }
       />
 

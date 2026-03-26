@@ -175,6 +175,14 @@ const en = {
   hint_access_token:        'Permanent token from Meta for Developers',
   btn_test_wa:              'Test WA',
 
+  // ── Weather ──────────────────────────────────────────────────────
+  section_weather:          'Weather Widget',
+  weather_show_widget:      'Show weather widget on dashboard',
+  weather_unit_label:       'Temperature unit',
+  weather_celsius:          '°C — Celsius',
+  weather_fahrenheit:       '°F — Fahrenheit',
+  weather_location_note:    'Weather uses the Zmanim location (lat/lng) set above.',
+
   // ── Status / errors ─────────────────────────────────────────────
   backend_offline: 'Backend offline — showing cached data',
 };
@@ -343,6 +351,14 @@ const he: typeof en = {
   field_access_token:       'טוקן גישה',
   hint_access_token:        'טוקן קבוע מ-Meta for Developers',
   btn_test_wa:              'בדוק WA',
+
+  // ── Weather ──────────────────────────────────────────────────────
+  section_weather:          'ווידג\'ט מזג אוויר',
+  weather_show_widget:      'הצג מזג אוויר בלוח הבקרה',
+  weather_unit_label:       'יחידת טמפרטורה',
+  weather_celsius:          '°C — צלזיוס',
+  weather_fahrenheit:       '°F — פרנהייט',
+  weather_location_note:    'מזג האוויר מתבסס על מיקום הזמנים (קו רוחב/אורך) שהוגדר למעלה.',
 
   // ── Status / errors ─────────────────────────────────────────────
   backend_offline: 'השרת לא זמין — מציג נתונים מהמטמון',

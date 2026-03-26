@@ -300,6 +300,38 @@ export function SettingsPage() {
               </Button>
             </div>
           </section>
+
+          {/* ── Weather ── */}
+          <section className="card space-y-3">
+            <SectionTitle>{t.section_weather}</SectionTitle>
+            <p className="text-xs text-slate-500">{t.weather_location_note}</p>
+            <div className="divide-y divide-slate-800">
+              <ToggleRow
+                label={t.weather_show_widget}
+                checked={settings.weather.show}
+                onCheckedChange={v => updateSettings({ weather: { ...settings.weather, show: v } })}
+              />
+            </div>
+            <div>
+              <p className="text-sm text-slate-200 mb-2">{t.weather_unit_label}</p>
+              <div className="flex gap-3">
+                {(['celsius', 'fahrenheit'] as const).map(u => (
+                  <button
+                    key={u}
+                    onClick={() => updateSettings({ weather: { ...settings.weather, unit: u } })}
+                    className={clsx(
+                      'flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors',
+                      settings.weather.unit === u
+                        ? 'bg-primary-600 border-primary-600 text-white'
+                        : 'border-slate-600 text-slate-400 hover:border-slate-500',
+                    )}
+                  >
+                    {u === 'celsius' ? t.weather_celsius : t.weather_fahrenheit}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>

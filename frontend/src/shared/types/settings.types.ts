@@ -52,12 +52,18 @@ export interface ZmanimSettings {
   showTzetShabbat: boolean;
 }
 
+export interface WeatherSettings {
+  show: boolean;
+  unit: 'celsius' | 'fahrenheit';
+}
+
 export interface AppSettings {
   language: Language;           // UI language: 'he' = Hebrew (RTL), 'en' = English (LTR)
   calendarMode: CalendarMode;
   weekStart: WeekStart;
   holidays: HolidaySettings;
   zmanim: ZmanimSettings;
+  weather: WeatherSettings;
   // Email
   smtpHost: string;
   smtpPort: number;
@@ -101,6 +107,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showSunset: true,
     showTzet: true,
     showTzetShabbat: true,
+  },
+  weather: {
+    show: true,
+    unit: 'celsius',
   },
   smtpHost: 'smtp.gmail.com',
   smtpPort: 587,
