@@ -58,8 +58,8 @@ export function WeatherWidget({ lat, lng, unit }: WeatherWidgetProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center px-3 py-1">
-        <Loader2 className="animate-spin text-slate-500 w-4 h-4" />
+      <div className="flex items-center justify-center px-6 py-3 bg-slate-900/40 rounded-2xl border border-slate-800/60">
+        <Loader2 className="animate-spin text-slate-500 w-5 h-5" />
       </div>
     );
   }
@@ -69,8 +69,8 @@ export function WeatherWidget({ lat, lng, unit }: WeatherWidgetProps) {
   const unitSymbol = unit === 'fahrenheit' ? '°F' : '°C';
 
   return (
-    <div className="bg-slate-900/40 rounded-xl px-2 py-1 border border-slate-800/60 backdrop-blur-sm">
-      <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar">
+    <div className="bg-slate-900/40 rounded-2xl px-4 py-2.5 border border-slate-800/60 backdrop-blur-sm">
+      <div className="flex items-stretch gap-0 overflow-x-auto no-scrollbar">
         {days.map((day, i) => {
           const date = new Date(day.date + 'T00:00:00');
           const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
@@ -79,17 +79,17 @@ export function WeatherWidget({ lat, lng, unit }: WeatherWidgetProps) {
           return (
             <div
               key={i}
-              className="flex flex-col items-center min-w-[46px] border-r border-slate-800/50 last:border-r-0 px-1"
+              className="flex flex-col items-center justify-between w-16 border-r border-slate-700/40 last:border-r-0 px-2 py-1 gap-0.5"
             >
-              <span className="text-[9px] font-bold text-slate-500 uppercase">{dayName}</span>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{dayName}</span>
               <img
-                src={`https://openweathermap.org/img/wn/${iconCode}.png`}
+                src={`https://openweathermap.org/img/wn/${iconCode}@2x.png`}
                 alt=""
-                className="w-6 h-6"
+                className="w-10 h-10 -my-1"
               />
-              <span className="text-xs font-bold text-slate-100 leading-none">{day.tempMax}{unitSymbol}</span>
-              <span className="text-[8px] text-blue-400 font-medium flex items-center gap-0.5 mt-0.5">
-                <Umbrella size={6} />
+              <span className="text-sm font-bold text-slate-100">{day.tempMax}{unitSymbol}</span>
+              <span className="text-[10px] text-blue-400 font-medium flex items-center gap-0.5">
+                <Umbrella size={9} />
                 {day.rainChance}%
               </span>
             </div>
