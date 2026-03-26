@@ -18,10 +18,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { CalendarDays, Mail, MessageCircle, Clock, Plus } from 'lucide-react';
+import { CalendarDays, Mail, MessageCircle, Clock, Plus, CheckSquare, StickyNote, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';
-import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { CalendarEvent, MessageLog } from '@/shared/types/event.types';
 import { eventApi, messageApi } from '@/shared/hooks/useApi';
@@ -77,10 +76,32 @@ export function DashboardPage() {
                 unit={settings.weather.unit}
               />
             )}
-            <Button size="sm" onClick={() => navigate('/calendar')}>
-              <Plus size={14} />
-              {t.dashboard_new_event}
-            </Button>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={() => navigate('/calendar')}
+                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-lg text-white bg-primary-950 hover:bg-primary-900 transition-colors"
+              >
+                <Plus size={13} />{t.dashboard_new_event}
+              </button>
+              <button
+                onClick={() => navigate('/todos')}
+                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-lg text-white bg-primary-800 hover:bg-primary-700 transition-colors"
+              >
+                <CheckSquare size={13} />New Todo
+              </button>
+              <button
+                onClick={() => navigate('/notes')}
+                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-500 transition-colors"
+              >
+                <StickyNote size={13} />New Note
+              </button>
+              <button
+                onClick={() => navigate('/daily-log')}
+                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-lg text-white bg-primary-500 hover:bg-primary-400 transition-colors"
+              >
+                <BookOpen size={13} />New Log
+              </button>
+            </div>
           </>
         }
       />
