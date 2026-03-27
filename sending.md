@@ -1,252 +1,247 @@
 # Sending Integration Plan — WhatsApp & Email
-### Based on: WhatsappAndEmail-main docs + existing project audit
+### Vercel-native, no Docker, no separate server
 
 ---
 
-## 1. What WhatsappAndEmail-main Actually Is
+## TL;DR
 
-The folder is a **3-layer sending stack**, not just a simple API wrapper:
-
-```
-Our App  →  Express/Vercel API  →  n8n webhook  →  Evolution API  →  WhatsApp phone
-                                               ↘  Gmail node     →  Email inbox
-```
-
-| Layer | Tool | Role |
+| Channel | Solution | How it works |
 |---|---|---|
-| Layer 1 — Bridge | Express server (or our Vercel API) | Validates input, converts datetime to ISO, forwards to n8n |
-| Layer 2 — Automation | **n8n** (Docker, port 5678) | Receives the webhook, schedules it, routes to the right channel |
-| Layer 3 — WhatsApp sender | **Evolution API** (Docker, port 8080) | Connects to a real WhatsApp account via QR scan, sends messages |
-| Layer 3 — Email sender | **n8n Gmail node** | n8n sends email directly via its built-in Gmail integration |
-
-### Why Evolution API instead of Meta Business API?
-The current `lib/whatsapp.ts` uses Meta Graph API v21 which requires an **approved WhatsApp Business Platform account** (paid, takes time to get approved).
-
-Evolution API connects via **WhatsApp Web** (QR code scan) — works with any regular WhatsApp number immediately, no Meta approval needed.
+| WhatsApp | **UltraMsg** (cloud) | Scan QR once on their dashboard → they host the connection → you call their HTTP API |
+| Email | **Resend** (cloud) | Sign up → get API key → one HTTP call to send |
+| Scheduling | Existing **Vercel cron** (every 15 min) | Already built, just fix the schedule |
+| Infrastructure | **None** | Zero Docker, zero separate server, everything stays on Vercel |
 
 ---
 
-## 2. The Infrastructure Stack (Docker Compose)
+## Why Not Docker / n8n / Evolution API?
 
-Four containers run together:
+Evolution API requires a **persistent WebSocket connection** to WhatsApp Web — it must run 24/7 on a server.
+Vercel functions are **stateless and short-lived** — they spin up per request and die after ~30 seconds.
 
-| Container | Port | Purpose |
-|---|---|---|
-| `evolution_api` | 8080 | WhatsApp sender — scans QR to connect a phone |
-| `n8n_automation` | 5678 | Automation engine — receives webhooks, schedules sends |
-| `postgres` | 5432 | Stores Evolution API data + n8n workflow state |
-| `redis` | 6379 | Fast queue / session cache for Evolution API |
-
-**Required before starting:**
-```bash
-docker network create dokploy-network
-docker-compose up -d
-docker logs -f evolution_api   # scan the QR code to connect WhatsApp
-```
-
-**Environment variables needed (`.env`):**
-```env
-POSTGRES_DATABASE=evolution
-POSTGRES_USERNAME=root
-POSTGRES_PASSWORD=your_secure_password
-AUTHENTICATION_API_KEY=your_evolution_api_key
-```
-
-**n8n is at:** `http://localhost:5678`
-**Evolution API is at:** `http://localhost:8080`
+The solution: use cloud services that host that persistent connection FOR you.
+You just call their HTTP API — exactly like calling any other REST API from Vercel.
 
 ---
 
-## 3. The Payload Format
+## 1. WhatsApp — UltraMsg
 
-The n8n webhook expects this unified payload (one call covers both channels):
-```json
-{
-  "email": "user@example.com",
-  "message": "Hello, this is a scheduled notification!",
-  "sendEmail": true,
-  "sendWhatsApp": true,
-  "phone": "972501234567",
-  "subject": "Event Reminder",
-  "scheduledTime": "2026-03-27T14:30:00.000Z"
-}
+**What it is:** A hosted Evolution API. They run the WhatsApp Web connection on their servers. You scan a QR code once on their dashboard and get an API key.
+
+**Why UltraMsg over alternatives:**
+
+| Service | Needs Meta approval | QR scan (any number) | Vercel compatible | Price |
+|---|---|---|---|---|
+| **UltraMsg** | ✅ No | ✅ Yes | ✅ Yes | ~$15/mo or free trial |
+| Meta Graph API (current) | ❌ Yes (takes weeks) | ❌ No (business account only) | ✅ Yes | Pay per message |
+| Twilio WhatsApp | ❌ Yes (Meta partner) | ❌ No | ✅ Yes | ~$0.005/msg + number |
+| Evolution API (Docker) | ✅ No | ✅ Yes | ❌ No (needs server) | Free (self-host) |
+
+**Setup (5 minutes):**
+1. Sign up at ultramsg.com
+2. Create an instance
+3. Scan QR with your WhatsApp phone
+4. Copy `instanceId` and `token` → add to Vercel environment variables
+
+**API call (replaces `lib/whatsapp.ts`):**
 ```
-
-- `sendEmail` and `sendWhatsApp` are booleans — one payload can trigger both
-- `scheduledTime` is ISO format — n8n handles the delay internally
-- `phone` without `+` prefix (Evolution API format, unlike Meta's E.164)
-
----
-
-## 4. What Exists in Our Project vs What Changes
-
-### What stays the same
-| File | Status |
-|---|---|
-| `lib/email.ts` | Keep as SMTP fallback — can be called directly if n8n is unavailable |
-| `frontend/` — all composers, log panel, MessagesPage | Keep entirely — no frontend changes needed for the core integration |
-| `lib/db.ts` — `message_logs` table | Keep — still log every send attempt |
-| `vercel.json` cron | Keep — still needed for fallback/polling |
-
-### What changes on the backend
-
-#### `lib/whatsapp.ts` → REPLACE with Evolution API caller
-```ts
-// New: lib/whatsapp.ts
-// Instead of Meta Graph API, calls Evolution API
-POST http://localhost:8080/message/sendText/{instanceName}
-Headers: { apikey: EVOLUTION_API_KEY }
-Body: { number: "9725xxxxxxx", textMessage: { text: "..." } }
-```
-
-#### `lib/n8n.ts` → NEW file
-Unified sender that posts to the n8n webhook:
-```ts
-export async function sendViaN8n(payload: N8nPayload): Promise<void>
-// POSTs to N8N_WEBHOOK_URL with the unified payload
-// This replaces BOTH sendWhatsApp() and sendEmail() calls
-```
-
-#### `api/messages/[...path].ts` → UPDATE
-- WhatsApp route: call `sendViaN8n()` instead of `sendWhatsApp()`
-- Email route: call `sendViaN8n()` instead of `sendEmail()`
-- Add new route: `POST /api/messages/notify` — unified channel endpoint (sends to both channels in one request)
-- Add new route: `DELETE /api/messages/logs/:id` — cancel a pending scheduled message
-
-#### `vercel.json` → UPDATE cron schedule
-```json
-"schedule": "*/15 * * * *"   // every 15 min instead of daily 8 AM
+POST https://api.ultramsg.com/{instanceId}/messages/chat
+Body: { token, to: "972501234567", body: "Hello!" }
 ```
 
 ---
 
-## 5. New File: `lib/n8n.ts`
+## 2. Email — Resend
+
+**What it is:** A modern email API. Sign up, verify a sending domain (or use their sandbox), get an API key.
+
+**Why Resend over keeping SMTP:**
+- SMTP on Vercel can time out on cold starts
+- Resend is a single HTTP call — faster, more reliable, simpler
+- Free tier: 3,000 emails/month, 100/day
+- If you prefer to keep SMTP (Nodemailer already in `lib/email.ts`) — that works too, no change needed
+
+**Setup:**
+1. Sign up at resend.com
+2. Add and verify your sending domain (or use `onboarding@resend.dev` for testing)
+3. Copy API key → add to Vercel env vars
+
+**API call (replaces `lib/email.ts`):**
+```
+POST https://api.resend.com/emails
+Headers: { Authorization: Bearer RESEND_API_KEY }
+Body: { from, to[], subject, text }
+```
+
+---
+
+## 3. What the New Architecture Looks Like
+
+```
+User action (frontend)
+        ↓
+POST /api/messages/whatsapp  or  POST /api/messages/email
+        ↓
+Saved to message_logs (status: pending or sent)
+        ↓ (if scheduleAt is set — wait for cron)
+Vercel Cron (every 15 min) → GET /api/messages/cron
+        ↓
+lib/whatsapp.ts  →  UltraMsg HTTP API  →  WhatsApp phone ✅
+lib/email.ts     →  Resend HTTP API    →  Email inbox ✅
+```
+
+No n8n. No Docker. No separate server. Everything is already in the existing project structure — we just swap the sender libraries.
+
+---
+
+## 4. Exact Code Changes
+
+### `lib/whatsapp.ts` — replace Meta API with UltraMsg
 
 ```ts
-interface N8nPayload {
-  email?: string;
-  message: string;
-  sendEmail: boolean;
-  sendWhatsApp: boolean;
-  phone?: string;
-  subject?: string;
-  scheduledTime?: string;   // ISO — omit for immediate send
-}
+export async function sendWhatsApp(to: string, message: string): Promise<void> {
+  const instanceId = process.env.ULTRAMSG_INSTANCE_ID;
+  const token      = process.env.ULTRAMSG_TOKEN;
 
-export async function sendViaN8n(payload: N8nPayload): Promise<void> {
-  const webhookUrl = process.env.N8N_WEBHOOK_URL;
-  // POSTs payload to n8n, n8n routes to Evolution API / Gmail
-}
-```
+  if (!instanceId || !token) {
+    throw new Error('UltraMsg credentials not configured');
+  }
 
-**New environment variable:**
-```env
-N8N_WEBHOOK_URL=http://localhost:5678/webhook/send-message
-# In production: https://your-n8n-host/webhook/send-message
-```
+  // UltraMsg expects number without + (e.g. "972501234567")
+  const normalizedTo = to.startsWith('+') ? to.slice(1) : to;
 
----
+  const res = await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token, to: normalizedTo, body: message }).toString(),
+  });
 
-## 6. New API Endpoint: `POST /api/messages/notify`
-
-Inspired by the WhatsappAndEmail-main `N8nPayload` — one request, both channels:
-```ts
-// Request body
-{
-  message: string,
-  scheduleAt?: string,        // ISO — omit to send now
-  eventId?: string,
-  channels: {
-    whatsapp?: { to: string },
-    email?: { to: string[], subject: string }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`UltraMsg error ${res.status}: ${text}`);
   }
 }
 ```
-Creates a `message_log` entry per channel, then calls `sendViaN8n()`.
+
+### `lib/email.ts` — replace Nodemailer with Resend
+
+```ts
+export async function sendEmail(to: string[], subject: string, body: string): Promise<void> {
+  const apiKey   = process.env.RESEND_API_KEY;
+  const fromName = process.env.EMAIL_FROM_NAME ?? 'Calendar App';
+  const fromAddr = process.env.EMAIL_FROM_ADDRESS ?? 'noreply@yourdomain.com';
+
+  if (!apiKey) throw new Error('RESEND_API_KEY not configured');
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization:  `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from: `${fromName} <${fromAddr}>`, to, subject, text: body }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Resend error ${res.status}: ${text}`);
+  }
+}
+```
+
+> **Note:** If you prefer to keep Nodemailer SMTP (`lib/email.ts` already works on Vercel) — skip this change entirely. Only swap to Resend if SMTP causes issues.
+
+### `vercel.json` — fix cron frequency
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/messages/cron",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
+```
+
+### `api/messages/[...path].ts` — add `notify` + `cancel` routes
+Two new routes in the existing file — no structural changes:
+
+**`POST /api/messages/notify`** — one request fires both channels:
+```ts
+// Body: { message, scheduleAt?, eventId?, channels: { whatsapp?: {to}, email?: {to[], subject} } }
+// Creates one message_log per channel, calls send or schedules via cron
+```
+
+**`DELETE /api/messages/logs/:id`** — cancel a pending message:
+```ts
+// Sets status = 'cancelled' if status is currently 'pending'
+```
 
 ---
 
-## 7. New API Endpoint: `DELETE /api/messages/logs/:id`
+## 5. New Environment Variables
 
-Cancel a scheduled (pending) message before it fires:
-- Only cancels if `status = 'pending'`
-- Sets status to `'cancelled'`
-- Frontend: add ✕ button in `MessageLogPanel` for pending entries
+| Variable | Service | Value example |
+|---|---|---|
+| `ULTRAMSG_INSTANCE_ID` | UltraMsg | `instance12345` |
+| `ULTRAMSG_TOKEN` | UltraMsg | `abc123xyz` |
+| `RESEND_API_KEY` | Resend | `re_xxxxxxxx` |
+| `EMAIL_FROM_ADDRESS` | Resend | `app@yourdomain.com` |
+
+**Remove after migration:**
+- `WHATSAPP_PHONE_NUMBER_ID` — no longer needed
+- `WHATSAPP_ACCESS_TOKEN` — no longer needed
+
+**Keep:**
+- `SMTP_*` — keep as fallback if staying with Nodemailer
+- `CRON_SECRET` — keep for cron security
 
 ---
 
-## 8. Frontend Changes
+## 6. Frontend Changes
 
-The existing MessagesPage composers are complete — minimal changes needed:
+The existing MessagesPage, composers, and log panel are all complete.
+These additions remain the same as before:
 
 | File | Change |
 |---|---|
-| `MessagesPage.tsx` | Add `QuickNotifyPanel` as a new tab — one form for both channels at once |
-| `components/QuickNotifyPanel.tsx` | **New** — channel checkboxes (WA + email), shared message, schedule picker, submit → `POST /api/messages/notify` |
-| `components/MessageLogPanel.tsx` | Add ✕ cancel button for `status = 'pending'` entries |
-| `pages/Calendar/` — event modal | Add "Notifications" section: WA toggle (phone + when) + email toggle (recipients + when) |
-| `shared/types/event.types.ts` | Add `'cancelled'` to `MessageLog.status`, add `NotifyPayload` type |
-| `shared/hooks/useApi.ts` | Add `messageApi.notify(payload)`, `messageApi.cancel(id)` |
-| `shared/i18n/translations.ts` | Add all new strings (EN + HE) |
+| `components/QuickNotifyPanel.tsx` | **New** — channel checkboxes + shared message + schedule picker → `POST /api/messages/notify` |
+| `components/MessageLogPanel.tsx` | Add ✕ cancel button for `pending` entries |
+| `pages/Calendar/` event modal | Add "Notifications" section (WA toggle + email toggle + when) |
+| `shared/types/event.types.ts` | Add `'cancelled'` to status union, add `NotifyPayload` type |
+| `shared/hooks/useApi.ts` | Add `messageApi.notify()`, `messageApi.cancel()` |
+| `shared/i18n/translations.ts` | New strings EN + HE |
 
 ---
 
-## 9. n8n Workflow Setup (Manual Step)
+## 7. Implementation Order
 
-After Docker is running, inside n8n (`localhost:5678`):
-1. Create a new Workflow
-2. Add **Webhook** trigger node → URL: `/webhook/send-message`
-3. Add **IF** node: `sendWhatsApp == true` → connect to Evolution API HTTP node
-4. Add **IF** node: `sendEmail == true` → connect to Gmail node
-5. For scheduled sends: add **Wait** node before the send nodes using `scheduledTime`
-6. Save and activate the workflow
-
-**Evolution API HTTP node config:**
-- URL: `http://evolution_api:8080/message/sendText/{{ instanceName }}`
-- Header: `apikey: YOUR_EVOLUTION_API_KEY`
-- Body: `{ "number": "{{ phone }}", "textMessage": { "text": "{{ message }}" } }`
-
----
-
-## 10. Environment Variables Summary
-
-| Variable | Where Set | Purpose |
+| # | Task | Effort |
 |---|---|---|
-| `N8N_WEBHOOK_URL` | Vercel env + `.env.local` | n8n webhook endpoint |
-| `EVOLUTION_API_KEY` | Docker `.env` | Evolution API authentication |
-| `POSTGRES_*` | Docker `.env` | Evolution API + n8n database |
-| `SMTP_*` | Vercel env (existing) | Fallback direct email if n8n is down |
-| `WHATSAPP_*` | Vercel env (existing) | Keep for now — remove after Evolution API confirmed working |
-| `CRON_SECRET` | Vercel env (existing) | Protects cron endpoint |
+| 1 | Sign up UltraMsg + scan QR (manual, 5 min) | Setup only |
+| 2 | Sign up Resend + verify domain (manual, 5 min) | Setup only |
+| 3 | Add env vars to Vercel dashboard | Setup only |
+| 4 | Rewrite `lib/whatsapp.ts` → UltraMsg | ~15 min |
+| 5 | Rewrite `lib/email.ts` → Resend (optional) | ~15 min |
+| 6 | Fix `vercel.json` cron to `*/15 * * * *` | 1 line |
+| 7 | Add `notify` + `cancel` routes to `api/messages/[...path].ts` | ~45 min |
+| 8 | Add types + API client methods | ~20 min |
+| 9 | `QuickNotifyPanel` component | ~45 min |
+| 10 | `MessageLogPanel` cancel button | ~15 min |
+| 11 | Event modal Notifications section | ~1 hr |
+| 12 | Translations | ~20 min |
+| 13 | Delete `WhatsappAndEmail-main/` + `New Compressed (zipped) Folder/` | Done |
 
 ---
 
-## 11. Implementation Order
+## 8. What We're Keeping from WhatsappAndEmail-main
 
-| # | Task | Files |
-|---|---|---|
-| 1 | Docker Compose + QR scan (infrastructure, manual) | `docker-compose.yml` (new), `.env` |
-| 2 | Build n8n workflow (manual, in n8n UI) | — |
-| 3 | `lib/n8n.ts` — unified n8n sender | New file |
-| 4 | `api/messages/[...path].ts` — swap senders, add `notify` + `cancel` routes | Existing file |
-| 5 | `vercel.json` — fix cron to every 15 min | Existing file |
-| 6 | Types + API client additions | `event.types.ts`, `useApi.ts` |
-| 7 | `QuickNotifyPanel` component | New file |
-| 8 | `MessageLogPanel` cancel button | Existing file |
-| 9 | Event modal — Notifications section | Existing file |
-| 10 | Translations | `translations.ts` |
-| 11 | Delete `WhatsappAndEmail-main/` folder | — |
+| Concept | How we use it |
+|---|---|
+| Single payload for both channels (`sendEmail` + `sendWhatsApp` booleans) | The new `POST /api/messages/notify` endpoint |
+| "Must select at least one channel" validation | In `QuickNotifyPanel` and the `notify` route |
+| Phone number format without `+` | UltraMsg expects `972501234567` not `+972501234567` |
+| Datetime → ISO conversion pattern | Already handled by `datetime-local` HTML input |
 
----
-
-## 12. Development vs Production
-
-| | Development | Production |
-|---|---|---|
-| Evolution API | Docker on local machine (`localhost:8080`) | VPS / cloud VM with Docker |
-| n8n | Docker on local machine (`localhost:5678`) | n8n Cloud or same VPS |
-| n8n webhook URL | `http://localhost:5678/webhook/send-message` | `https://your-n8n.domain.com/webhook/send-message` |
-| Our app | `localhost:5173` (Vite dev) | Vercel |
-| DB (our app) | Turso (already remote) | Turso (same) |
-
-> **Note:** For production the n8n + Evolution API stack must be on a server with a public URL (not Vercel, since those are serverless). A small VPS (e.g. 2GB RAM) running Docker Compose is sufficient.
+**Not needed:** n8n, Docker, Express server, Evolution API, Postgres (Docker), Redis — all replaced by cloud APIs.
