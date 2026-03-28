@@ -57,6 +57,24 @@ export interface WeatherSettings {
   unit: 'celsius' | 'fahrenheit';
 }
 
+export type ClockStyle = 'digital' | 'analog' | 'minimal';
+export type ClockTheme = 'purple' | 'blue' | 'amber' | 'emerald' | 'rose' | 'slate';
+
+export interface ClockEntry {
+  label: string;  // editable display name
+  tz: string;     // IANA timezone e.g. "Asia/Jerusalem"
+  show: boolean;
+}
+
+export interface ClockSettings {
+  show: boolean;
+  style: ClockStyle;
+  theme: ClockTheme;
+  showSeconds: boolean;
+  use24h: boolean;
+  clocks: [ClockEntry, ClockEntry, ClockEntry];
+}
+
 export interface AppSettings {
   language: Language;           // UI language: 'he' = Hebrew (RTL), 'en' = English (LTR)
   calendarMode: CalendarMode;
@@ -64,6 +82,7 @@ export interface AppSettings {
   holidays: HolidaySettings;
   zmanim: ZmanimSettings;
   weather: WeatherSettings;
+  clock: ClockSettings;
   // Email
   smtpHost: string;
   smtpPort: number;
@@ -111,6 +130,18 @@ export const DEFAULT_SETTINGS: AppSettings = {
   weather: {
     show: true,
     unit: 'celsius',
+  },
+  clock: {
+    show: true,
+    style: 'digital',
+    theme: 'purple',
+    showSeconds: true,
+    use24h: true,
+    clocks: [
+      { label: 'Local', tz: 'Asia/Jerusalem', show: true },
+      { label: 'New York', tz: 'America/New_York', show: false },
+      { label: 'Tokyo', tz: 'Asia/Tokyo', show: false },
+    ],
   },
   smtpHost: 'smtp.gmail.com',
   smtpPort: 587,

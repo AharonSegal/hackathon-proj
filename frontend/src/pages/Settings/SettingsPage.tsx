@@ -27,7 +27,10 @@ import { settingsApi } from '@/shared/hooks/useApi';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
 import { useT } from '@/shared/i18n/useT';
-import { Language } from '@/shared/types/settings.types';
+import { Language, ClockStyle, ClockTheme } from '@/shared/types/settings.types';
+import { WORLD_CITIES } from '@/shared/data/worldCities';
+import * as Select from '@radix-ui/react-select';
+import { ChevronDown, Check } from 'lucide-react';
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">{children}</h2>;
@@ -332,8 +335,181 @@ export function SettingsPage() {
               </div>
             </div>
           </section>
+
+          {/* ── Clock ── */}
+          <ClockSettingsSection />
+
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Clock settings section ────────────────────────────────────────────────────
+
+const CLOCK_STYLES: { value: ClockStyle; label: string }[] = [
+  { value: 'digital', label: 'Digital' },
+  { value: 'analog',  label: 'Analog'  },
+  { value: 'minimal', label: 'Minimal' },
+];
+
+const CLOCK_THEMES: { value: ClockTheme; color: string; label: string }[] = [
+  { value: 'purple',  color: 'bg-violet-400',  label: 'Purple'  },
+  { value: 'blue',    color: 'bg-blue-400',    label: 'Blue'    },
+  { value: 'amber',   color: 'bg-amber-400',   label: 'Amber'   },
+  { value: 'emerald', color: 'bg-emerald-400', label: 'Emerald' },
+  { value: 'rose',    color: 'bg-rose-400',    label: 'Rose'    },
+  { value: 'slate',   color: 'bg-slate-300',   label: 'Slate'   },
+];
+
+function TzSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <Select.Root value={value} onValueChange={onChange}>
+      <Select.Trigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 hover:border-slate-600 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors">
+        <Select.Value />
+        <Select.Icon><ChevronDown size={14} className="text-slate-400" /></Select.Icon>
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Content
+          position="popper"
+          sideOffset={4}
+          className="z-50 max-h-64 overflow-y-auto rounded-xl bg-slate-800 border border-slate-700 shadow-xl py-1"
+        >
+          <Select.Viewport>
+            {WORLD_CITIES.map(city => (
+              <Select.Item
+                key={city.tz + city.label}
+                value={city.tz}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-200 cursor-pointer hover:bg-slate-700 focus:bg-slate-700 focus:outline-none data-[highlighted]:bg-slate-700 select-none"
+              >
+                <Select.ItemText>{city.label}</Select.ItemText>
+                <Select.ItemIndicator className="ml-auto">
+                  <Check size={12} className="text-primary-400" />
+                </Select.ItemIndicator>
+              </Select.Item>
+            ))}
+          </Select.Viewport>
+        </Select.Content>
+      </Select.Portal>
+    </Select.Root>
+  );
+}
+
+function ClockSettingsSection() {
+  const { settings, updateSettings } = useSettings();
+  const clk = settings.clock;
+
+  const updateClock = (patch: Partial<typeof clk>) =>
+    updateSettings({ clock: { ...clk, ...patch } });
+
+  const updateClockEntry = (idx: 0 | 1 | 2, patch: Partial<typeof clk.clocks[0]>) => {
+    const next = [...clk.clocks] as typeof clk.clocks;
+    next[idx] = { ...next[idx], ...patch };
+    updateClock({ clocks: next });
+  };
+
+  return (
+    <section className="card space-y-4">
+      <SectionTitle>Clock</SectionTitle>
+
+      <div className="divide-y divide-slate-800">
+        <ToggleRow
+          label="Show clock widget"
+          checked={clk.show}
+          onCheckedChange={v => updateClock({ show: v })}
+        />
+        <ToggleRow
+          label="Show seconds"
+          checked={clk.showSeconds}
+          onCheckedChange={v => updateClock({ showSeconds: v })}
+          disabled={!clk.show}
+        />
+        <ToggleRow
+          label="24-hour format"
+          checked={clk.use24h}
+          onCheckedChange={v => updateClock({ use24h: v })}
+          disabled={!clk.show}
+        />
+      </div>
+
+      {/* Style picker */}
+      <div className={clsx(!clk.show && 'opacity-40 pointer-events-none')}>
+        <p className="text-sm text-slate-200 mb-2">Style</p>
+        <div className="flex gap-2">
+          {CLOCK_STYLES.map(s => (
+            <button
+              key={s.value}
+              onClick={() => updateClock({ style: s.value })}
+              className={clsx(
+                'flex-1 py-2 rounded-lg text-sm font-medium border transition-colors',
+                clk.style === s.value
+                  ? 'bg-primary-600 border-primary-600 text-white'
+                  : 'border-slate-600 text-slate-400 hover:border-slate-500',
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Color theme picker */}
+      <div className={clsx(!clk.show && 'opacity-40 pointer-events-none')}>
+        <p className="text-sm text-slate-200 mb-2">Accent color</p>
+        <div className="flex gap-2 flex-wrap">
+          {CLOCK_THEMES.map(th => (
+            <button
+              key={th.value}
+              onClick={() => updateClock({ theme: th.value })}
+              title={th.label}
+              className={clsx(
+                'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                clk.theme === th.value
+                  ? 'border-slate-400 bg-slate-700 text-slate-100'
+                  : 'border-slate-700 text-slate-400 hover:border-slate-500',
+              )}
+            >
+              <span className={clsx('w-2.5 h-2.5 rounded-full', th.color)} />
+              {th.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Per-clock slot editors */}
+      <div className={clsx('space-y-3', !clk.show && 'opacity-40 pointer-events-none')}>
+        <p className="text-sm text-slate-200">World clocks (up to 3)</p>
+        {([0, 1, 2] as const).map(idx => {
+          const entry = clk.clocks[idx];
+          return (
+            <div key={idx} className="rounded-lg border border-slate-700 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  Clock {idx + 1}
+                </span>
+                <Switch.Root
+                  checked={entry.show}
+                  onCheckedChange={v => updateClockEntry(idx, { show: v })}
+                  className="w-8 h-4 rounded-full bg-slate-700 data-[state=checked]:bg-primary-600 transition-colors outline-none focus:ring-2 focus:ring-primary-500/50"
+                >
+                  <Switch.Thumb className="block w-3 h-3 rounded-full bg-white shadow translate-x-0.5 data-[state=checked]:translate-x-4 transition-transform" />
+                </Switch.Root>
+              </div>
+              <input
+                type="text"
+                value={entry.label}
+                onChange={e => updateClockEntry(idx, { label: e.target.value })}
+                placeholder="Label (e.g. Home)"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors"
+              />
+              <TzSelect
+                value={entry.tz}
+                onChange={v => updateClockEntry(idx, { tz: v })}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

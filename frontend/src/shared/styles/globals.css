@@ -69,6 +69,39 @@
   }
 }
 
+/* ── react-clock dark-theme overrides ─────────────────────────────────────── */
+.analog-clock-wrapper .react-clock {
+  border: 2px solid rgba(148, 163, 184, 0.15); /* slate-400/15 */
+  background: rgba(15, 23, 42, 0.6);           /* slate-950/60 */
+  border-radius: 50%;
+}
+
+.analog-clock-wrapper .react-clock__face {
+  border: none;
+}
+
+.analog-clock-wrapper .react-clock__mark__body {
+  background-color: rgba(148, 163, 184, 0.3);
+}
+
+.analog-clock-wrapper .react-clock__hour-mark__body {
+  background-color: rgba(148, 163, 184, 0.5);
+}
+
+.analog-clock-wrapper .react-clock__hand__body {
+  background-color: var(--clock-color, #a78bfa);
+}
+
+.analog-clock-wrapper .react-clock__second-hand__body {
+  background-color: var(--clock-color, #a78bfa);
+  opacity: 0.8;
+}
+
+.analog-clock-wrapper .react-clock__hour-hand__body,
+.analog-clock-wrapper .react-clock__minute-hand__body {
+  border-radius: 3px;
+}
+
 /* ── BlockNote dark-theme integration ─────────────────────────────────────── */
 .blocknote-wrapper .bn-container {
   background: transparent;

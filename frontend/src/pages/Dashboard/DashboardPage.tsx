@@ -30,6 +30,7 @@ import { EVENT_DOT_COLORS } from '@/shared/colors';
 import { StatCard } from './components/StatCard';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { WeatherWidget } from './components/WeatherWidget';
+import { ClockWidget } from './components/ClockWidget';
 import { useSettings } from '@/shared/context/SettingsContext';
 import { useT } from '@/shared/i18n/useT';
 
@@ -76,6 +77,7 @@ export function DashboardPage() {
                 unit={settings.weather.unit}
               />
             )}
+            <ClockWidget />
             <div className="flex flex-col gap-1">
               <button
                 onClick={() => navigate('/calendar')}
