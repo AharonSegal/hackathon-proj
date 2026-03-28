@@ -58,6 +58,60 @@ export function gematriyaDay(day: number): string {
   return GEMATRIYA[day] ?? String(day);
 }
 
+/** Insert geresh (׳) after a single letter, gershayim (״) before the last letter otherwise */
+function addGershayim(str: string): string {
+  if (str.length === 0) return str;
+  if (str.length === 1) return str + '׳';
+  return str.slice(0, -1) + '״' + str.slice(-1);
+}
+
+/** Convert any number to raw gematria letters (no punctuation) */
+function numToGematriyaRaw(n: number): string {
+  // Values ordered largest→smallest; 15 and 16 use special forms to avoid divine names
+  const TABLE: [number, string][] = [
+    [400, 'ת'], [300, 'ש'], [200, 'ר'], [100, 'ק'],
+    [90, 'צ'], [80, 'פ'], [70, 'ע'], [60, 'ס'], [50, 'נ'],
+    [40, 'מ'], [30, 'ל'], [20, 'כ'],
+    [16, 'טז'], [15, 'טו'],
+    [10, 'י'], [9, 'ט'], [8, 'ח'], [7, 'ז'], [6, 'ו'],
+    [5, 'ה'], [4, 'ד'], [3, 'ג'], [2, 'ב'], [1, 'א'],
+  ];
+  let result = '';
+  for (const [val, letters] of TABLE) {
+    while (n >= val) { result += letters; n -= val; }
+  }
+  return result;
+}
+
+/**
+ * Convert a Hebrew year number to traditional gematria string with punctuation.
+ * The thousands digit (ה for 5000) is written as a plain letter prefix.
+ * e.g. 5786 → "התשפ״ו"
+ */
+export function gematriyaYear(year: number): string {
+  const thousands  = Math.floor(year / 1000);
+  const remainder  = year % 1000;
+  const thousandsL = numToGematriyaRaw(thousands); // "ה" for 5
+  const remainderL = numToGematriyaRaw(remainder);  // "תשפו" for 786
+  return thousandsL + addGershayim(remainderL);     // "התשפ״ו"
+}
+
+/**
+ * Hebrew day number with geresh/gershayim punctuation.
+ * e.g. 11 → "י״א",  1 → "א׳"
+ */
+export function gematriyaDayFull(day: number): string {
+  return addGershayim(gematriyaDay(day));
+}
+
+/**
+ * Full traditional Hebrew date string.
+ * e.g. HDate(11 Nisan 5786) → "י״א ניסן התשפ״ו"
+ */
+export function formatFullHebrewDate(hDate: HDate): string {
+  return `${gematriyaDayFull(hDate.getDate())} ${hebrewMonthName(hDate)} ${gematriyaYear(hDate.getFullYear())}`;
+}
+
 /** Hebrew month name lookup (by @hebcal/core month constant → Hebrew text) */
 const HEBREW_MONTH_NAMES: Record<number, string> = {
   [months.NISAN]:   'ניסן',

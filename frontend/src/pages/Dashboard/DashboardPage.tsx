@@ -20,17 +20,17 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, Mail, MessageCircle, Clock, Plus, CheckSquare, StickyNote, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader } from '@/shared/components/Layout/PageHeader';
 import { Badge } from '@/shared/components/ui/Badge';
 import { CalendarEvent, MessageLog } from '@/shared/types/event.types';
 import { eventApi, messageApi } from '@/shared/hooks/useApi';
 import { HDate } from '@hebcal/core';
-import { gematriyaDay, hebrewMonthName } from '@/pages/Calendar/hooks/useCalendar';
+import { gematriyaDayFull, hebrewMonthName } from '@/pages/Calendar/hooks/useCalendar';
 import { EVENT_DOT_COLORS } from '@/shared/colors';
 import { StatCard } from './components/StatCard';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { WeatherWidget } from './components/WeatherWidget';
-import { ClockWidget } from './components/ClockWidget';
+import { DashboardClockHero } from './components/DashboardClockHero';
+import { TempleCounterCard } from './components/TempleCounterCard';
 import { useSettings } from '@/shared/context/SettingsContext';
 import { useT } from '@/shared/i18n/useT';
 
@@ -65,48 +65,53 @@ export function DashboardPage() {
 
   return (
     <div className="p-6 space-y-6 overflow-y-auto flex-1">
-      <PageHeader
-        title={t.dashboard_title}
-        subtitle={`${today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} · ${gematriyaDay(hToday.getDate())} ${hebrewMonthName(hToday)} ${hToday.getFullYear()}`}
-        actions={
-          <>
-            {settings.weather.show && (
-              <WeatherWidget
-                lat={settings.zmanim.location.lat}
-                lng={settings.zmanim.location.lng}
-                unit={settings.weather.unit}
-              />
-            )}
-            <ClockWidget />
-            <div className="flex flex-col gap-1">
-              <button
-                onClick={() => navigate('/calendar')}
-                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-lg text-white bg-primary-950 hover:bg-primary-900 transition-colors"
-              >
-                <Plus size={13} />{t.dashboard_new_event}
-              </button>
-              <button
-                onClick={() => navigate('/todos')}
-                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-lg text-white bg-primary-800 hover:bg-primary-700 transition-colors"
-              >
-                <CheckSquare size={13} />New Todo
-              </button>
-              <button
-                onClick={() => navigate('/notes')}
-                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-500 transition-colors"
-              >
-                <StickyNote size={13} />New Note
-              </button>
-              <button
-                onClick={() => navigate('/daily-log')}
-                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-medium rounded-lg text-white bg-primary-500 hover:bg-primary-400 transition-colors"
-              >
-                <BookOpen size={13} />New Log
-              </button>
-            </div>
-          </>
-        }
-      />
+
+      {/* ── Top hero bar — clock + temple counter + weather + actions ── */}
+      <div className="flex flex-wrap gap-4 items-stretch">
+
+        {/* Large clock with embedded dates */}
+        <DashboardClockHero />
+
+        {/* Years since temple destruction */}
+        <TempleCounterCard hebrewYear={hToday.getFullYear()} />
+
+        {/* Weather forecast */}
+        {settings.weather.show && (
+          <WeatherWidget
+            lat={settings.zmanim.location.lat}
+            lng={settings.zmanim.location.lng}
+            unit={settings.weather.unit}
+          />
+        )}
+
+        {/* Quick-action buttons */}
+        <div className="flex flex-col gap-1.5 justify-center">
+          <button
+            onClick={() => navigate('/calendar')}
+            className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg text-white bg-primary-950 hover:bg-primary-900 transition-colors"
+          >
+            <Plus size={13} />{t.dashboard_new_event}
+          </button>
+          <button
+            onClick={() => navigate('/todos')}
+            className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg text-white bg-primary-800 hover:bg-primary-700 transition-colors"
+          >
+            <CheckSquare size={13} />New Todo
+          </button>
+          <button
+            onClick={() => navigate('/notes')}
+            className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-500 transition-colors"
+          >
+            <StickyNote size={13} />New Note
+          </button>
+          <button
+            onClick={() => navigate('/daily-log')}
+            className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg text-white bg-primary-500 hover:bg-primary-400 transition-colors"
+          >
+            <BookOpen size={13} />New Log
+          </button>
+        </div>
+      </div>
 
       {/* ── Stats row ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -170,8 +175,8 @@ export function DashboardPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-slate-200 truncate">{ev.title}</p>
-                      <p className="text-xs text-slate-500 font-hebrew">
-                        {gematriyaDay(hd.getDate())} {hebrewMonthName(hd)}
+                      <p className="text-xs text-slate-500 font-hebrew" dir="rtl">
+                        {gematriyaDayFull(hd.getDate())} {hebrewMonthName(hd)}
                       </p>
                     </div>
                   </div>
