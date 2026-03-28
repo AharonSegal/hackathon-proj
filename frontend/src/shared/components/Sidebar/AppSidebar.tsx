@@ -23,6 +23,7 @@ import {
   CheckSquare,
   BookOpen,
   Gamepad2,
+  ScrollText,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useT } from '@/shared/i18n/useT';
@@ -45,6 +46,7 @@ export function AppSidebar() {
   const BOTTOM_ITEMS = [
     { to: '/calendar',    label: t.nav_calendar,    icon: CalendarDays },
     { to: '/daily-times', label: t.nav_daily_times, icon: Clock },
+    { to: '/brachot',     label: 'ברכות',            icon: ScrollText },
   ];
 
   // Active-indicator chevron: points toward the content area

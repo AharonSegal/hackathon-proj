@@ -27,6 +27,7 @@ import { TrashPage } from '@/pages/Trash/TrashPage';
 import { TodosPage } from '@/pages/Todos/TodosPage';
 import DailyLogPage from '@/pages/DailyLog/DailyLogPage';
 import { GamesPage } from '@/pages/Games/GamesPage';
+import { BrachotPage } from '@/pages/Brachot/BrachotPage';
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
                     <Route path="/calendar" element={<CalendarPage />} />
                     <Route path="/events" element={<EventsPage />} />
                     <Route path="/daily-times" element={<DailyTimesPage />} />
+                    <Route path="/brachot" element={<BrachotPage />} />
                     <Route path="/messages" element={<MessagesPage />} />
                     <Route path="/notes" element={<NotesPage />} />
                     <Route path="/todos" element={<TodosPage />} />
