@@ -30,6 +30,7 @@ import { StatCard } from './components/StatCard';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { WeatherWidget } from './components/WeatherWidget';
 import { DashboardClockHero } from './components/DashboardClockHero';
+import { DailyInfoCard } from './components/DailyInfoCard';
 import { TempleCounterCard } from './components/TempleCounterCard';
 import { useSettings } from '@/shared/context/SettingsContext';
 import { useT } from '@/shared/i18n/useT';
@@ -71,6 +72,9 @@ export function DashboardPage() {
 
         {/* Large clock with embedded dates */}
         <DashboardClockHero />
+
+        {/* Parasha + key zmanim */}
+        <DailyInfoCard />
 
         {/* Years since temple destruction */}
         <TempleCounterCard hebrewYear={hToday.getFullYear()} />

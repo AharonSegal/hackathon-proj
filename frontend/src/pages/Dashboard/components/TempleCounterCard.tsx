@@ -17,10 +17,10 @@ export function TempleCounterCard({ hebrewYear }: TempleCounterCardProps) {
   const formatted  = new Intl.NumberFormat('he-IL').format(yearsSince);
 
   return (
-    <div className="bg-slate-900/40 rounded-2xl border border-slate-800/60 backdrop-blur-sm px-5 py-5 flex flex-col items-center justify-center gap-2 min-w-[160px]">
+    <div className="bg-slate-900/40 rounded-2xl border border-slate-800/60 backdrop-blur-sm px-4 py-3 flex flex-col items-center justify-center gap-1.5 min-w-[130px]">
       {/* Hebrew title */}
       <p
-        className="text-[11px] font-semibold text-slate-500 text-center leading-snug"
+        className="text-[10px] font-semibold text-slate-500 text-center leading-snug"
         dir="rtl"
         style={{ fontFamily: "'Heebo', sans-serif" }}
       >
@@ -32,15 +32,6 @@ export function TempleCounterCard({ hebrewYear }: TempleCounterCardProps) {
       {/* Year count */}
       <p className="text-4xl sm:text-5xl font-bold text-amber-400 tabular-nums leading-none">
         {formatted}
-      </p>
-
-      {/* Sub-label */}
-      <p
-        className="text-[10px] text-slate-600 text-center"
-        dir="rtl"
-        style={{ fontFamily: "'Heebo', sans-serif" }}
-      >
-        שנים מחורבן בית המקדש
       </p>
     </div>
   );

@@ -200,7 +200,7 @@ export function DashboardClockHero() {
   });
 
   return (
-    <div className="flex-1 min-w-[260px] bg-slate-900/40 rounded-2xl border border-slate-800/60 backdrop-blur-sm px-6 py-5 flex flex-col items-center justify-center gap-3">
+    <div className="flex-1 min-w-[260px] bg-slate-900/40 rounded-2xl border border-slate-800/60 backdrop-blur-sm px-4 py-3 flex flex-col items-center justify-center gap-2">
 
       {/* Hebrew date — prominent, RTL */}
       <p
@@ -217,7 +217,7 @@ export function DashboardClockHero() {
       </p>
 
       {/* Divider */}
-      <div className="w-16 h-px bg-slate-700/60" />
+      <div className="w-12 h-px bg-slate-700/60" />
 
       {/* Clock display(s) */}
       <div className={`flex ${clock.style === 'minimal' ? 'flex-col w-full gap-2' : 'flex-row gap-8 items-center'}`}>
