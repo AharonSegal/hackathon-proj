@@ -11,7 +11,7 @@
 
 import { useMemo } from 'react';
 import { HebrewCalendar } from '@hebcal/core';
-import { ComplexZmanimCalendar, ZmanimCalendar, GeoLocation } from 'kosher-zmanim';
+import { ComplexZmanimCalendar, GeoLocation } from 'kosher-zmanim';
 import { useSettings } from '@/shared/context/SettingsContext';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -111,7 +111,8 @@ export function DailyInfoCard() {
   const fd = (d: Date | null) => fmtDate(d, timezone);
 
   const rows: { label: string; time: string }[] = [
-    { label: 'סו"ז ק"ש מג"א', time: f((calcToday as ZmanimCalendar & Record<string, unknown>)?.getSofZmanShmaMGA?.()) },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { label: 'סו"ז ק"ש מג"א', time: f((calcToday as any)?.getSofZmanShmaMGA?.()) },
     { label: 'סו"ז ק"ש גר"א', time: f(calcToday?.getSofZmanShmaGRA()) },
     { label: 'סו"ז תפילה',     time: f(calcToday?.getSofZmanTfilaGRA()) },
     { label: 'שקיעה',           time: f(calcToday?.getSunset()) },
