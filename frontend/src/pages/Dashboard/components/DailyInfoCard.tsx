@@ -62,18 +62,30 @@ function upcomingShabbat(from: Date): Date {
   return d;
 }
 
-function getParasha(shabbatDate: Date, il: boolean): string | null {
+/**
+ * Find the Hebrew name of the next weekly parasha.
+ * Searches up to 5 Saturdays ahead because holiday weeks (Pesach, Sukkot, etc.)
+ * emit no regular Parashat entry — hebcal only emits sedra on non-holiday Shabbatot.
+ */
+function getParasha(from: Date, il: boolean): string | null {
   try {
-    const events = HebrewCalendar.calendar({
-      start: shabbatDate,
-      end:   shabbatDate,
-      il,
-      sedrot: true,
-    } as Parameters<typeof HebrewCalendar.calendar>[0]);
-    const ev = events.find(e =>
-      e.getDesc().startsWith('Parashat') || e.getDesc().startsWith('Parasha')
-    );
-    return ev ? ev.render('he') : null;
+    const firstShabbat = upcomingShabbat(from);
+    for (let week = 0; week <= 4; week++) {
+      const d = new Date(firstShabbat);
+      d.setDate(d.getDate() + week * 7);
+      const events = HebrewCalendar.calendar({
+        start: d, end: d, il, sedrot: true,
+      } as Parameters<typeof HebrewCalendar.calendar>[0]);
+      const ev = events.find(e =>
+        e.getDesc().startsWith('Parashat') || e.getDesc().startsWith('Parasha')
+      );
+      if (ev) {
+        // render('he') returns the Hebrew name; fall back to English if empty
+        const hebrew = ev.render('he');
+        return hebrew || ev.getDesc();
+      }
+    }
+    return null;
   } catch {
     return null;
   }
@@ -94,7 +106,7 @@ export function DailyInfoCard() {
   const calcFriday  = useMemo(() => buildCalc(friday,  lat, lng, timezone), [friday,  lat, lng, timezone]);
   const calcShabbat = useMemo(() => buildCalc(shabbat, lat, lng, timezone), [shabbat, lat, lng, timezone]);
 
-  const parasha = useMemo(() => getParasha(shabbat, il), [shabbat, il]);
+  const parasha = useMemo(() => getParasha(today, il), [today, il]);
 
   // כניסת שבת = Friday sunset − 18 minutes
   const candleLighting = useMemo(() => {
