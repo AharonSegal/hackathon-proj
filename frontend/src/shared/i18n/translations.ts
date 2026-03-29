@@ -23,8 +23,8 @@ const en = {
   nav_todos:        'Todos',
   nav_daily_log:    'Daily Log',
   nav_games:        'Games',
-  app_name:         'לוח שנה',
-  app_subtitle:     'Calendar App',
+  app_name:         'Utility',
+  app_subtitle:     'Utility',
 
   // ── Dashboard ───────────────────────────────────────────────────
   dashboard_title:        'Dashboard',
@@ -200,8 +200,8 @@ const he: typeof en = {
   nav_todos:        'משימות',
   nav_daily_log:    'יומן עבודה',
   nav_games:        'משחקים',
-  app_name:         'לוח שנה',
-  app_subtitle:     'יישום לוח שנה',
+  app_name:         'Utility',
+  app_subtitle:     'Utility',
 
   // ── Dashboard ───────────────────────────────────────────────────
   dashboard_title:        'לוח בקרה',

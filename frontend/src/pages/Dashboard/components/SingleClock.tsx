@@ -49,8 +49,8 @@ function formatPart(
 
 function getTimeParts(date: Date, tz: string, use24h: boolean, showSeconds: boolean) {
   const hour   = formatPart(date, tz, { hour: '2-digit',   hour12: !use24h });
-  const minute = formatPart(date, tz, { minute: '2-digit' });
-  const second = showSeconds ? formatPart(date, tz, { second: '2-digit' }) : null;
+  const minute = formatPart(date, tz, { minute: '2-digit' }).padStart(2, '0');
+  const second = showSeconds ? formatPart(date, tz, { second: '2-digit' }).padStart(2, '0') : null;
   const dayName = formatPart(date, tz, { weekday: 'short' });
   const dateStr = formatPart(date, tz, { month: 'short', day: 'numeric' });
   return { hour, minute, second, dayName, dateStr };
