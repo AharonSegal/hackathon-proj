@@ -4,8 +4,16 @@ import { useT } from '@/shared/i18n/useT';
 
 const GAMES = [
   {
+    id: 'kart-racer-phaser',
+    title: 'Kart Racer Pro',
+    description: 'Full Mario Kart experience — Phaser 3 engine, 6 karts, drift boost, 9 items, AI rubberbanding, minimap & more.',
+    emoji: '🏆',
+    tags: ['Racing', 'Arcade', 'Multiplayer'],
+    src: '/games/kart-racer-phaser.html',
+  },
+  {
     id: 'kart-racer',
-    title: 'Kart Racer',
+    title: 'Kart Racer (Classic)',
     description: 'Top-down Mario Kart–style racing with AI opponents, items, and 3-lap circuits.',
     emoji: '🏎️',
     tags: ['Racing', 'Arcade'],
