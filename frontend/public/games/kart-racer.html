@@ -33,10 +33,10 @@ const NUM_AI = 3;
 
 const KART_COLORS = ['#e74c3c','#3498db','#2ecc71','#f39c12'];
 const KART_NAMES  = ['Red Racer','Blue Bolt','Green Ghost','Yellow Zing'];
-const ITEM_LIST   = ['mushroom','green_shell','red_shell','banana','lightning','star','ink','triple_mushroom','turboTank'];
+const ITEM_LIST   = ['mushroom','green_shell','red_shell','banana','lightning','star','ink','triple_mushroom','turboTank','bullet'];
 const ITEM_ICONS  = {
   mushroom:'🍄', green_shell:'🟢', red_shell:'🔴', banana:'🍌',
-  lightning:'⚡', star:'⭐', ink:'🦑', triple_mushroom:'🍄×3', turboTank:'🔋'
+  lightning:'⚡', star:'⭐', ink:'🦑', triple_mushroom:'🍄×3', turboTank:'🔋', bullet:'🚀'
 };
 const POS_NAMES  = ['1ST','2ND','3RD','4TH'];
 const POS_COLORS = ['#f1c40f','#bdc3c7','#e67e22','#ecf0f1'];
@@ -127,104 +127,98 @@ const MAPS = [
     name:'Classic Circuit', difficulty:1, features:['🏁','🌿'],
     bgColor:'#3d7a28', roadColor:'#686868', kerbColor:'rgba(180,0,0,0.55)',
     grassColor:'#4a8a32', roadWidth:160, voidEdges:false, icePhysics:false,
-    // Clean oval: CX=1200 CY=1440 AX=780 AY=560  N=40 CW from bottom
+    // D-shape: large right arc + left side with S-curves
     waypoints:[
-      {x:1200,y:2000},{x:1322,y:1993},{x:1441,y:1973},{x:1554,y:1939},{x:1658,y:1893},
-      {x:1751,y:1836},{x:1831,y:1769},{x:1895,y:1694},{x:1942,y:1613},{x:1970,y:1528},
-      {x:1980,y:1440},{x:1970,y:1352},{x:1942,y:1267},{x:1895,y:1186},{x:1831,y:1111},
-      {x:1751,y:1044},{x:1658,y:987}, {x:1554,y:941}, {x:1441,y:907}, {x:1322,y:887},
-      {x:1200,y:880}, {x:1078,y:887}, {x:959,y:907},  {x:846,y:941},  {x:742,y:987},
-      {x:649,y:1044}, {x:569,y:1111}, {x:505,y:1186}, {x:458,y:1267}, {x:430,y:1352},
-      {x:420,y:1440}, {x:430,y:1528}, {x:458,y:1613}, {x:505,y:1694}, {x:569,y:1769},
-      {x:649,y:1836}, {x:742,y:1893}, {x:846,y:1939}, {x:959,y:1973}, {x:1078,y:1993},
-      {x:1200,y:2000},
+      {x:1200,y:2050},{x:1420,y:2040},{x:1630,y:2000},{x:1810,y:1930},
+      {x:1960,y:1820},{x:2050,y:1680},{x:2080,y:1520},{x:2080,y:1350},
+      {x:2040,y:1180},{x:1950,y:1040},{x:1820,y:930}, {x:1660,y:860},
+      {x:1480,y:830}, {x:1300,y:840},{x:1200,y:860},
+      {x:1040,y:890},{x:890,y:970},{x:800,y:1110},
+      {x:760,y:1280},{x:800,y:1450},{x:760,y:1620},
+      {x:830,y:1790},{x:970,y:1920},{x:1090,y:1990},{x:1200,y:2050},
     ],
-    itemBoxes:[{x:1942,y:1613},{x:1831,y:1111},{x:1200,y:880},{x:569,y:1111},{x:458,y:1613},{x:1200,y:1960}],
+    itemBoxes:[{x:2080,y:1350},{x:1200,y:860},{x:760,y:1280},{x:760,y:1620},{x:1810,y:1930},{x:1200,y:2020}],
     ramps:[]
   },
 
-  // ── MAP 2: ANCIENT RUINS ── medium, wide flat oval ──
+  // ── MAP 2: ANCIENT RUINS ── medium, stadium with two hairpins + chicane ──
   {
     name:'Ancient Ruins', difficulty:2, features:['🏛️','🏜️'],
     bgColor:'#c2a060', roadColor:'#907050', kerbColor:'rgba(140,80,0,0.6)',
     grassColor:'#b89050', roadWidth:155, voidEdges:false, icePhysics:false,
-    // Flatter oval: CX=1200 CY=1420 AX=860 AY=500  N=40
+    // Stadium: long bottom straight, two tight hairpins, back straight with chicane
     waypoints:[
-      {x:1200,y:1920},{x:1334,y:1914},{x:1466,y:1896},{x:1590,y:1866},{x:1705,y:1825},
-      {x:1808,y:1774},{x:1895,y:1714},{x:1966,y:1647},{x:2018,y:1575},{x:2049,y:1498},
-      {x:2060,y:1420},{x:2049,y:1342},{x:2018,y:1265},{x:1966,y:1193},{x:1895,y:1126},
-      {x:1808,y:1066},{x:1705,y:1015},{x:1590,y:974}, {x:1466,y:944}, {x:1334,y:926},
-      {x:1200,y:920}, {x:1066,y:926}, {x:934,y:944},  {x:810,y:974},  {x:695,y:1015},
-      {x:592,y:1066}, {x:505,y:1126}, {x:434,y:1193}, {x:382,y:1265}, {x:351,y:1342},
-      {x:340,y:1420}, {x:351,y:1498}, {x:382,y:1575}, {x:434,y:1647}, {x:505,y:1714},
-      {x:592,y:1774}, {x:695,y:1825}, {x:810,y:1866}, {x:934,y:1896}, {x:1066,y:1914},
-      {x:1200,y:1920},
+      {x:450,y:2050},{x:700,y:2050},{x:950,y:2050},{x:1200,y:2050},{x:1450,y:2050},{x:1700,y:2040},
+      {x:1880,y:2000},{x:2000,y:1900},{x:2060,y:1750},{x:2060,y:1580},
+      {x:2000,y:1430},{x:1880,y:1340},{x:1720,y:1290},
+      {x:1550,y:1270},{x:1380,y:1300},{x:1200,y:1270},{x:1020,y:1300},{x:840,y:1270},{x:660,y:1300},
+      {x:490,y:1360},{x:380,y:1500},{x:360,y:1680},{x:420,y:1850},{x:560,y:1960},
+      {x:450,y:2050},
     ],
-    itemBoxes:[{x:2060,y:1420},{x:1705,y:1015},{x:1200,y:920},{x:695,y:1015},{x:340,y:1420},{x:1200,y:1880}],
+    itemBoxes:[{x:1200,y:2050},{x:2060,y:1580},{x:1200,y:1270},{x:380,y:1500},{x:1720,y:1290},{x:840,y:1270}],
     ramps:[]
   },
 
-  // ── MAP 3: ICE MOUNTAIN ── hard, circular oval, slippery ──
+  // ── MAP 3: ICE MOUNTAIN ── hard, elongated horseshoe with chicane, slippery ──
   {
     name:'Ice Mountain', difficulty:3, features:['🧊','🏔️'],
     bgColor:'#cce8f4', roadColor:'#90b8d0', kerbColor:'rgba(0,100,200,0.4)',
     grassColor:'#b8dff0', roadWidth:148, voidEdges:false, icePhysics:true,
-    // Near-circle: CX=1200 CY=1400 AX=750 AY=690  N=44
+    // Elongated horseshoe: two parallel arms + chicane in right arm
     waypoints:[
-      {x:1200,y:2090},{x:1307,y:2083},{x:1412,y:2062},{x:1511,y:2028},{x:1605,y:1981},
-      {x:1691,y:1922},{x:1769,y:1850},{x:1833,y:1771},{x:1881,y:1689},{x:1919,y:1597},
-      {x:1942,y:1499},{x:1950,y:1400},{x:1942,y:1301},{x:1919,y:1203},{x:1881,y:1111},
-      {x:1833,y:1029},{x:1769,y:950}, {x:1691,y:878}, {x:1605,y:819}, {x:1511,y:772},
-      {x:1412,y:738}, {x:1307,y:717}, {x:1200,y:710}, {x:1093,y:717}, {x:988,y:738},
-      {x:889,y:772},  {x:795,y:819},  {x:709,y:878},  {x:631,y:950},  {x:567,y:1029},
-      {x:519,y:1111}, {x:481,y:1203}, {x:458,y:1301}, {x:450,y:1400}, {x:458,y:1499},
-      {x:481,y:1597}, {x:519,y:1689}, {x:567,y:1771}, {x:631,y:1850}, {x:709,y:1922},
-      {x:795,y:1981}, {x:889,y:2028}, {x:988,y:2062}, {x:1093,y:2083},{x:1200,y:2090},
+      {x:1200,y:2200},{x:1400,y:2160},{x:1540,y:2050},{x:1600,y:1900},
+      {x:1610,y:1740},{x:1620,y:1580},{x:1610,y:1420},
+      {x:1680,y:1270},{x:1620,y:1120},{x:1600,y:970},
+      {x:1540,y:840},{x:1420,y:760},{x:1270,y:730},{x:1100,y:750},{x:980,y:830},
+      {x:840,y:970},{x:800,y:1120},{x:790,y:1270},{x:800,y:1420},
+      {x:800,y:1580},{x:800,y:1740},{x:810,y:1900},
+      {x:870,y:2050},{x:1000,y:2160},{x:1200,y:2200},
     ],
-    itemBoxes:[{x:1950,y:1400},{x:1691,y:878},{x:1200,y:710},{x:709,y:878},{x:450,y:1400},{x:1200,y:2060}],
+    itemBoxes:[{x:1610,y:1420},{x:1680,y:1270},{x:1270,y:730},{x:790,y:1270},{x:1200,y:2180},{x:1540,y:840}],
     ramps:[]
   },
 
-  // ── MAP 4: LAVA WORLD ── hard, triangular circuit ──
+  // ── MAP 4: LAVA WORLD ── hard, triangle with kinks + erupting volcano ──
   {
     name:'Lava World', difficulty:4, features:['🌋','🔥'],
     bgColor:'#1a0200', roadColor:'#6a2c08', kerbColor:'rgba(255,80,0,0.7)',
     grassColor:'#2a0600', roadWidth:140, voidEdges:false, icePhysics:false,
-    // Triangle with hairpin apex: 3 long straights, wide hairpin at top
+    volcano:{x:1200,y:1080},
+    // Triangle with kinks on both diagonal legs + wide top hairpin
     waypoints:[
       {x:1200,y:2050},{x:1450,y:2050},{x:1700,y:2020},
-      {x:1880,y:1940},{x:2000,y:1820},{x:2050,y:1680},{x:2020,y:1530},
-      {x:1940,y:1390},{x:1820,y:1250},{x:1680,y:1120},
-      {x:1540,y:1000},{x:1450,y:900},{x:1440,y:800},{x:1360,y:710},
-      {x:1300,y:650},{x:1200,y:620},{x:1100,y:650},
-      {x:1040,y:710},{x:960,y:800}, {x:850,y:900},
-      {x:760,y:1000}, {x:620,y:1120},{x:480,y:1250},
-      {x:360,y:1390},{x:330,y:1530},{x:350,y:1680},
-      {x:400,y:1820},{x:520,y:1940},{x:700,y:2020},{x:950,y:2050},
-      {x:1200,y:2050},
+      {x:1880,y:1940},{x:2000,y:1820},{x:2050,y:1680},
+      {x:2020,y:1530},{x:1960,y:1380},
+      {x:2030,y:1230},{x:1980,y:1090},{x:1900,y:970},{x:1780,y:880},
+      {x:1630,y:820},{x:1460,y:790},
+      {x:1300,y:810},{x:1200,y:860},{x:1100,y:810},{x:940,y:790},
+      {x:770,y:820},{x:620,y:880},{x:500,y:970},{x:420,y:1090},
+      {x:370,y:1230},
+      {x:440,y:1380},{x:380,y:1530},
+      {x:350,y:1680},{x:400,y:1820},{x:520,y:1940},{x:700,y:2020},
+      {x:950,y:2050},{x:1200,y:2050},
     ],
-    itemBoxes:[{x:1200,y:2030},{x:2000,y:1820},{x:1400,y:850},{x:1200,y:620},{x:400,y:1820},{x:700,y:2020}],
+    itemBoxes:[{x:1200,y:2030},{x:2000,y:1820},{x:1630,y:820},{x:1200,y:860},{x:770,y:820},{x:400,y:1820}],
     ramps:[]
   },
 
-  // ── MAP 5: RAINBOW ROAD ── extreme, large oval, very narrow ──
+  // ── MAP 5: RAINBOW ROAD ── extreme, complex D-shape, very narrow, void edges ──
   {
     name:'Rainbow Road', difficulty:5, features:['🌈','🌌','⭐'],
     bgColor:'#000012', roadColor:'rainbow', kerbColor:'rgba(255,255,255,0.5)',
-    grassColor:'#000020', roadWidth:110, voidEdges:false, icePhysics:false,
-    // Large oval: CX=1200 CY=1350 AX=900 AY=680  N=40
+    grassColor:'#000020', roadWidth:110, voidEdges:true, icePhysics:false,
+    // Large D-shape with multiple S-curves on left side
     waypoints:[
-      {x:1200,y:2030},{x:1340,y:2022},{x:1478,y:1997},{x:1609,y:1956},{x:1729,y:1900},
-      {x:1836,y:1831},{x:1928,y:1750},{x:2002,y:1659},{x:2056,y:1560},{x:2089,y:1456},
-      {x:2100,y:1350},{x:2089,y:1244},{x:2056,y:1140},{x:2002,y:1041},{x:1928,y:950},
-      {x:1836,y:869}, {x:1729,y:800}, {x:1609,y:744}, {x:1478,y:703}, {x:1340,y:678},
-      {x:1200,y:670}, {x:1060,y:678}, {x:922,y:703},  {x:791,y:744},  {x:671,y:800},
-      {x:564,y:869},  {x:472,y:950},  {x:398,y:1041}, {x:344,y:1140}, {x:311,y:1244},
-      {x:300,y:1350}, {x:311,y:1456}, {x:344,y:1560}, {x:398,y:1659}, {x:472,y:1750},
-      {x:564,y:1831}, {x:671,y:1900}, {x:791,y:1956}, {x:922,y:1997}, {x:1060,y:2022},
-      {x:1200,y:2030},
+      {x:1100,y:2150},{x:1350,y:2150},{x:1600,y:2140},{x:1840,y:2100},
+      {x:2000,y:2010},{x:2100,y:1870},{x:2140,y:1700},{x:2130,y:1520},
+      {x:2080,y:1340},{x:1990,y:1170},{x:1870,y:1030},{x:1720,y:930},
+      {x:1550,y:870},{x:1370,y:850},{x:1200,y:870},
+      {x:1040,y:910},{x:890,y:1000},{x:790,y:1130},
+      {x:760,y:1290},{x:820,y:1450},{x:760,y:1620},
+      {x:820,y:1790},{x:760,y:1960},
+      {x:870,y:2080},{x:1000,y:2140},{x:1100,y:2150},
     ],
-    itemBoxes:[{x:2100,y:1350},{x:1729,y:800},{x:1200,y:670},{x:671,y:800},{x:300,y:1350},{x:1200,y:2000}],
+    itemBoxes:[{x:2100,y:1870},{x:1200,y:870},{x:760,y:1290},{x:760,y:1620},{x:1840,y:2100},{x:1100,y:2130}],
     ramps:[]
   }
 ];
@@ -256,8 +250,107 @@ let gs = {
   mapSelectIdx: 0,
   kartSelectIdx: 0,
   inkTimer: 0,
-  starField: []
+  starField: [],
+  volcanoTimer: 0,
+  stunCircles: []
 };
+
+// ============================================================
+//  VOLCANO (LAVA WORLD)
+// ============================================================
+const VOLCANO_CYCLE=12000;
+
+function updateVolcano(map){
+  if(!map.volcano) return;
+  gs.volcanoTimer+=16;
+  if(gs.volcanoTimer>=VOLCANO_CYCLE){
+    gs.volcanoTimer=0;
+    gs.screenShake=22;
+    for(let i=0;i<40;i++){
+      const a=randFloat(0,Math.PI*2), spd=randFloat(4,12);
+      gs.particles.push({x:map.volcano.x,y:map.volcano.y,
+        vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-randFloat(2,8),
+        life:60,maxLife:60,color:`hsl(${randInt(0,40)},100%,55%)`,size:randFloat(5,14),alpha:1});
+    }
+    for(const k of gs.karts){
+      if(k.finished||k.starTimer>0||k.invTimer>0) continue;
+      if(dist(k,map.volcano)<380){
+        k.spinTimer=2200; k.speed=0; k.velX=0; k.velY=0;
+        gs.stunCircles.push({x:k.x,y:k.y,radius:110,alpha:1,life:28});
+        spawnParticles(k.x,k.y,'#ff4400',16,5,35);
+      }
+    }
+  }
+}
+
+function drawVolcano(map,cam){
+  if(!map.volcano) return;
+  const vx=map.volcano.x, vy=map.volcano.y;
+  const sx=vx-cam.x+CW/2, sy=vy-cam.y+CH/2;
+
+  // Mountain body
+  ctx.save();
+  ctx.translate(sx,sy);
+  ctx.fillStyle='#2a0800';
+  ctx.beginPath();
+  ctx.moveTo(-70,30); ctx.lineTo(0,-75); ctx.lineTo(70,30);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#4a1000';
+  ctx.beginPath();
+  ctx.moveTo(-45,30); ctx.lineTo(0,-45); ctx.lineTo(45,30);
+  ctx.closePath(); ctx.fill();
+  // Crater glow
+  const glowPhase=0.5+0.5*Math.sin(gs.frameCount*0.08);
+  ctx.fillStyle=`rgba(255,${100+Math.floor(glowPhase*80)},0,0.85)`;
+  ctx.beginPath();
+  ctx.ellipse(0,-72,20,12,0,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // Warning pulses in last 3 seconds before eruption
+  const timeToErupt=VOLCANO_CYCLE-gs.volcanoTimer;
+  if(timeToErupt<3000){
+    const pulse=Math.min(2,Math.floor((3000-timeToErupt)/1000));
+    const radius=200+pulse*60;
+    const blinkOn=Math.floor(gs.frameCount*0.18)%2===0;
+    if(blinkOn){
+      ctx.save();
+      ctx.strokeStyle=`rgba(255,${80-pulse*30},0,${0.4+pulse*0.2})`;
+      ctx.lineWidth=4+pulse*3;
+      ctx.beginPath(); ctx.arc(sx,sy,radius,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle=`rgba(255,50,0,${0.06+pulse*0.05})`;
+      ctx.beginPath(); ctx.arc(sx,sy,radius,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+    // Danger label
+    ctx.save();
+    ctx.font=`bold ${14+pulse*3}px Bungee,sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=blinkOn?`rgba(255,${200-pulse*60},0,1)`:'rgba(255,50,0,0.5)';
+    ctx.fillText('⚠ ERUPTION!',sx,sy-radius-16);
+    ctx.restore();
+  }
+}
+
+function drawStunCircles(cam){
+  for(let i=gs.stunCircles.length-1;i>=0;i--){
+    const sc=gs.stunCircles[i];
+    sc.life--;
+    sc.radius-=3;
+    sc.alpha=sc.life/28;
+    if(sc.life<=0||sc.radius<=0){ gs.stunCircles.splice(i,1); continue; }
+    const sx=sc.x-cam.x+CW/2, sy=sc.y-cam.y+CH/2;
+    ctx.save();
+    ctx.globalAlpha=sc.alpha;
+    ctx.strokeStyle='#ff2200';
+    ctx.lineWidth=5;
+    ctx.beginPath(); ctx.arc(sx,sy,sc.radius,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=sc.alpha*0.15;
+    ctx.fillStyle='#ff4400';
+    ctx.beginPath(); ctx.arc(sx,sy,sc.radius,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
 
 // ============================================================
 //  TRACK GEOMETRY
@@ -324,6 +417,7 @@ function createKart(idx, isPlayer, colorIdx, map){
     position:idx+1,
     rouletteTimer:0, rouletteCur:0,
     blinkTimer:0,
+    bulletTimer:0,
     // AI
     aiReactTimer:0
   };
@@ -395,15 +489,41 @@ function drawKart(kart,cam){
   if(kart.invTimer>0 && Math.floor(kart.invTimer/6)%2===1) return;
   if(kart.blinkTimer>0 && Math.floor(kart.blinkTimer/5)%2===1) return;
 
-  // Shadow (always at ground level)
-  if(kart.airborne||kart.jumpZ>0){
+  // Bullet Bill mode: draw as rocket, skip normal kart
+  if(kart.bulletTimer>0){
+    const bFrac=kart.bulletTimer/5500;
+    for(let t=0;t<4;t++){
+      const ta=kart.angle+Math.PI+randFloat(-0.3,0.3);
+      gs.particles.push({x:kart.x,y:kart.y,vx:Math.cos(ta)*randFloat(2,5),vy:Math.sin(ta)*randFloat(2,5),
+        life:16,maxLife:16,color:'#fff',size:randFloat(4,9),alpha:1});
+    }
     ctx.save();
-    ctx.globalAlpha=0.3;
+    ctx.translate(sx,drawY);
+    ctx.rotate(kart.angle);
+    // Bullet body
+    ctx.fillStyle='#ffe000';
+    ctx.beginPath();
+    ctx.ellipse(0,0,KART_W*0.55,KART_H*0.42,0,0,Math.PI*2);
+    ctx.fill();
+    // Nose cone
+    ctx.fillStyle='#ff8800';
+    ctx.beginPath();
+    ctx.moveTo(KART_W*0.55,0);
+    ctx.lineTo(KART_W*0.9,-KART_H*0.28);
+    ctx.lineTo(KART_W*0.9, KART_H*0.28);
+    ctx.closePath();
+    ctx.fill();
+    // Eye
     ctx.fillStyle='#000';
     ctx.beginPath();
-    ctx.ellipse(sx,sy,KART_W*0.38,KART_H*0.22,0,0,Math.PI*2);
+    ctx.arc(4,-5,5,0,Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.beginPath();
+    ctx.arc(5,-6,2,0,Math.PI*2);
     ctx.fill();
     ctx.restore();
+    return;
   }
 
   // Drift sparks (drawn in world space behind car)
@@ -760,7 +880,7 @@ function giveItem(kart){
   if(pos===1)      pool=['mushroom','banana','green_shell','mushroom'];
   else if(pos===2) pool=['mushroom','red_shell','green_shell','banana','triple_mushroom'];
   else if(pos===3) pool=['red_shell','star','lightning','triple_mushroom','turboTank','ink'];
-  else             pool=['star','lightning','red_shell','triple_mushroom','turboTank','ink','turboTank'];
+  else             pool=['bullet','bullet','star','lightning','triple_mushroom','turboTank'];
   kart.item=pool[randInt(0,pool.length-1)];
   kart.itemCount=1;
   if(kart.item==='triple_mushroom') kart.itemCount=3;
@@ -803,7 +923,7 @@ function useItem(kart,map){
         y:kart.y+Math.sin(kart.angle)*42,
         vx:Math.cos(kart.angle)*9,
         vy:Math.sin(kart.angle)*9,
-        color:'#27ae60', bounces:5, life:320, tracking:null
+        color:'#27ae60', bounces:5, life:320, tracking:null, firedBy:kart
       });
       kart.item=null; break;
     case 'red_shell':{
@@ -813,10 +933,16 @@ function useItem(kart,map){
         y:kart.y+Math.sin(kart.angle)*42,
         vx:Math.cos(kart.angle)*9,
         vy:Math.sin(kart.angle)*9,
-        color:'#e74c3c', bounces:12, life:420, tracking:tgt
+        color:'#e74c3c', bounces:12, life:420, tracking:tgt, firedBy:kart
       });
       kart.item=null; break;
     }
+    case 'bullet':
+      kart.bulletTimer=5500;
+      kart.invTimer=5500;
+      kart.item=null;
+      spawnParticles(kart.x,kart.y,'#ffffff',20,6,40);
+      break;
     case 'banana':
       gs.bananas.push({
         x:kart.x-Math.cos(kart.angle)*32,
@@ -862,6 +988,7 @@ function updateShells(map){
 
     let hit=false;
     for(const k of gs.karts){
+      if(k===s.firedBy) continue;
       if(k.invTimer>0||k.airborne||k.falling) continue;
       if(dist(k,s)<26){
         hitKart(k);
@@ -943,6 +1070,28 @@ function fireDriftBoost(kart){
 }
 
 function updatePlayerKart(kart,map){
+  // Bullet Bill mode: auto-drive to 1st place at high speed
+  if(kart.bulletTimer>0){
+    kart.bulletTimer-=16;
+    const wps=map.waypoints;
+    const lookahead=Math.min(kart.lastWpIdx+3,wps.length-2);
+    const target=wps[lookahead];
+    const targetAngle=Math.atan2(target.y-kart.y,target.x-kart.x);
+    kart.angle=lerpAngle(kart.angle,targetAngle,0.14);
+    kart.velAngle=kart.angle;
+    kart.speed=Math.min(15,kart.speed+0.7);
+    kart.velX=Math.cos(kart.angle)*kart.speed;
+    kart.velY=Math.sin(kart.angle)*kart.speed;
+    kart.x+=kart.velX; kart.y+=kart.velY;
+    kart.x=clamp(kart.x,60,2850); kart.y=clamp(kart.y,60,2200);
+    const info=getNearestTrackInfo(kart.x,kart.y,map);
+    if(info.segIdx>kart.lastWpIdx||(info.segIdx===0&&kart.lastWpIdx>wps.length-4)){
+      kart.lastWpIdx=info.segIdx;
+    }
+    checkLap(kart,map);
+    return;
+  }
+
   // Timers
   if(kart.spinTimer>0)  { kart.spinTimer-=16;  }
   if(kart.invTimer>0)   { kart.invTimer-=16;   }
@@ -1917,6 +2066,7 @@ function updateRace(){
   updateBananas();
   tickItemBoxes(map);
   updatePositions(map);
+  if(map.volcano) updateVolcano(map);
 
   // Camera
   const player=gs.karts[0];
@@ -1965,6 +2115,9 @@ function renderRace(){
   // 2. Road
   drawTrackLayer(map,cam,0);
 
+  // 2b. Volcano (Lava World)
+  if(map.volcano) drawVolcano(map,cam);
+
   // 3. Ramps
   drawRamps(map,cam);
 
@@ -1978,6 +2131,9 @@ function renderRace(){
 
   // 6. Particles
   drawParticles(cam);
+
+  // 6b. Stun circles
+  drawStunCircles(cam);
 
   // 7. HUD
   drawHUD(gs.karts[0],map);
