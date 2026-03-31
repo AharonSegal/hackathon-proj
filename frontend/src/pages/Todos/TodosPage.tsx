@@ -3,11 +3,12 @@
  * --------------------------
  * Checklist page with rocket-launch completion animation and confetti.
  * Task creation/editing uses the full Todoist-style TaskEditor.
+ * Supports drag-and-drop reordering via the grip handle on each row.
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import ReactConfetti from 'react-confetti';
-import { Rocket, CheckSquare, Check, Trash2, Flag, Calendar, Plus, Pencil } from 'lucide-react';
+import { Rocket, CheckSquare, Check, Trash2, Flag, Calendar, Plus, Pencil, GripVertical } from 'lucide-react';
 import { useTodos } from '@/shared/context/TodosContext';
 import { PageHeader } from '@/shared/components/Layout/PageHeader';
 import { TaskEditor, type TaskFormData } from './components/TaskEditor';
@@ -73,6 +74,52 @@ export function TodosPage() {
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
   const confettiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Drag-and-drop order ──────────────────────────────────────
+  const [orderedIds, setOrderedIds] = useState<string[]>([]);
+  const dragIndex = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const activeTodos = todos.filter(t => !t.completed);
+  const completedTodos = todos.filter(t => t.completed);
+
+  // Keep orderedIds in sync: preserve user order, append new, drop completed
+  const activeIdKey = activeTodos.map(t => t.id).join(',');
+  useEffect(() => {
+    setOrderedIds(prev => {
+      const ids = activeIdKey ? activeIdKey.split(',') : [];
+      const existing = prev.filter(id => ids.includes(id));
+      const added = ids.filter(id => !prev.includes(id));
+      return [...existing, ...added];
+    });
+  }, [activeIdKey]);
+
+  const sortedActiveTodos = orderedIds
+    .map(id => activeTodos.find(t => t.id === id))
+    .filter(Boolean) as Todo[];
+
+  const handleDragStart = (index: number) => {
+    dragIndex.current = index;
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+    if (dragIndex.current === null || dragIndex.current === index) return;
+    setOrderedIds(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIndex.current!, 1);
+      next.splice(index, 0, moved);
+      dragIndex.current = index;
+      return next;
+    });
+  };
+
+  const handleDragEnd = () => {
+    dragIndex.current = null;
+    setDragOverIndex(null);
+  };
+
+  // ── Save ─────────────────────────────────────────────────────
   const handleSave = (data: TaskFormData) => {
     if (editorMode?.mode === 'edit') {
       updateTodo(editorMode.todo.id, {
@@ -106,6 +153,7 @@ export function TodosPage() {
     setEditorMode(null);
   };
 
+  // ── Rocket completion animation ───────────────────────────────
   const handleRocket = (id: string) => {
     if (animPhase) return;
 
@@ -125,9 +173,6 @@ export function TodosPage() {
     if (confettiTimer.current) clearTimeout(confettiTimer.current);
     confettiTimer.current = setTimeout(() => setConfetti(false), 4000);
   };
-
-  const activeTodos    = todos.filter(t => !t.completed);
-  const completedTodos = todos.filter(t =>  t.completed);
 
   const editingTodo = editorMode?.mode === 'edit' ? editorMode.todo : null;
 
@@ -201,21 +246,38 @@ export function TodosPage() {
             </div>
           )}
 
-          {activeTodos.map(todo => {
+          {sortedActiveTodos.map((todo, index) => {
             const isShaking = animPhase?.id === todo.id && animPhase.phase === 'shake';
             const isFlying  = animPhase?.id === todo.id && animPhase.phase === 'fly';
             const isOut     = removingIds.has(todo.id);
             const isBeingEdited = editingTodo?.id === todo.id;
+            const isDragging = dragIndex.current === index;
+            const isDropTarget = dragOverIndex === index && dragIndex.current !== index;
             const pColor = PRIORITY_COLORS[todo.priority ?? 4];
             const overdue = todo.dueDate ? isOverdue(todo.dueDate) : false;
 
             return (
               <div
                 key={todo.id}
-                className={`flex items-start gap-3 px-4 py-3 rounded-lg bg-slate-800 border border-slate-700 ${isOut ? 'todo-out' : ''} ${isBeingEdited ? 'opacity-50' : ''}`}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={e => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                className={[
+                  'flex items-start gap-3 px-4 py-3 rounded-lg bg-slate-800 border transition-all',
+                  isOut ? 'todo-out' : '',
+                  isBeingEdited ? 'opacity-50' : '',
+                  isDragging ? 'opacity-40 scale-[0.98]' : '',
+                  isDropTarget ? 'border-indigo-500 shadow-lg shadow-indigo-900/30' : 'border-slate-700',
+                ].join(' ')}
               >
-                {/* Checkbox visual */}
-                <div className="w-5 h-5 rounded border-2 shrink-0 mt-0.5" style={{ borderColor: pColor }} />
+                {/* Drag handle */}
+                <div
+                  className="shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 transition-colors"
+                  title="Drag to reorder"
+                >
+                  <GripVertical className="h-5 w-5" />
+                </div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
