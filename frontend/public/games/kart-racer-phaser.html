@@ -7,12 +7,10 @@
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{background:#000;width:100%;height:100%;overflow:hidden;}
-#game-container{width:100%;height:100%;}
+html,body{background:#000;overflow:hidden;}
 </style>
 </head>
 <body>
-<div id="game-container"></div>
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
@@ -902,28 +900,24 @@ class Proj{
   constructor(scene,x,y,ang,type,owner){
     this.scene=scene;this.x=x;this.y=y;this.ang=ang;
     this.type=type;this.owner=owner;this.alive=true;
-    this.spd=type==='banana'?0:530;
+    this.spd=type==='banana'?0:900;  // shells much faster than kart
     this.bounces=type==='green_shell'?3:0;
     this.life=type==='banana'?26000:5500;
-    this.gfx=scene.add.graphics().setDepth(8);
-    const pal={green_shell:0x2ecc71,red_shell:0xe74c3c,bomb:0x333333};
     if(type==='banana'){
-      // crescent arc — thick yellow arc with dark inner shadow
-      this.gfx.lineStyle(7,0xf1c40f,1);
-      this.gfx.beginPath();this.gfx.arc(0,0,11,0.18,Math.PI-0.18,false);this.gfx.strokePath();
-      this.gfx.fillStyle(0xf1c40f,1);
-      this.gfx.fillCircle(Math.cos(0.18)*11,Math.sin(0.18)*11,3.8);
-      this.gfx.fillCircle(Math.cos(Math.PI-0.18)*11,Math.sin(Math.PI-0.18)*11,3.8);
-      this.gfx.lineStyle(3,0xcc8800,0.65);
-      this.gfx.beginPath();this.gfx.arc(1,2,9,0.3,Math.PI-0.3,false);this.gfx.strokePath();
-    }else if(type==='bomb'){
-      this.gfx.fillStyle(0x222,1);this.gfx.fillCircle(0,0,14);
-      this.gfx.fillStyle(0xff0000,1);this.gfx.fillCircle(5,-11,4);
+      // same emoji as HUD icon
+      this.gfx=scene.add.text(x,y,'🍌',{fontSize:'26px'}).setOrigin(0.5).setDepth(8);
     }else{
-      this.gfx.fillStyle(pal[type]||0xfff,1);this.gfx.fillCircle(0,0,10);
-      this.gfx.lineStyle(2,0xffffff,0.6);this.gfx.strokeCircle(0,0,10);
+      this.gfx=scene.add.graphics().setDepth(8);
+      if(type==='bomb'){
+        this.gfx.fillStyle(0x222,1);this.gfx.fillCircle(0,0,14);
+        this.gfx.fillStyle(0xff0000,1);this.gfx.fillCircle(5,-11,4);
+      }else{
+        const pal={green_shell:0x2ecc71,red_shell:0xe74c3c};
+        this.gfx.fillStyle(pal[type]||0xfff,1);this.gfx.fillCircle(0,0,10);
+        this.gfx.lineStyle(2,0xffffff,0.6);this.gfx.strokeCircle(0,0,10);
+      }
+      this.gfx.x=x;this.gfx.y=y;
     }
-    this.gfx.x=x;this.gfx.y=y;
   }
   update(s,track,karts){
     if(!this.alive)return;
@@ -951,7 +945,7 @@ class Proj{
       else{this.destroy();return;}
     }
     for(const k of karts){
-      if(k===this.owner&&this.life>5200)continue;
+      if(k===this.owner)continue;  // never harm yourself
       if(dist(this.x,this.y,k.x,k.y)<32){
         k.hit(this.type);
         if(this.type==='bomb'){
@@ -1462,13 +1456,29 @@ class ResultsScene extends Phaser.Scene{
 // ══════════════════════════════════════════════════════════════
 //  LAUNCH
 // ══════════════════════════════════════════════════════════════
-new Phaser.Game({
+// Use Scale.NONE + manual CSS resize so the canvas always fills the iframe exactly,
+// regardless of how the parent page embeds it.
+const _game=new Phaser.Game({
   type:Phaser.AUTO,
   width:W,height:H,
-  parent:'game-container',
+  backgroundColor:'#000000',
   scene:[BootScene,MenuScene,MapSelectScene,RaceScene,ResultsScene],
-  scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},
+  scale:{mode:Phaser.Scale.NONE},
 });
+(function fitCanvas(){
+  const c=_game.canvas;
+  if(!c){setTimeout(fitCanvas,30);return;}
+  const apply=()=>{
+    const s=Math.min(window.innerWidth/W,window.innerHeight/H);
+    const cw=Math.floor(W*s),ch=Math.floor(H*s);
+    c.style.cssText=`display:block;position:absolute;`
+      +`width:${cw}px;height:${ch}px;`
+      +`left:${Math.floor((window.innerWidth-cw)/2)}px;`
+      +`top:${Math.floor((window.innerHeight-ch)/2)}px;`;
+  };
+  apply();
+  window.addEventListener('resize',apply);
+})();
 </script>
 </body>
 </html>
