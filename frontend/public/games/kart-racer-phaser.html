@@ -7,10 +7,12 @@
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
+html,body{background:#000;width:100%;height:100%;overflow:hidden;}
+#game-container{width:100%;height:100%;}
 </style>
 </head>
 <body>
+<div id="game-container"></div>
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
@@ -50,11 +52,11 @@ const MAPS=[
     curbA:0xdd1111,curbB:0xffffff,roadCol:0x6e6e6e,
     theme:'grass',
     raw:[
-      {x:900, y:3800},{x:1700,y:3800},{x:2500,y:3800},{x:3300,y:3800},
-      {x:3900,y:3600},{x:4300,y:3200},{x:4500,y:2700},{x:4500,y:2100},
-      {x:4300,y:1600},{x:3900,y:1250},{x:3400,y:1050},{x:2900,y:850},
-      {x:2400,y:700}, {x:1900,y:850}, {x:1500,y:1150},{x:1250,y:1550},
-      {x:1150,y:2050},{x:1150,y:2600},{x:1000,y:3100},{x:900, y:3450},
+      {x:1000,y:3800},{x:1900,y:3850},{x:2900,y:3850},{x:3800,y:3800},
+      {x:4400,y:3500},{x:4700,y:2900},{x:4700,y:2200},{x:4600,y:1600},
+      {x:4200,y:1100},{x:3600,y:800}, {x:2900,y:700}, {x:2100,y:700},
+      {x:1400,y:900}, {x:900, y:1400},{x:700, y:2000},{x:1000,y:2500},
+      {x:700, y:3000},{x:750, y:3500},
     ],
     boostProgs:[0.10,0.37,0.60,0.83],
     hazards:{},
@@ -67,11 +69,10 @@ const MAPS=[
     curbA:0x4488cc,curbB:0xeef8ff,roadCol:0xaabbc8,
     theme:'snow',
     raw:[
-      {x:1000,y:3400},{x:1800,y:3500},{x:2600,y:3500},{x:3300,y:3400},
-      {x:3900,y:3100},{x:4200,y:2600},{x:4200,y:2000},{x:3900,y:1500},
-      {x:3400,y:1100},{x:2800,y:900}, {x:2200,y:950}, {x:1700,y:1200},
-      {x:1600,y:1700},{x:1900,y:2100},{x:2300,y:2300},{x:2500,y:2600},
-      {x:2300,y:2900},{x:1900,y:3100},{x:1400,y:3200},{x:1000,y:3100},
+      {x:700, y:3500},{x:1500,y:3600},{x:2400,y:3600},{x:3300,y:3500},
+      {x:4000,y:3200},{x:4300,y:2700},{x:4300,y:2100},{x:4000,y:1500},
+      {x:3500,y:1050},{x:2800,y:800}, {x:2100,y:750}, {x:1400,y:900},
+      {x:800, y:1300},{x:500, y:1900},{x:500, y:2500},{x:700, y:3050},
     ],
     boostProgs:[0.12,0.42,0.68],
     // ice zones = normalized progress ranges where traction is reduced
@@ -89,19 +90,18 @@ const MAPS=[
     curbA:0xff6600,curbB:0x222222,roadCol:0x4a3a30,
     theme:'volcano',
     raw:[
-      {x:2500,y:4000},{x:3200,y:4000},{x:3800,y:3700},{x:4200,y:3200},
-      {x:4400,y:2700},{x:4300,y:2100},{x:4000,y:1600},{x:3500,y:1250},
-      {x:2900,y:1000},{x:2300,y:1100},{x:1900,y:1400},{x:1700,y:1900},
-      {x:1700,y:2400},{x:1900,y:2800},{x:2100,y:3200},{x:1800,y:3600},
-      {x:1400,y:3800},{x:1000,y:3800},{x:900, y:3500},{x:1000,y:3100},
-      {x:1200,y:2700},{x:1600,y:2500},
+      {x:2000,y:4100},{x:2800,y:4200},{x:3600,y:4100},{x:4200,y:3700},
+      {x:4600,y:3100},{x:4700,y:2400},{x:4500,y:1800},{x:4000,y:1300},
+      {x:3400,y:950}, {x:2700,y:800}, {x:2000,y:800}, {x:1400,y:1000},
+      {x:900, y:1500},{x:650, y:2100},{x:700, y:2700},{x:1000,y:3200},
+      {x:1200,y:3700},{x:1600,y:4000},
     ],
     boostProgs:[0.08,0.35,0.62],
     hazards:{
       // lava pools (world coords, radius) — placed off-road near track edges
       lavaPools:[
-        {x:2600,y:1800,r:220},{x:3700,y:2400,r:180},{x:1600,y:3300,r:160},
-        {x:2000,y:3800,r:200},{x:3000,y:3500,r:150},
+        {x:2700,y:2200,r:220},{x:3500,y:2800,r:185},{x:1900,y:2500,r:180},
+        {x:2600,y:3500,r:165},{x:3300,y:1600,r:175},
       ],
       fallingRocks:true,
     },
@@ -114,11 +114,11 @@ const MAPS=[
     curbA:0x000000,curbB:0x000000,roadCol:0xffffff,// overridden by rainbow draw
     theme:'rainbow',
     raw:[
-      {x:2800,y:4800},{x:3600,y:4700},{x:4200,y:4400},{x:4700,y:3900},
-      {x:5000,y:3300},{x:4900,y:2700},{x:4500,y:2100},{x:3900,y:1700},
-      {x:3200,y:1400},{x:2500,y:1200},{x:1800,y:1300},{x:1300,y:1700},
-      {x:1000,y:2300},{x:1000,y:2900},{x:1200,y:3500},{x:1600,y:4000},
-      {x:2000,y:4400},{x:2300,y:4800},
+      {x:2500,y:4800},{x:3500,y:4900},{x:4300,y:4500},{x:5000,y:3900},
+      {x:5200,y:3200},{x:5100,y:2400},{x:4700,y:1700},{x:4000,y:1200},
+      {x:3300,y:900}, {x:2400,y:800}, {x:1600,y:950}, {x:1000,y:1500},
+      {x:600, y:2100},{x:500, y:2900},{x:700, y:3600},{x:1300,y:4200},
+      {x:1900,y:4700},{x:2200,y:4800},
     ],
     boostProgs:[0.15,0.45,0.73],
     hazards:{rainbowEdge:true},// fall off = respawn
@@ -723,6 +723,8 @@ class Kart{
     this.flashT=1400;this.spd*=-0.18;
     this.heldItem=null;
     if(this.driftState==='drifting'){this.driftQ=0;this.driftState='none';}
+    // screen shake only for player kart
+    if(this.scene.player===this)this.scene.cameras.main.shake(280,0.008);
   }
 
   _vfx(){
@@ -906,8 +908,14 @@ class Proj{
     this.gfx=scene.add.graphics().setDepth(8);
     const pal={green_shell:0x2ecc71,red_shell:0xe74c3c,bomb:0x333333};
     if(type==='banana'){
-      this.gfx.fillStyle(0xf1c40f,1);this.gfx.fillEllipse(0,0,22,12);
-      this.gfx.fillStyle(0xcc9900,1);this.gfx.fillEllipse(0,0,14,7);
+      // crescent arc — thick yellow arc with dark inner shadow
+      this.gfx.lineStyle(7,0xf1c40f,1);
+      this.gfx.beginPath();this.gfx.arc(0,0,11,0.18,Math.PI-0.18,false);this.gfx.strokePath();
+      this.gfx.fillStyle(0xf1c40f,1);
+      this.gfx.fillCircle(Math.cos(0.18)*11,Math.sin(0.18)*11,3.8);
+      this.gfx.fillCircle(Math.cos(Math.PI-0.18)*11,Math.sin(Math.PI-0.18)*11,3.8);
+      this.gfx.lineStyle(3,0xcc8800,0.65);
+      this.gfx.beginPath();this.gfx.arc(1,2,9,0.3,Math.PI-0.3,false);this.gfx.strokePath();
     }else if(type==='bomb'){
       this.gfx.fillStyle(0x222,1);this.gfx.fillCircle(0,0,14);
       this.gfx.fillStyle(0xff0000,1);this.gfx.fillCircle(5,-11,4);
@@ -1109,6 +1117,11 @@ class HUD{
 
     // map name badge
     const mn=T(16,16,track.map.emoji+' '+track.map.name,{fontSize:'14px',fill:'#fff',stroke:'#000',strokeThickness:2,fontStyle:'bold'}).setOrigin(0,0);
+
+    // boost speed-lines overlay
+    this.speedLinesGfx=scene.add.graphics().setScrollFactor(0).setDepth(49);
+    // lap flash tracking
+    this._lastLap=0;this.lapFlash=null;
   }
 
   update(){
@@ -1138,6 +1151,35 @@ class HUD{
       const col=[0x44aaff,0xff8800,0xaa00ff][p.driftLv]||0x44aaff;
       this.driftBar.fillStyle(col,1);
       this.driftBar.fillRect(W/2-79,H-24,158*Math.min(p.driftQ/100,1),10);
+    }
+    // ── Lap change flash
+    if(p.lap>this._lastLap){
+      this._lastLap=p.lap;
+      if(this.lapFlash){try{this.lapFlash.destroy();}catch(e){}this.lapFlash=null;}
+      const msg=p.lap>=TOTAL_LAPS?'FINAL LAP!':('LAP '+(p.lap+1)+'/'+TOTAL_LAPS);
+      const col=p.lap>=TOTAL_LAPS?'#ff4400':'#ffffff';
+      sfxBeep(true);
+      this.lapFlash=this.scene.add.text(W/2,H/2-50,msg,{
+        fontSize:'74px',fill:col,fontStyle:'bold',stroke:'#000',strokeThickness:11
+      }).setScrollFactor(0).setDepth(201).setOrigin(0.5);
+      this.scene.tweens.add({targets:this.lapFlash,alpha:0,scaleX:1.5,scaleY:1.5,
+        duration:1400,ease:'Power2',
+        onComplete:()=>{if(this.lapFlash){this.lapFlash.destroy();this.lapFlash=null;}}});
+    }
+    // ── Boost speed lines
+    this.speedLinesGfx.clear();
+    if(p.boostT>80&&p.spd>180){
+      const alpha=Math.min(0.38,(p.boostT/1400)*0.5);
+      const cx=W/2,cy=H/2;
+      for(let i=0;i<18;i++){
+        const ang=Math.random()*Math.PI*2;
+        const r1=90+Math.random()*70,r2=r1+55+Math.random()*90;
+        this.speedLinesGfx.lineStyle(1+Math.random()*1.5,0xffffff,alpha*(0.4+Math.random()*0.6));
+        this.speedLinesGfx.beginPath();
+        this.speedLinesGfx.moveTo(cx+Math.cos(ang)*r1,cy+Math.sin(ang)*r1);
+        this.speedLinesGfx.lineTo(cx+Math.cos(ang)*r2,cy+Math.sin(ang)*r2);
+        this.speedLinesGfx.strokePath();
+      }
     }
     this._minimap();
     const sorted=[...this.karts].sort((a,b)=>a.position-b.position);
@@ -1298,9 +1340,12 @@ class RaceScene extends Phaser.Scene{
     const startAng=Math.atan2(s1.y-s0.y,s1.x-s0.x);
     const perp=startAng+Math.PI/2;
     const GRID=[
-      {fwd:0,  side:-44},{fwd:-60,side:44},
-      {fwd:-120,side:-44},{fwd:-180,side:44},
-      {fwd:-240,side:-44},{fwd:-300,side:44},
+      {fwd:  0, side:-42},
+      {fwd:-60, side: 42},
+      {fwd:-120,side:-42},
+      {fwd:-120,side: 42},
+      {fwd:-180,side:-42},
+      {fwd:-180,side: 42},
     ];
 
     this.karts=[];
@@ -1326,13 +1371,28 @@ class RaceScene extends Phaser.Scene{
     this.rm=new RaceManager(this.karts);
     this.hud=new HUD(this,this.player,this.karts,this.rm,this.track);
 
-    this.cameras.main.startFollow(this.player.ctr,true,0.10,0.10);
     this.cameras.main.setZoom(1.15);
+    // Set initial camera position centred on player (manual follow takes over in update)
+    const _tz=1/1.15;
+    this.cameras.main.scrollX=this.player.x-(W*0.5)*_tz;
+    this.cameras.main.scrollY=this.player.y-(H*0.5)*_tz;
     this._ended=false;
   }
 
   update(_t,dt){
     const s=dt/1000;
+    // ── Manual look-ahead camera: player always stays centred, slight forward bias
+    {
+      const cam=this.cameras.main;
+      const p=this.player;
+      const zoom=cam.zoom;
+      const ahead=Math.min(Math.abs(p.spd)*0.10,90);
+      const tx=p.x+Math.cos(p.ang)*ahead-(W*0.5)/zoom;
+      const ty=p.y+Math.sin(p.ang)*ahead-(H*0.5)/zoom;
+      const m=this.track.map;
+      cam.scrollX=lerp(cam.scrollX,clamp(tx,0,m.ww-W/zoom),0.15);
+      cam.scrollY=lerp(cam.scrollY,clamp(ty,0,m.wh-H/zoom),0.15);
+    }
     this.rm.update(dt);
     if(this.rm.started){
       for(const k of this.karts)k.update(dt,this.track,this.karts,this.items,this.hazards);
@@ -1405,6 +1465,7 @@ class ResultsScene extends Phaser.Scene{
 new Phaser.Game({
   type:Phaser.AUTO,
   width:W,height:H,
+  parent:'game-container',
   scene:[BootScene,MenuScene,MapSelectScene,RaceScene,ResultsScene],
   scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},
 });
