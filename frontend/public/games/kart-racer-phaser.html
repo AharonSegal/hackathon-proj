@@ -300,16 +300,24 @@ class Track{
       }
     }
 
-    // 7. Start/finish checkered (always)
+    // 7. Start/finish checkered — rotated with track angle so squares align correctly
     const s0=sp[0],s1=sp[1];
-    const sfAng=Math.atan2(s1.y-s0.y,s1.x-s0.x)+Math.PI/2;
-    const sq=20,cols=Math.ceil(tw/sq)+1;
-    for(let row=0;row<2;row++){
+    const fAng=Math.atan2(s1.y-s0.y,s1.x-s0.x);
+    const pfAng=fAng+Math.PI/2;  // perpendicular (across track)
+    const sq=22,cols=Math.ceil(tw/sq)+1;
+    const ca=Math.cos(fAng),sa=Math.sin(fAng);
+    const cb=Math.cos(pfAng),sb=Math.sin(pfAng);
+    for(let row=0;row<3;row++){
       for(let col=0;col<cols;col++){
-        const px=s0.x+Math.cos(sfAng)*(col*sq-tw/2)+Math.cos(sfAng-Math.PI/2)*row*sq;
-        const py=s0.y+Math.sin(sfAng)*(col*sq-tw/2)+Math.sin(sfAng-Math.PI/2)*row*sq;
+        const ox=s0.x+cb*(col*sq-tw/2)-ca*row*sq;
+        const oy=s0.y+sb*(col*sq-tw/2)-sa*row*sq;
         g.fillStyle((row+col)%2?0x000000:0xffffff,1);
-        g.fillRect(px,py,sq,sq);
+        g.beginPath();
+        g.moveTo(ox,oy);
+        g.lineTo(ox+cb*sq,oy+sb*sq);
+        g.lineTo(ox+cb*sq+ca*sq,oy+sb*sq+sa*sq);
+        g.lineTo(ox+ca*sq,oy+sa*sq);
+        g.closePath();g.fillPath();
       }
     }
     return g;
@@ -1022,7 +1030,12 @@ class ItemSystem{
     const bx=kart.x-Math.cos(fa)*44,by=kart.y-Math.sin(fa)*44;
     switch(t){
       case 'mushroom':       kart.boostT=1600;kart.boostPow=195;sfxBoost();break;
-      case 'triple_mushroom':kart.boostT=4800;kart.boostPow=175;sfxBoost();break;
+      case 'triple_mushroom':
+        // 3 separate sequential boosts, each 1.6 s
+        kart.boostT=1600;kart.boostPow=195;sfxBoost();
+        kart.scene.time.delayedCall(1700,()=>{if(!kart.finished){kart.boostT=1600;kart.boostPow=195;sfxBoost();}});
+        kart.scene.time.delayedCall(3400,()=>{if(!kart.finished){kart.boostT=1600;kart.boostPow=195;sfxBoost();}});
+        break;
       case 'green_shell':    this.projs.push(new Proj(this.scene,ax,ay,fa,'green_shell',kart));break;
       case 'red_shell':      this.projs.push(new Proj(this.scene,ax,ay,fa,'red_shell',kart));break;
       case 'banana':         this.projs.push(new Proj(this.scene,bx,by,fa,'banana',kart));break;
@@ -1136,7 +1149,7 @@ class HUD{
     this.lapTx.setText(`LAP ${Math.min(p.lap+1,TOTAL_LAPS)}/${TOTAL_LAPS}`);
     this.spdTx.setText(`${Math.abs(Math.round(p.spd*0.21))} km/h`);
     if(rm.started){
-      const t=rm.raceTimer,m2=Math.floor(t/60000),s2=Math.floor((t%60000)/1000),ms=t%1000;
+      const t=rm.raceTimer,m2=Math.floor(t/60000),s2=Math.floor((t%60000)/1000),ms=Math.floor(t%1000);
       this.timeTx.setText(`${m2}:${String(s2).padStart(2,'0')}.${String(ms).padStart(3,'0')}`);
     }
     this.itemTx.setText(p.heldItem?ITEM_ICONS[p.heldItem.type]||'?':'');
@@ -1381,12 +1394,12 @@ class RaceScene extends Phaser.Scene{
       const cam=this.cameras.main;
       const p=this.player;
       const zoom=cam.zoom;
-      const ahead=Math.min(Math.abs(p.spd)*0.10,90);
+      const ahead=Math.min(Math.abs(p.spd)*0.07,60);
       const tx=p.x+Math.cos(p.ang)*ahead-(W*0.5)/zoom;
       const ty=p.y+Math.sin(p.ang)*ahead-(H*0.5)/zoom;
       const m=this.track.map;
-      cam.scrollX=lerp(cam.scrollX,clamp(tx,0,m.ww-W/zoom),0.15);
-      cam.scrollY=lerp(cam.scrollY,clamp(ty,0,m.wh-H/zoom),0.15);
+      cam.scrollX=lerp(cam.scrollX,clamp(tx,0,m.ww-W/zoom),0.22);
+      cam.scrollY=lerp(cam.scrollY,clamp(ty,0,m.wh-H/zoom),0.22);
     }
     this.rm.update(dt);
     if(this.rm.started){
@@ -1457,9 +1470,16 @@ class ResultsScene extends Phaser.Scene{
 // ══════════════════════════════════════════════════════════════
 //  LAUNCH
 // ══════════════════════════════════════════════════════════════
-// Scale.FIT: Phaser owns the canvas scaling so mouse/keyboard coordinates
-// are always correct. game.scale.refresh() forces a re-measure after layout
-// settles inside the iframe (fixes any timing issues on first load).
+// Set html/body to exact viewport pixels so Phaser measures them correctly.
+// CSS height:100% can collapse inside an iframe if the chain isn't perfect;
+// explicit px values are always reliable.
+(function(){
+  const st='margin:0;padding:0;overflow:hidden;background:#000;width:'
+    +window.innerWidth+'px;height:'+window.innerHeight+'px;';
+  document.documentElement.style.cssText=st;
+  document.body.style.cssText=st;
+})();
+
 const _game=new Phaser.Game({
   type:Phaser.AUTO,
   backgroundColor:'#000000',
@@ -1471,9 +1491,14 @@ const _game=new Phaser.Game({
     height:H,
   },
 });
-// Re-measure after layout is fully settled so Phaser gets the right dimensions
-window.addEventListener('load',()=>_game.scale.refresh());
-window.addEventListener('resize',()=>_game.scale.refresh());
+
+window.addEventListener('resize',function(){
+  const st='margin:0;padding:0;overflow:hidden;background:#000;width:'
+    +window.innerWidth+'px;height:'+window.innerHeight+'px;';
+  document.documentElement.style.cssText=st;
+  document.body.style.cssText=st;
+  _game.scale.refresh();
+});
 </script>
 </body>
 </html>
