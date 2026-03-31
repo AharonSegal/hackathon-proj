@@ -7,7 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{background:#000;overflow:hidden;}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;}
+canvas{display:block;}
 </style>
 </head>
 <body>
@@ -1456,29 +1457,23 @@ class ResultsScene extends Phaser.Scene{
 // ══════════════════════════════════════════════════════════════
 //  LAUNCH
 // ══════════════════════════════════════════════════════════════
-// Use Scale.NONE + manual CSS resize so the canvas always fills the iframe exactly,
-// regardless of how the parent page embeds it.
+// Scale.FIT: Phaser owns the canvas scaling so mouse/keyboard coordinates
+// are always correct. game.scale.refresh() forces a re-measure after layout
+// settles inside the iframe (fixes any timing issues on first load).
 const _game=new Phaser.Game({
   type:Phaser.AUTO,
-  width:W,height:H,
   backgroundColor:'#000000',
   scene:[BootScene,MenuScene,MapSelectScene,RaceScene,ResultsScene],
-  scale:{mode:Phaser.Scale.NONE},
+  scale:{
+    mode:Phaser.Scale.FIT,
+    autoCenter:Phaser.Scale.CENTER_BOTH,
+    width:W,
+    height:H,
+  },
 });
-(function fitCanvas(){
-  const c=_game.canvas;
-  if(!c){setTimeout(fitCanvas,30);return;}
-  const apply=()=>{
-    const s=Math.min(window.innerWidth/W,window.innerHeight/H);
-    const cw=Math.floor(W*s),ch=Math.floor(H*s);
-    c.style.cssText=`display:block;position:absolute;`
-      +`width:${cw}px;height:${ch}px;`
-      +`left:${Math.floor((window.innerWidth-cw)/2)}px;`
-      +`top:${Math.floor((window.innerHeight-ch)/2)}px;`;
-  };
-  apply();
-  window.addEventListener('resize',apply);
-})();
+// Re-measure after layout is fully settled so Phaser gets the right dimensions
+window.addEventListener('load',()=>_game.scale.refresh());
+window.addEventListener('resize',()=>_game.scale.refresh());
 </script>
 </body>
 </html>
