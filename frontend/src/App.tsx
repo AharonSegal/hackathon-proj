@@ -16,6 +16,7 @@ import { NotesProvider } from '@/shared/context/NotesContext';
 import { FoldersProvider } from '@/shared/context/FoldersContext';
 import { EventsProvider } from '@/shared/context/EventsContext';
 import { TodosProvider } from '@/shared/context/TodosContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { DashboardPage } from '@/pages/Dashboard/DashboardPage';
 import { CalendarPage } from '@/pages/Calendar/CalendarPage';
 import { DailyTimesPage } from '@/pages/DailyTimes/DailyTimesPage';
@@ -29,6 +30,12 @@ import DailyLogPage from '@/pages/DailyLog/DailyLogPage';
 import { GamesPage } from '@/pages/Games/GamesPage';
 import { BrachotPage } from '@/pages/Brachot/BrachotPage';
 
+/** Sits inside EventsProvider + TodosProvider so it can access both contexts */
+function NotificationsSync() {
+  useNotifications();
+  return null;
+}
+
 export default function App() {
   return (
     <SettingsProvider>
@@ -36,6 +43,7 @@ export default function App() {
         <FoldersProvider>
           <EventsProvider>
             <TodosProvider>
+              <NotificationsSync />
               <BrowserRouter>
                 <Routes>
                   <Route element={<AppLayout />}>

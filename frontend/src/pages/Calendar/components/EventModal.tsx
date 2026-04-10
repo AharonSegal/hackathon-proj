@@ -20,9 +20,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Input, Textarea } from '@/shared/components/ui/Input';
-import { CalendarEvent, EventColor } from '@/shared/types/event.types';
+import { CalendarEvent, EventColor, BrowserNotification } from '@/shared/types/event.types';
+import { NotificationPicker } from '@/shared/components/NotificationPicker';
 import { DayInfo } from '@/pages/Calendar/hooks/useCalendar';
-import { Mail, MessageCircle, Trash2, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { Mail, MessageCircle, Trash2, ChevronLeft, ChevronRight, CalendarDays, Bell } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useT } from '@/shared/i18n/useT';
 import { HDate, months } from '@hebcal/core';
@@ -203,6 +204,9 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
   const [hMonth, setHMonth] = useState<number>(months.TISHREI);
   const [hYear,  setHYear]  = useState(5785);
 
+  // ── Browser notifications ──────────────────────────────────────────────────
+  const [notifications, setNotifications] = useState<BrowserNotification[]>([]);
+
   // ── Scheduled actions ──────────────────────────────────────────────────────
   const [addEmail,      setAddEmail]      = useState(false);
   const [emailTo,       setEmailTo]       = useState('');
@@ -236,6 +240,7 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
       setColor(editEvent.color);
       setAllDay(editEvent.allDay);
       setSelectedDate(new Date(editEvent.date + 'T00:00:00'));
+      setNotifications(editEvent.notifications ?? []);
       if (editEvent.scheduledEmail) {
         setAddEmail(true);
         setEmailTo(editEvent.scheduledEmail.to.join(', '));
@@ -257,6 +262,7 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
       setTitle(''); setDescription(''); setStartTime(''); setEndTime('');
       setColor('indigo'); setAllDay(true);
       setSelectedDate(day?.date ?? new Date());
+      setNotifications([]);
       setAddEmail(false); setEmailTo(''); setEmailSubject(''); setEmailBody(''); setEmailAt('');
       setAddWhatsApp(false); setWpTo(''); setWpMessage(''); setWpAt('');
     }
@@ -308,6 +314,7 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
       scheduledWhatsApp: addWhatsApp && wpTo && wpMessage
         ? { to: wpTo, message: wpMessage, scheduledAt: new Date(wpAt).toISOString(), sent: false, id: '' }
         : undefined,
+      notifications: notifications.length > 0 ? notifications : undefined,
     };
     onSaved(payload, editEvent?.id ?? null);
     onClose();
@@ -457,6 +464,21 @@ export function EventModal({ open, onClose, day, editEvent, onSaved, onDeleted }
                 )}
               />
             ))}
+          </div>
+        </div>
+
+        {/* ── Notifications ────────────────────────────────────────── */}
+        <div className="border border-slate-700 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-slate-900/50 flex items-center gap-2 text-xs font-medium text-slate-400">
+            <Bell size={12} />
+            Notifications
+          </div>
+          <div className="p-3 border-t border-slate-700">
+            <NotificationPicker
+              value={notifications}
+              onChange={setNotifications}
+              hasTime={!allDay && !!startTime}
+            />
           </div>
         </div>
 

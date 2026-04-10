@@ -29,6 +29,13 @@ export const RECURRENCE_OPTIONS = [
   { value: 'yearly',  label: 'Yearly' },
 ] as const;
 
+/** A single browser notification attached to an event or todo */
+export interface BrowserNotification {
+  id: string;
+  /** Minutes BEFORE the event/todo to fire (0 = at the time, 60 = 1 h before, etc.) */
+  offsetMinutes: number;
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -46,6 +53,8 @@ export interface CalendarEvent {
   // Scheduled actions
   scheduledEmail?: ScheduledEmail;
   scheduledWhatsApp?: ScheduledWhatsApp;
+  // Browser notifications
+  notifications?: BrowserNotification[];
   createdAt: string;
   updatedAt: string;
 }

@@ -60,6 +60,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const folderId = 'folderId' in b ? (b.folderId === null ? null : String(b.folderId)) : ((cur.folder_id as string | null) ?? null);
       const recurrence = 'recurrence' in b ? String(b.recurrence) : String(cur.recurrence ?? 'none');
       const recurrenceEnd = 'recurrenceEnd' in b ? (b.recurrenceEnd ? String(b.recurrenceEnd) : null) : ((cur.recurrence_end as string | null) ?? null);
+      const notifications = 'notifications' in b
+        ? JSON.stringify(Array.isArray(b.notifications) ? b.notifications : [])
+        : String(cur.notifications ?? '[]');
 
       const now = new Date().toISOString();
 
@@ -69,6 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               start_time = ?, end_time = ?, color = ?, all_day = ?,
               scheduled_email = ?, scheduled_whatsapp = ?,
               tags = ?, folder_id = ?, recurrence = ?, recurrence_end = ?,
+              notifications = ?,
               updated_at = ?
               WHERE id = ?`,
         args: [
@@ -85,6 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           folderId,
           recurrence,
           recurrenceEnd,
+          notifications,
           now,
           id,
         ],

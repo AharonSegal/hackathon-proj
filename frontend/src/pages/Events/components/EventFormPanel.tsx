@@ -6,11 +6,12 @@
  */
 
 import { useState, useEffect, useMemo, KeyboardEvent } from 'react';
-import { X, Trash2, Paperclip, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Trash2, Paperclip, CalendarDays, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
 import { clsx } from 'clsx';
 import { GradientButton } from '@/shared/components/ui/GradientButton';
 import { AnimatePresence } from 'framer-motion';
-import { type CalendarEvent, type EventColor, EVENT_COLOR_HEX, RECURRENCE_OPTIONS } from '@/shared/types/event.types';
+import { type CalendarEvent, type EventColor, type BrowserNotification, EVENT_COLOR_HEX, RECURRENCE_OPTIONS } from '@/shared/types/event.types';
+import { NotificationPicker } from '@/shared/components/NotificationPicker';
 import { type Folder } from '@/shared/types/note.types';
 import { AttachmentModal } from '@/shared/components/Attachments/AttachmentModal';
 import { HDate, months } from '@hebcal/core';
@@ -163,6 +164,7 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
   const [description, setDescription] = useState(event?.description ?? '');
   const [attachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const [attachCount, setAttachCount] = useState(() => event ? getAttachmentCount(event.id) : 0);
+  const [notifications, setNotifications] = useState<BrowserNotification[]>(event?.notifications ?? []);
 
   // Hebrew date state (synced from `date`)
   const [hDay,         setHDay]         = useState(() => gregToHebrew(event?.date ?? new Date().toISOString().slice(0, 10)).day);
@@ -210,6 +212,7 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
     setRecurrence(event?.recurrence ?? 'none');
     setRecurrenceEnd(event?.recurrenceEnd ?? '');
     setDescription(event?.description ?? '');
+    setNotifications(event?.notifications ?? []);
   }, [event?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -242,6 +245,7 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
       recurrence,
       recurrenceEnd: recurrence !== 'none' && recurrenceEnd ? recurrenceEnd : undefined,
       description: description || undefined,
+      notifications: notifications.length > 0 ? notifications : undefined,
     });
   };
 
@@ -474,6 +478,18 @@ export function EventFormPanel({ event, onSave, onDelete, onClose, folders }: Ev
             />
           </div>
         )}
+
+        {/* Notifications */}
+        <div>
+          <label className={clsx(labelClass, 'flex items-center gap-1.5')}>
+            <Bell className="h-3 w-3" /> Notifications
+          </label>
+          <NotificationPicker
+            value={notifications}
+            onChange={setNotifications}
+            hasTime={!allDay && !!startTime}
+          />
+        </div>
 
         {/* Description */}
         <div>

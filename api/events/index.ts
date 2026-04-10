@@ -47,6 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         color = 'indigo', allDay = true,
         scheduledEmail, scheduledWhatsApp,
         tags = [], folderId = null, recurrence = 'none', recurrenceEnd = null,
+        notifications = [],
       } = req.body ?? {};
 
       if (!title || !date) {
@@ -60,9 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         sql: `INSERT INTO events
               (id, title, description, date, start_time, end_time, color, all_day,
                scheduled_email, scheduled_whatsapp,
-               tags, folder_id, recurrence, recurrence_end,
+               tags, folder_id, recurrence, recurrence_end, notifications,
                created_at, updated_at)
-              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         args: [
           id,
           String(title),
@@ -78,6 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           folderId ?? null,
           recurrence ?? 'none',
           recurrenceEnd ?? null,
+          JSON.stringify(Array.isArray(notifications) ? notifications : []),
           now,
           now,
         ],

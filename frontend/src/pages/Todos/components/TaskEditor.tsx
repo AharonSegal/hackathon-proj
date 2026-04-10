@@ -13,9 +13,11 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Calendar, Paperclip, Flag, MapPin, AlertTriangle,
   X, Sun, CalendarRange, CalendarDays, ArrowRight, CircleOff,
-  ChevronLeft, ChevronRight, Clock, Repeat, Check,
+  ChevronLeft, ChevronRight, Clock, Repeat, Check, Bell,
   File, FileText, Image as ImageIcon,
 } from 'lucide-react';
+import { NotificationPicker } from '@/shared/components/NotificationPicker';
+import type { BrowserNotification } from '@/shared/types/event.types';
 import { HDate, HebrewCalendar } from '@hebcal/core';
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth,
@@ -489,7 +491,15 @@ export function TaskEditor({ initialData, isEditing = false, onSave, onCancel }:
   // Location: 3-field object serialised to JSON on save
   const [loc, setLoc] = useState<LocFields>(() => parseLocation(initialData?.location ?? null));
 
-  type Section = 'date' | 'priority' | 'location' | 'deadline' | null;
+  // Reminders stored as BrowserNotification[], serialised to ReminderItem[] on save
+  const [reminders, setReminders] = useState<BrowserNotification[]>(() =>
+    (initialData?.reminders ?? []).map(r => ({
+      id: r.id,
+      offsetMinutes: parseInt(String(r.value), 10) || 0,
+    }))
+  );
+
+  type Section = 'date' | 'priority' | 'location' | 'deadline' | 'reminders' | null;
   const [activeSection, setActiveSection] = useState<Section>(null);
   const [dateCalMode, setDateCalMode]       = useState<'gregorian' | 'hebrew'>('gregorian');
   const [deadlineCalMode, setDeadlineCalMode] = useState<'gregorian' | 'hebrew'>('gregorian');
@@ -529,7 +539,7 @@ export function TaskEditor({ initialData, isEditing = false, onSave, onCancel }:
       deadline: deadline ? format(deadline, 'yyyy-MM-dd') : null,
       priority,
       location: serializeLocation(loc),
-      reminders: [],      // TODO: implement reminder notifications — see file header
+      reminders: reminders.map(r => ({ id: r.id, mode: 'before' as const, value: String(r.offsetMinutes) })),
       recurrence, recurrenceEnd: null,
       project: 'Inbox',  // TODO: implement multi-project support — see file header
       attachments,
@@ -631,6 +641,17 @@ export function TaskEditor({ initialData, isEditing = false, onSave, onCancel }:
           <span>{deadlineLabel}</span>
           {deadline && (
             <span onClick={e => { e.stopPropagation(); setDeadline(null); }} style={{ display: 'flex' }}>
+              <X size={12} color={T.textMuted} />
+            </span>
+          )}
+        </button>
+
+        {/* Reminders */}
+        <button style={chip(reminders.length > 0, T.primary)} onClick={() => toggle('reminders')}>
+          <Bell size={14} color={reminders.length > 0 ? T.primary : T.textSec} />
+          <span>Remind{reminders.length > 0 ? ` (${reminders.length})` : ''}</span>
+          {reminders.length > 0 && (
+            <span onClick={e => { e.stopPropagation(); setReminders([]); }} style={{ display: 'flex' }}>
               <X size={12} color={T.textMuted} />
             </span>
           )}
@@ -738,6 +759,20 @@ export function TaskEditor({ initialData, isEditing = false, onSave, onCancel }:
           </div>
           <div style={divider} />
           <CalendarPicker selected={deadline} onSelect={setDeadline} mode={deadlineCalMode} />
+        </div>
+      )}
+
+      {/* ── Reminders section ── */}
+      {activeSection === 'reminders' && (
+        <div style={panelStyle}>
+          <p style={{ fontSize: 11, color: T.textMuted, marginBottom: 10 }}>
+            Browser notifications before the due date.
+          </p>
+          <NotificationPicker
+            value={reminders}
+            onChange={setReminders}
+            hasTime={!!dueTime}
+          />
         </div>
       )}
 

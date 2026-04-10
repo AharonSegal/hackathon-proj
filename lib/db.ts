@@ -134,6 +134,7 @@ export async function ensureInit(): Promise<Client> {
     "ALTER TABLE events ADD COLUMN recurrence    TEXT NOT NULL DEFAULT 'none'",
     'ALTER TABLE events ADD COLUMN recurrence_end TEXT',
     'ALTER TABLE events ADD COLUMN deleted_at    TEXT',
+    "ALTER TABLE events ADD COLUMN notifications TEXT NOT NULL DEFAULT '[]'",
     'ALTER TABLE worklog_entries ADD COLUMN deleted_at TEXT',
   ];
   for (const sql of backcompatMigrations) {
@@ -366,6 +367,11 @@ export function rowToEvent(row: Row) {
     try { tags = JSON.parse(row.tags); } catch { /* ignore */ }
   }
 
+  let notifications: unknown[] = [];
+  if (row.notifications && typeof row.notifications === 'string') {
+    try { notifications = JSON.parse(row.notifications); } catch { /* ignore */ }
+  }
+
   return {
     id:               row.id as string,
     title:            row.title as string,
@@ -381,6 +387,7 @@ export function rowToEvent(row: Row) {
     folderId:         (row.folder_id as string | null) ?? null,
     recurrence:       (row.recurrence as string) ?? 'none',
     recurrenceEnd:    (row.recurrence_end as string | null) ?? undefined,
+    notifications:    notifications.length > 0 ? notifications : undefined,
     createdAt:        row.created_at as string,
     updatedAt:        row.updated_at as string,
   };
