@@ -202,6 +202,20 @@ export async function ensureInit(): Promise<Client> {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS omer_status (
+      id                TEXT PRIMARY KEY,
+      last_date         TEXT NOT NULL DEFAULT '',
+      counted_today     INTEGER NOT NULL DEFAULT 0,
+      counted_yesterday INTEGER NOT NULL DEFAULT 0,
+      dismissed_date    TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await db.execute(`
+    INSERT OR IGNORE INTO omer_status (id, last_date, counted_today, counted_yesterday, dismissed_date)
+    VALUES ('singleton', '', 0, 0, '')
+  `);
+
   // ── Performance indexes for worklog_entries ───────────────────────────────
   // Queries filter / sort by date and project; indexes make these O(log n).
   await db.execute(`

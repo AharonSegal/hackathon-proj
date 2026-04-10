@@ -19,6 +19,7 @@ import { Outlet } from 'react-router-dom';
 import { AppSidebar } from '@/shared/components/Sidebar/AppSidebar';
 import { MobileNav } from '@/shared/components/Nav/MobileNav';
 import { BackendStatus } from '@/shared/components/ui/BackendStatus';
+import { OmerCounter } from '@/shared/components/OmerCounter/OmerCounter';
 import { Toaster } from 'sonner';
 import { useT } from '@/shared/i18n/useT';
 import { clsx } from 'clsx';
@@ -43,6 +44,7 @@ export function AppLayout() {
       </main>
       <MobileNav />
       <BackendStatus />
+      <OmerCounter />
       <Toaster
         theme="dark"
         position={isRTL ? 'bottom-left' : 'bottom-right'}
