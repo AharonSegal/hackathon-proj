@@ -224,6 +224,67 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // ── /api/omer — Omer counting status ─────────────────────────────────────
+  if (route === 'omer') {
+    const today = new Date().toISOString().slice(0, 10);
+    const SINGLETON_ID = 'singleton';
+
+    type ORow = Record<string, unknown>;
+    const toOmer = (r: ORow) => ({
+      lastDate:         (r.last_date as string)  ?? '',
+      countedToday:     Boolean(r.counted_today),
+      countedYesterday: Boolean(r.counted_yesterday),
+      dismissedDate:    (r.dismissed_date as string) ?? '',
+    });
+
+    try {
+      const db = await ensureInit();
+
+      if (req.method === 'GET') {
+        const result = await db.execute({
+          sql: 'SELECT * FROM omer_status WHERE id = ?', args: [SINGLETON_ID],
+        });
+        if (result.rows.length === 0) {
+          await db.execute({
+            sql:  `INSERT INTO omer_status (id, last_date, counted_today, counted_yesterday, dismissed_date)
+                   VALUES (?, ?, 0, 0, '')`,
+            args: [SINGLETON_ID, today],
+          });
+          return res.status(200).json({ lastDate: today, countedToday: false, countedYesterday: false, dismissedDate: '' });
+        }
+        const row = result.rows[0] as ORow;
+        if ((row.last_date as string) !== today) {
+          const wasCounted = Boolean(row.counted_today);
+          await db.execute({
+            sql:  `UPDATE omer_status SET last_date = ?, counted_today = 0, counted_yesterday = ?, dismissed_date = '' WHERE id = ?`,
+            args: [today, wasCounted ? 1 : 0, SINGLETON_ID],
+          });
+          return res.status(200).json({ lastDate: today, countedToday: false, countedYesterday: wasCounted, dismissedDate: '' });
+        }
+        return res.status(200).json(toOmer(row));
+      }
+
+      if (req.method === 'POST') {
+        const action = req.body?.action as string | undefined;
+        if (!action) return res.status(400).json({ error: 'action is required' });
+        if (action === 'count') {
+          await db.execute({ sql: 'UPDATE omer_status SET counted_today = 1 WHERE id = ?', args: [SINGLETON_ID] });
+        } else if (action === 'dismiss') {
+          await db.execute({ sql: 'UPDATE omer_status SET dismissed_date = ? WHERE id = ?', args: [today, SINGLETON_ID] });
+        } else {
+          return res.status(400).json({ error: 'action must be "count" or "dismiss"' });
+        }
+        const updated = await db.execute({ sql: 'SELECT * FROM omer_status WHERE id = ?', args: [SINGLETON_ID] });
+        return res.status(200).json(toOmer(updated.rows[0] as ORow));
+      }
+
+      return res.status(405).json({ error: 'Method not allowed' });
+    } catch (err) {
+      console.error('[/api/omer]', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
   // ── Fallthrough — 404 ─────────────────────────────────────────────────────
   return res.status(404).json({ error: `No API route: /api/${route}` });
 }
